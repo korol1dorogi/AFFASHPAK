@@ -1,6 +1,7 @@
+from django.conf import settings
 from django.db import models
 
-from apps.applications.models import Application
+from apps.applications.models import Application, InfoRequest
 from apps.documents.storage import document_upload_to
 
 
@@ -10,6 +11,7 @@ class DocumentKind(models.TextChoices):
     TAX_RETURN = "tax_return", "Декларация"
     CONTRACT = "contract", "Договор"
     INVOICE = "invoice", "Счёт"
+    SHIPMENT_DOCUMENT = "shipment_document", "Документ отгрузки (УПД)"
     OTHER = "other", "Другое"
 
 
@@ -25,6 +27,12 @@ class Document(models.Model):
     content_type = models.CharField(max_length=128)
     size = models.PositiveIntegerField()
     sha256 = models.CharField(max_length=64)
+    uploaded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    info_request = models.ForeignKey(
+        InfoRequest, on_delete=models.SET_NULL, null=True, blank=True, related_name="documents"
+    )
     uploaded_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

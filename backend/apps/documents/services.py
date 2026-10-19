@@ -5,7 +5,14 @@ from django.core.files.uploadedfile import UploadedFile
 from django.db import transaction
 from rest_framework.exceptions import NotFound, ValidationError
 
-from apps.applications.models import Application, ApplicationStatus
+from apps.applications.access import Actor, client_applications, is_bank_user
+from apps.applications.models import (
+    Application,
+    ApplicationStatus,
+    EventKind,
+    InfoRequestStatus,
+)
+from apps.applications.transitions import record_event
 from apps.documents.exceptions import Conflict, PayloadTooLarge
 from apps.documents.models import Document
 from apps.documents.names import safe_original_name
@@ -23,7 +30,8 @@ UPLOADABLE_STATUSES = frozenset(
 
 
 def get_owned_application(user: object, application_id: int) -> Application:
-    application = Application.objects.filter(pk=application_id, business__owner=user).first()
+    """Application of a company the user is a member of (client scoping, docs/data-model.md)."""
+    application = client_applications(user).filter(pk=application_id).first()
     if application is None:
         raise NotFound(_NOT_FOUND)
     return application
@@ -34,7 +42,7 @@ def get_owned_document(user: object, application_id: int, document_id: int) -> D
         Document.objects.filter(
             pk=document_id,
             application_id=application_id,
-            application__business__owner=user,
+            application__in=client_applications(user),
         )
         .select_related("application")
         .first()
@@ -60,7 +68,7 @@ def store_document(
     with transaction.atomic():
         application = (
             Application.objects.select_for_update()
-            .filter(pk=application_id, business__owner=user)
+            .filter(pk=application_id, company__memberships__user=user)
             .first()
         )
         if application is None:
@@ -82,8 +90,11 @@ def store_document(
                 {"file": ["Тип файла не поддерживается. Загрузите PDF, JPEG или PNG."]}
             )
 
+        open_request = application.info_requests.filter(status=InfoRequestStatus.OPEN).last()
         document = Document(
             application=application,
+            uploaded_by=user,
+            info_request=open_request,
             kind=kind,
             original_name=safe_original_name(upload.name),
             content_type=content_type,
@@ -92,7 +103,25 @@ def store_document(
         )
         document.file = upload
         document.save()
+        record_event(
+            application,
+            Actor(kind="client", user=user),
+            EventKind.DOCUMENT_UPLOADED,
+            f"Загружен документ: {document.original_name}",
+            payload={"document_id": document.pk, "kind": kind},
+        )
         return document
+
+
+def get_bank_document(user: object, application_id: int, document_id: int) -> Document:
+    """Any application's document for a bank user; existence-only 404 otherwise."""
+    if not is_bank_user(user):
+        raise NotFound(_NOT_FOUND)
+    document = Document.objects.filter(pk=document_id, application_id=application_id).first()
+    stored = document.file.name if document is not None and document.file else ""
+    if document is None or not stored or not document.file.storage.exists(stored):
+        raise NotFound(_NOT_FOUND)
+    return document
 
 
 def _sha256(upload: UploadedFile) -> str:

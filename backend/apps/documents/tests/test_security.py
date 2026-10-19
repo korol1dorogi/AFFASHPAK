@@ -1,7 +1,5 @@
 import hashlib
 import re
-from datetime import date
-from decimal import Decimal
 
 import pytest
 from django.contrib.auth.models import User
@@ -9,7 +7,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from rest_framework.test import APIClient
 
 from apps.applications.models import Application, ApplicationStatus
-from apps.business.models import Business, LegalForm
+from apps.core.factories import make_application, make_company
 from apps.core.testing import assert_matches_contract
 from apps.documents.models import Document
 from apps.documents.services import store_document
@@ -29,26 +27,8 @@ def _user(username: str) -> User:
 
 
 def _application(owner: User, status: str = ApplicationStatus.DRAFT) -> Application:
-    business = Business.objects.create(
-        owner=owner,
-        legal_form=LegalForm.OOO,
-        name="ООО Ромашка (демо)",
-        inn="0000000000",
-        ogrn="0000000000000",
-        okved="56.10",
-        registered_at=date(2020, 1, 15),
-        region="00",
-        is_demo=True,
-    )
-    return Application.objects.create(
-        business=business,
-        need_type="cash_gap",
-        purpose="Демо: кассовый разрыв",
-        requested_amount=Decimal("100000.00"),
-        term_months=12,
-        status=status,
-        prefill_source="manual",
-    )
+    company = make_company(members={owner: "signatory"})
+    return make_application(company, status=status)
 
 
 def _client(user: User) -> APIClient:
@@ -312,13 +292,9 @@ def test_file_at_the_app_limit_is_stored(media, settings):
 @pytest.mark.django_db
 @pytest.mark.parametrize(
     "status",
-    [
-        ApplicationStatus.SUBMITTED,
-        ApplicationStatus.IN_REVIEW,
-        ApplicationStatus.APPROVED,
-        ApplicationStatus.DECLINED,
-        ApplicationStatus.CANCELLED,
-    ],
+    sorted(
+        set(ApplicationStatus.values) - {ApplicationStatus.DRAFT, ApplicationStatus.INFO_REQUESTED}
+    ),
 )
 def test_upload_outside_draft_and_info_requested_is_409(media, status: str):
     owner = _user("demo-owner")

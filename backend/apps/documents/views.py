@@ -7,6 +7,7 @@ from rest_framework.views import APIView
 from apps.documents.names import attachment_filename
 from apps.documents.serializers import DocumentSerializer, DocumentUploadSerializer
 from apps.documents.services import (
+    get_bank_document,
     get_owned_application,
     get_owned_document,
     list_documents,
@@ -39,19 +40,26 @@ class ApplicationDocumentListView(APIView):
         return Response(body.data, status=201)
 
 
-class ApplicationDocumentDownloadView(APIView):
-    """File bytes for Document.download_url. Always an attachment.
+def _attachment(document) -> FileResponse:
+    response = FileResponse(
+        document.file.open("rb"),
+        as_attachment=True,
+        filename=attachment_filename(document.original_name, document.content_type),
+        content_type=document.content_type,
+    )
+    response["X-Content-Type-Options"] = "nosniff"
+    return response
 
-    The path is not in docs/openapi.yaml yet (the schema only has download_url).
-    """
+
+class ApplicationDocumentDownloadView(APIView):
+    """GET /api/applications/{id}/documents/{document_id} — always an attachment."""
 
     def get(self, request: Request, application_id: int, document_id: int) -> FileResponse:
-        document = get_owned_document(request.user, application_id, document_id)
-        response = FileResponse(
-            document.file.open("rb"),
-            as_attachment=True,
-            filename=attachment_filename(document.original_name, document.content_type),
-            content_type=document.content_type,
-        )
-        response["X-Content-Type-Options"] = "nosniff"
-        return response
+        return _attachment(get_owned_document(request.user, application_id, document_id))
+
+
+class BankApplicationDocumentDownloadView(APIView):
+    """GET /api/bank/applications/{id}/documents/{document_id} — bank user, attachment."""
+
+    def get(self, request: Request, application_id: int, document_id: int) -> FileResponse:
+        return _attachment(get_bank_document(request.user, application_id, document_id))

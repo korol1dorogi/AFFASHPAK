@@ -2,7 +2,7 @@
 
 Источник истины для моделей Django (L2). Имена — из [domain.md](domain.md); статусы и переходы — [state-machine.md](state-machine.md). Деньги — `Decimal(14,2)`, ставки и коэффициенты — `Decimal(8,4)`, время — UTC с таймзоной. Необязательное — `null`, а не 0 или пустая строка.
 
-> v1, сверена с кейсом (docs/case.md). Уже в main (S3): `Business`, `Application`, `Document` — L2 доводит их до этой схемы **новыми** миграциями (стенд с автодеплоем, старые миграции не переписываем). `Business` переименовывается в `Company` (`RenameModel`).
+> v1, сверена с кейсом (docs/case.md). Уже в main (S3): `Business`, `Application`, `Document` — L2 доводит их до этой схемы **новыми** миграциями (стенд с автодеплоем, старые миграции не переписываем). `Business` переименована в `Company` (`RenameModel`); Django-приложение по-прежнему называется `business`. Тестовые данные — фабрики `apps/core/factories.py`.
 
 ```mermaid
 erDiagram

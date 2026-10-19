@@ -33,8 +33,9 @@ class DocumentSerializer(serializers.Serializer):
     download_url = serializers.SerializerMethodField()
 
     def get_download_url(self, document: Document) -> str:
+        """Client route by default; bank views pass context["download_route"]."""
         path = reverse(
-            "application-document-download",
+            self.context.get("download_route", "application-document-download"),
             kwargs={
                 "application_id": document.application_id,
                 "document_id": document.id,
