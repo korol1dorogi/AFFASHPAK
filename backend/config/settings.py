@@ -46,6 +46,9 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "rest_framework",
     "apps.core",
+    "apps.business",
+    "apps.applications",
+    "apps.documents",
     "apps.assistant",
 ]
 
@@ -109,9 +112,14 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 MEDIA_ROOT = BASE_DIR / "media"
 
 # --- Uploads: hard limits (per-file checks live in the documents app) ---
-DATA_UPLOAD_MAX_MEMORY_SIZE = env_int("DJANGO_DATA_UPLOAD_MAX_BYTES", 5 * 1024 * 1024)
-FILE_UPLOAD_MAX_MEMORY_SIZE = DATA_UPLOAD_MAX_MEMORY_SIZE
+# The Django request cap sits just above the per-file limit so an oversized file
+# reaches the documents app and can answer 413 instead of being cut off earlier.
 UPLOAD_MAX_FILE_BYTES = env_int("UPLOAD_MAX_FILE_BYTES", 10 * 1024 * 1024)
+DATA_UPLOAD_MAX_MEMORY_SIZE = env_int(
+    "DJANGO_DATA_UPLOAD_MAX_BYTES",
+    UPLOAD_MAX_FILE_BYTES + 64 * 1024,
+)
+FILE_UPLOAD_MAX_MEMORY_SIZE = DATA_UPLOAD_MAX_MEMORY_SIZE
 
 # --- Sessions + CSRF on a single origin (no CORS, no JWT) ---
 SESSION_COOKIE_HTTPONLY = True
@@ -139,7 +147,7 @@ if not DEBUG:
 # --- DRF ---
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
-        "rest_framework.authentication.SessionAuthentication",
+        "apps.core.authentication.SessionAuthentication",
     ],
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",

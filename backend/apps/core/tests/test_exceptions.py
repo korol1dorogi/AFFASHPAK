@@ -1,3 +1,4 @@
+from django.core.exceptions import RequestDataTooBig
 from django.http import Http404
 from rest_framework import exceptions
 
@@ -20,6 +21,19 @@ def test_validation_error_keeps_field_details():
     assert response.status_code == 400
     assert response.data["error"]["code"] == "invalid"
     assert response.data["error"]["details"] == {"amount": ["Обязательное поле."]}
+
+
+def test_request_too_big_uses_413():
+    response = api_exception_handler(RequestDataTooBig("too big"), {})
+
+    assert response is not None
+    assert response.status_code == 413
+    assert response.data == {
+        "error": {
+            "code": "payload_too_large",
+            "message": "Файл больше допустимого размера.",
+        }
+    }
 
 
 def test_unknown_url_returns_json_error(client, settings):

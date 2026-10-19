@@ -5,14 +5,25 @@
 
 from typing import Any
 
-from django.core.exceptions import PermissionDenied
+from django.core.exceptions import PermissionDenied, RequestDataTooBig
 from django.http import Http404, HttpRequest, HttpResponse, JsonResponse
-from rest_framework import exceptions
+from rest_framework import exceptions, status
 from rest_framework.response import Response
 from rest_framework.views import exception_handler
 
 
 def api_exception_handler(exc: Exception, context: dict[str, Any]) -> Response | None:
+    if isinstance(exc, RequestDataTooBig):
+        return Response(
+            {
+                "error": {
+                    "code": "payload_too_large",
+                    "message": "Файл больше допустимого размера.",
+                }
+            },
+            status=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+        )
+
     if isinstance(exc, Http404):
         exc = exceptions.NotFound()
     elif isinstance(exc, PermissionDenied):
