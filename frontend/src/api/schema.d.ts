@@ -11,8 +11,25 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Состояние API и базы данных */
+        /** Живость API и базы */
         get: operations["getHealth"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/ready": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Готовность к трафику (база, очередь, симуляторы) */
+        get: operations["getReadiness"];
         put?: never;
         post?: never;
         delete?: never;
@@ -32,6 +49,23 @@ export interface paths {
         get: operations["getCsrf"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/register": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Регистрация клиента без подтверждения почты; сразу входит */
+        post: operations["register"];
         delete?: never;
         options?: never;
         head?: never;
@@ -79,7 +113,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Текущий пользователь */
+        /** Текущий пользователь, его сторона и роль */
         get: operations["getMe"];
         put?: never;
         post?: never;
@@ -89,33 +123,15 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/business": {
+    "/api/company/lookup": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Бизнес текущего пользователя */
-        get: operations["getBusiness"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /** Изменить редактируемые поля бизнеса */
-        patch: operations["updateBusiness"];
-        trace?: never;
-    };
-    "/api/business/metrics": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Последний финансовый снимок и метрики с пояснениями */
-        get: operations["getBusinessMetrics"];
+        /** Данные из ЕГРЮЛ/ЕГРИП по ИНН (симулятор) — для автозаполнения */
+        get: operations["lookupCompany"];
         put?: never;
         post?: never;
         delete?: never;
@@ -124,7 +140,80 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/integrations/{source}/connect": {
+    "/api/company": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Компания текущего пользователя (404 — ещё не создана) */
+        get: operations["getCompany"];
+        put?: never;
+        /** Создать компанию по ИНН; реквизиты — из ЕГРЮЛ, создатель становится директором */
+        post: operations["createCompany"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Изменить редактируемые поля (реквизиты из реестра не редактируются) */
+        patch: operations["updateCompany"];
+        trace?: never;
+    };
+    "/api/company/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Сотрудники компании и их роли */
+        get: operations["listCompanyMembers"];
+        put?: never;
+        /** Добавить сотрудника по логину (только директор) */
+        post: operations["addCompanyMember"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/company/members/{member_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                member_id: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Убрать сотрудника (только директор; себя убрать нельзя) */
+        delete: operations["removeCompanyMember"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/company/metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Последний финансовый снимок и ключевые метрики с пояснениями */
+        get: operations["getCompanyMetrics"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/company/integrations/{source}/connect": {
         parameters: {
             query?: never;
             header?: never;
@@ -133,7 +222,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Подключить источник данных (загружает демо-данные с пометкой) */
+        /** Подключить источник данных (симулятор; данные помечены «демо») */
         post: operations["connectIntegration"];
         delete?: never;
         options?: never;
@@ -158,6 +247,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/products/{code}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Продукт */
+        get: operations["getProduct"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/recommendations": {
         parameters: {
             query?: never;
@@ -167,7 +273,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Подбор продукта под потребность (с суммой, платежом и reasons) */
+        /** Подбор «Что вам нужно?» — продукт, сумма, платёж и причины по данным компании */
         post: operations["createRecommendations"];
         delete?: never;
         options?: never;
@@ -199,10 +305,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Заявки текущего пользователя (новые сверху) */
+        /** Заявки компании текущего пользователя (новые сверху) */
         get: operations["listApplications"];
         put?: never;
-        /** Создать черновик заявки */
+        /** Создать черновик (директор или бухгалтер) */
         post: operations["createApplication"];
         delete?: never;
         options?: never;
@@ -219,14 +325,14 @@ export interface paths {
             };
             cookie?: never;
         };
-        /** Заявка */
+        /** Заявка с офером, открытыми запросами банка и доступными действиями */
         get: operations["getApplication"];
         put?: never;
         post?: never;
         delete?: never;
         options?: never;
         head?: never;
-        /** Изменить черновик (только status=draft, только редактируемые поля) */
+        /** Изменить черновик (только draft; version обязательна — автосохранение) */
         patch: operations["updateApplication"];
         trace?: never;
     };
@@ -241,7 +347,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Отправить заявку (draft|info_requested → submitted), запускает предварительную оценку */
+        /** Отправить (draft → submitted). Идемпотентно по Idempotency-Key */
         post: operations["submitApplication"];
         delete?: never;
         options?: never;
@@ -260,8 +366,27 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Отозвать заявку (draft|submitted → cancelled) */
+        /** Отозвать заявку */
         post: operations["cancelApplication"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/{id}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ApplicationId"];
+            };
+            cookie?: never;
+        };
+        /** Таймлайн заявки для клиента (без внутренних комментариев банка) */
+        get: operations["listApplicationEvents"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -277,10 +402,106 @@ export interface paths {
             };
             cookie?: never;
         };
-        /** Предварительная оценка или решение сотрудника с причинами */
+        /** Последнее решение с причинами и «что улучшить» (404 — решения ещё нет) */
         get: operations["getApplicationDecision"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/{id}/offer/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ApplicationId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Принять активный оффер или контроффер (offer → signing; директор) */
+        post: operations["acceptOffer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/{id}/offer/decline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ApplicationId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Отказаться от оффера (offer → cancelled; директор) */
+        post: operations["declineOffer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/{id}/signature": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ApplicationId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Получить код подписания — показывается на экране (не SMS); повтор выдаёт новый код */
+        post: operations["startSignature"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/{id}/signature/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ApplicationId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Подтвердить подписание кодом (signing → signed) */
+        post: operations["confirmSignature"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/{id}/info-requests/{request_id}/respond": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ApplicationId"];
+                request_id: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Ответить на запрос банка (info_requested → manual_review); документы — заранее через /documents */
+        post: operations["respondInfoRequest"];
         delete?: never;
         options?: never;
         head?: never;
@@ -299,8 +520,268 @@ export interface paths {
         /** Документы заявки */
         get: operations["listApplicationDocuments"];
         put?: never;
-        /** Загрузить документ (лимит размера, тип проверяется по содержимому) */
+        /** Загрузить документ (только draft и info_requested; PDF, JPEG, PNG по сигнатуре; лимит размера) */
         post: operations["uploadApplicationDocument"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/{id}/documents/{document_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ApplicationId"];
+                document_id: components["parameters"]["DocumentId"];
+            };
+            cookie?: never;
+        };
+        /** Скачать документ (всегда attachment, тип — определённый по сигнатуре) */
+        get: operations["downloadApplicationDocument"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Уведомления (только в интерфейсе; фронт опрашивает раз в 15–30 с) */
+        get: operations["listNotifications"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notifications/{notification_id}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                notification_id: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Отметить прочитанным */
+        post: operations["markNotificationRead"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notifications/read-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Отметить все прочитанными */
+        post: operations["markAllNotificationsRead"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/bank/applications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Очередь банка с фильтрами, сортировкой, пагинацией и счётчиками по статусам */
+        get: operations["listBankApplications"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/bank/applications/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ApplicationId"];
+            };
+            cookie?: never;
+        };
+        /** Карточка заявки для сотрудника — заявка, клиент, проверки, скоринг, решения, документы, журнал */
+        get: operations["getBankApplication"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/bank/applications/{id}/assign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ApplicationId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Взять заявку себе (статус не меняется) */
+        post: operations["assignBankApplication"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/bank/applications/{id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ApplicationId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Одобрить на запрошенных условиях (manual_review → offer) */
+        post: operations["approveBankApplication"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/bank/applications/{id}/counteroffer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ApplicationId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Изменить условия и/или продукт (manual_review → offer с is_counteroffer) */
+        post: operations["counterofferBankApplication"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/bank/applications/{id}/request-info": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ApplicationId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Запросить информацию или документ (manual_review → info_requested) */
+        post: operations["requestInfoBankApplication"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/bank/applications/{id}/decline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ApplicationId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Отказать с причинами и «что улучшить» (manual_review → declined) */
+        post: operations["declineBankApplication"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/bank/applications/{id}/comments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ApplicationId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Внутренний комментарий в журнал (клиенту не виден) */
+        post: operations["commentBankApplication"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/bank/applications/{id}/documents/{document_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ApplicationId"];
+                document_id: components["parameters"]["DocumentId"];
+            };
+            cookie?: never;
+        };
+        /** Скачать документ заявки (сотрудник банка) */
+        get: operations["downloadBankApplicationDocument"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/bank/dashboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Воронка, время в статусах, доля автоматических решений */
+        get: operations["getBankDashboard"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -314,9 +795,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** История диалога с ассистентом (журнал вызовов инструментов) */
+        get: operations["listAssistantMessages"];
         put?: never;
-        /** Сообщение ИИ-ассистенту; инструменты работают от имени пользователя */
+        /** Сообщение ассистенту; инструменты работают от имени пользователя */
         post: operations["sendAssistantMessage"];
         delete?: never;
         options?: never;
@@ -324,12 +806,12 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/assistant/actions/{id}/confirm": {
+    "/api/assistant/actions/{action_id}/confirm": {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                id: string;
+                action_id: string;
             };
             cookie?: never;
         };
@@ -337,6 +819,75 @@ export interface paths {
         put?: never;
         /** Человек подтверждает действие, предложенное ассистентом */
         post: operations["confirmAssistantAction"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/demo/personas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Демо-персоны для быстрого входа */
+        get: operations["listDemoPersonas"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/demo/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Быстрый вход за персону */
+        post: operations["demoLogin"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/demo/failures": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Текущие флаги сбоев симуляторов */
+        get: operations["getDemoFailures"];
+        /** Включить или выключить сбои симуляторов (сотрудник банка) */
+        put: operations["setDemoFailures"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/demo/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Сбросить демо-данные к засеянному состоянию (сотрудник банка) */
+        post: operations["resetDemo"];
         delete?: never;
         options?: never;
         head?: never;
@@ -362,6 +913,10 @@ export interface components {
          * @example 1.2500
          */
         DecimalString: string;
+        /** @example 0012345678 */
+        Inn: string;
+        /** @description Версия заявки для optimistic locking; несовпадение → 409 version_conflict */
+        Version: number;
         Error: {
             error: {
                 /** @example not_found */
@@ -374,11 +929,30 @@ export interface components {
                 };
             };
         };
+        Page: {
+            count: number;
+            page: number;
+            page_size: number;
+        };
         Health: {
             /** @enum {string} */
             status: "ok" | "degraded";
             /** @enum {string} */
             database: "ok" | "unavailable";
+        };
+        Readiness: {
+            /** @enum {string} */
+            status: "ready" | "not_ready";
+            /**
+             * @example {
+             *       "database": "ok",
+             *       "queue": "ok",
+             *       "simulators": "ok"
+             *     }
+             */
+            components: {
+                [key: string]: "ok" | "unavailable";
+            };
         };
         CsrfToken: {
             csrf_token: string;
@@ -388,48 +962,92 @@ export interface components {
             /** Format: password */
             password: string;
         };
+        RegisterRequest: {
+            username: string;
+            /** Format: password */
+            password: string;
+            full_name: string;
+        };
         /**
-         * @description client — предприниматель; officer — сотрудник банка (работает через Django admin)
+         * @description client — предприниматель; bank — сотрудник банка (bank_manager)
          * @enum {string}
          */
-        UserRole: "client" | "officer";
-        User: {
+        UserKind: "client" | "bank";
+        /**
+         * @description director — отправляет, принимает оффер, подписывает; accountant — готовит черновики и документы
+         * @enum {string}
+         */
+        MemberRole: "director" | "accountant";
+        Me: {
             id: number;
+            /** @example demo_coffee */
             username: string;
-            role: components["schemas"]["UserRole"];
+            /** @example Анна Демо */
+            full_name: string;
+            kind: components["schemas"]["UserKind"];
+            /** @description Компания клиента; null — ещё не создана или это сотрудник банка */
+            company_id: number | null;
+            company_role: components["schemas"]["MemberRole"] | null;
+            is_demo: boolean;
+        };
+        UserRef: {
+            id: number;
+            /** @example Анна Демо */
             full_name: string;
         };
         /** @enum {string} */
         LegalForm: "ip" | "ooo";
-        Business: {
-            id: number;
-            legal_form: components["schemas"]["LegalForm"];
-            /** @example ИП Иванова (демо) */
-            name: string;
-            inn: string;
+        /** @enum {string} */
+        RegistryStatus: "active" | "liquidating" | "liquidated";
+        /** @description Запись ЕГРЮЛ/ЕГРИП из симулятора */
+        RegistryRecord: {
+            inn: components["schemas"]["Inn"];
             ogrn: string;
-            /** @example 56.10 */
+            legal_form: components["schemas"]["LegalForm"];
+            /** @example ООО «Демо Мебель» */
+            name: string;
+            /** @example 31.09 */
             okved: string;
+            /** @example Производство прочей мебели */
+            okved_name: string;
             /** Format: date */
             registered_at: string;
+            /** @example Демо-область */
             region: string;
-            /** @description Синтетические данные (показываем пометку «демо») */
-            is_demo: boolean;
+            /** @example г. Демо, ул. Примерная, 1 */
+            address: string;
+            registry_status: components["schemas"]["RegistryStatus"];
+            /** @example Иван Демо */
+            director_name: string;
         };
-        BusinessUpdate: {
+        Company: components["schemas"]["RegistryRecord"] & {
+            id: number;
+            /** @description Синтетические данные — показываем пометку «демо» */
+            is_demo: boolean;
+            my_role: components["schemas"]["MemberRole"];
+        };
+        CompanyCreate: {
+            inn: components["schemas"]["Inn"];
+        };
+        CompanyUpdate: {
+            /** @description Короткое название для интерфейса */
             name?: string;
-            okved?: string;
-            region?: string;
+        };
+        Member: {
+            id: number;
+            user: components["schemas"]["UserRef"];
+            role: components["schemas"]["MemberRole"];
+        };
+        MemberCreate: {
+            username: string;
+            role: components["schemas"]["MemberRole"];
         };
         /** @enum {string} */
-        SnapshotSource: "case" | "demo" | "manual";
-        /** @description Финансовый снимок бизнеса за период. null — данных нет. */
+        SnapshotSource: "case" | "demo" | "simulator" | "manual";
+        /** @description Финансовый снимок компании за период. null — данных нет. */
         FinancialSnapshot: {
             id: number;
-            /**
-             * @description Период снимка
-             * @example 2026-09
-             */
+            /** @example 2026-09 */
             period: string;
             source: components["schemas"]["SnapshotSource"];
             /** @description Среднемесячный очищенный кредитовый оборот */
@@ -460,35 +1078,42 @@ export interface components {
             /** @description Текст для клиента */
             message: string;
         };
-        BusinessMetrics: {
+        CompanyMetrics: {
             snapshot: components["schemas"]["FinancialSnapshot"] | null;
             metrics: components["schemas"]["Reason"][];
             is_demo: boolean;
         };
-        /** @enum {string} */
-        IntegrationSource: "bank_statement" | "edo";
+        /**
+         * @description bank_account — выписка по счёту; edo — документы отгрузки (УПД)
+         * @enum {string}
+         */
+        IntegrationSource: "bank_account" | "edo";
         IntegrationConnectResult: {
             source: components["schemas"]["IntegrationSource"];
             /** @enum {string} */
             status: "connected";
-            /** @description Всегда true */
+            /** @description true — данные из симулятора */
             is_demo: boolean;
             snapshot: components["schemas"]["FinancialSnapshot"];
         };
         /** @enum {string} */
         ProductKind: "overdraft" | "factoring" | "working_capital_loan" | "investment_loan" | "leasing";
         Product: {
-            id: number;
             /** @example overdraft_basic */
             code: string;
             kind: components["schemas"]["ProductKind"];
+            /** @example Овердрафт для бизнеса */
             name: string;
+            /** @example Закрывает кассовые разрывы до 60 дней */
+            description: string;
             rate_min: components["schemas"]["Rate"];
             rate_max: components["schemas"]["Rate"];
             term_min_months: number;
             term_max_months: number;
             amount_min: components["schemas"]["Money"];
             amount_max: components["schemas"]["Money"];
+            is_revolving: boolean;
+            collateral_required: boolean;
             /** @description Параметры продукта (alpha, beta, min_dscr, max_debt_to_ebitda, tranche_days…) */
             params: {
                 [key: string]: components["schemas"]["DecimalString"];
@@ -497,6 +1122,7 @@ export interface components {
                 min_business_age_months: number;
                 legal_forms: components["schemas"]["LegalForm"][];
             };
+            required_documents: components["schemas"]["DocumentKind"][];
         };
         /**
          * @description cash_gap — кассовый разрыв; receivable_delay — покупатель платит позже;
@@ -508,14 +1134,33 @@ export interface components {
             need_type: components["schemas"]["NeedType"];
             amount?: components["schemas"]["Money"];
             term_months?: number;
+            /** @description Для receivable_delay — сумма отгрузки по УПД */
+            invoice_amount?: components["schemas"]["Money"];
         };
         Offer: {
+            id: number;
+            product: components["schemas"]["Product"];
+            amount: components["schemas"]["Money"];
+            requested_amount: components["schemas"]["Money"];
+            term_months: number;
+            rate: components["schemas"]["Rate"];
+            /** @description Для возобновляемых продуктов (овердрафт, факторинг) — null */
+            monthly_payment: components["schemas"]["Money"] | null;
+            /** @description Условия отличаются от запрошенных */
+            is_counteroffer: boolean;
+            /** @enum {string} */
+            status: "active" | "accepted" | "declined" | "superseded";
+            /** Format: date-time */
+            expires_at: string;
+            /** @description Почему именно эти условия (для контроффера — почему сумма меньше) */
+            reasons: components["schemas"]["Reason"][];
+        };
+        RecommendedOffer: {
             rank: number;
             product: components["schemas"]["Product"];
             amount: components["schemas"]["Money"];
             term_months: number;
             rate: components["schemas"]["Rate"];
-            /** @description Для возобновляемых продуктов (овердрафт, факторинг) — null */
             monthly_payment: components["schemas"]["Money"] | null;
             /** @description Все проверки пройдены */
             fits: boolean;
@@ -523,7 +1168,7 @@ export interface components {
         };
         RecommendationResult: {
             need_type: components["schemas"]["NeedType"];
-            offers: components["schemas"]["Offer"][];
+            offers: components["schemas"]["RecommendedOffer"][];
             stop_factors: components["schemas"]["Reason"][];
             /** @constant */
             is_preliminary: true;
@@ -547,27 +1192,43 @@ export interface components {
             schedule: components["schemas"]["ScheduleRow"][];
         };
         /**
-         * @description draft → submitted → in_review → approved | declined | info_requested;
-         *     info_requested → submitted; draft | submitted → cancelled.
-         *     Меняется только через действия (submit, cancel) и бэк-офис.
+         * @description Переходы — docs/state-machine.md
          * @enum {string}
          */
-        ApplicationStatus: "draft" | "submitted" | "in_review" | "approved" | "declined" | "info_requested" | "cancelled";
+        ApplicationStatus: "draft" | "submitted" | "processing" | "manual_review" | "info_requested" | "offer" | "signing" | "signed" | "issued" | "declined" | "cancelled";
+        /** @enum {string} */
+        ApplicationAction: "edit" | "upload_document" | "submit" | "cancel" | "respond_info" | "accept_offer" | "decline_offer" | "sign" | "assign" | "approve" | "counteroffer" | "request_info" | "decline";
         /** @enum {string} */
         PrefillSource: "manual" | "recommendation" | "assistant";
         Application: {
             id: number;
+            company_id: number;
             need_type: components["schemas"]["NeedType"];
+            /** @example Выплатить зарплату до поступления оплаты от клиентов */
             purpose: string;
-            requested_amount: components["schemas"]["Money"];
-            term_months: number;
             /** @description Код выбранного продукта; null до выбора */
             product_code: string | null;
+            requested_amount: components["schemas"]["Money"];
+            term_months: number;
+            /** @description Для факторинга — сумма отгрузки */
+            invoice_amount: components["schemas"]["Money"] | null;
             status: components["schemas"]["ApplicationStatus"];
+            version: components["schemas"]["Version"];
             prefill_source: components["schemas"]["PrefillSource"];
+            /** @description Что текущий пользователь может сделать сейчас (по статусу и роли) — фронт рисует кнопки только по этому списку */
+            available_actions: components["schemas"]["ApplicationAction"][];
             /** Format: date-time */
             created_at: string;
             submitted_at: string | null;
+            /** Format: date-time */
+            status_changed_at: string;
+        };
+        ApplicationDetail: components["schemas"]["Application"] & {
+            /** @description Активный или принятый оффер; null — нет */
+            offer: components["schemas"]["Offer"] | null;
+            open_info_requests: components["schemas"]["InfoRequest"][];
+            /** @description Последнее решение; null — ещё нет */
+            decision: components["schemas"]["Decision"] | null;
         };
         ApplicationCreate: {
             need_type: components["schemas"]["NeedType"];
@@ -575,18 +1236,39 @@ export interface components {
             requested_amount: components["schemas"]["Money"];
             term_months: number;
             product_code?: string;
+            invoice_amount?: components["schemas"]["Money"];
             prefill_source?: components["schemas"]["PrefillSource"];
         };
         ApplicationUpdate: {
+            version: components["schemas"]["Version"];
             need_type?: components["schemas"]["NeedType"];
             purpose?: string;
             requested_amount?: components["schemas"]["Money"];
             term_months?: number;
             product_code?: string | null;
+            invoice_amount?: components["schemas"]["Money"] | null;
         };
         /** @enum {string} */
-        DecisionOutcome: "approved" | "declined" | "info_requested";
+        ActorKind: "client" | "bank" | "system";
+        /** @enum {string} */
+        EventKind: "status_changed" | "document_uploaded" | "info_requested" | "info_responded" | "assigned" | "check_completed" | "score_calculated" | "decision" | "comment" | "signed" | "issued";
+        ApplicationEvent: {
+            id: number;
+            kind: components["schemas"]["EventKind"];
+            from_status: components["schemas"]["ApplicationStatus"] | null;
+            to_status: components["schemas"]["ApplicationStatus"] | null;
+            actor_kind: components["schemas"]["ActorKind"];
+            actor: components["schemas"]["UserRef"] | null;
+            message: string;
+            /** @description true — только для банка */
+            is_internal: boolean;
+            /** Format: date-time */
+            created_at: string;
+        };
+        /** @enum {string} */
+        DecisionOutcome: "offer" | "counteroffer" | "manual_review" | "info_requested" | "declined";
         Decision: {
+            id: number;
             application_id: number;
             outcome: components["schemas"]["DecisionOutcome"];
             /**
@@ -596,23 +1278,52 @@ export interface components {
             decided_by: "auto" | "officer";
             /** @description true для decided_by=auto */
             is_preliminary: boolean;
-            approved_amount: components["schemas"]["Money"] | null;
-            rate: components["schemas"]["Rate"] | null;
-            term_months: number | null;
-            monthly_payment: components["schemas"]["Money"] | null;
             reasons: components["schemas"]["Reason"][];
+            /** @description «Что улучшить» — для отказа и контроффера */
+            improvements: string[];
+            /** @description Комментарий сотрудника для клиента */
+            comment: string | null;
             /** Format: date-time */
             created_at: string;
         };
+        InfoRequest: {
+            id: number;
+            /** @description Что просит банк */
+            message: string;
+            document_kinds: components["schemas"]["DocumentKind"][];
+            /** @enum {string} */
+            status: "open" | "answered";
+            response_message: string | null;
+            /** Format: date-time */
+            created_at: string;
+            answered_at: string | null;
+        };
+        InfoRequestResponse: {
+            message: string;
+        };
+        SignatureChallenge: {
+            /**
+             * @description Показывается на экране — без SMS и почты
+             * @example 482913
+             */
+            code: string;
+            /** Format: date-time */
+            expires_at: string;
+            attempts_left: number;
+        };
+        SignatureConfirm: {
+            /** @example 482913 */
+            code: string;
+        };
         /** @enum {string} */
-        DocumentKind: "bank_statement" | "financial_report" | "tax_return" | "contract" | "invoice" | "other";
+        DocumentKind: "bank_statement" | "financial_report" | "tax_return" | "contract" | "invoice" | "shipment_document" | "other";
         Document: {
             id: number;
             kind: components["schemas"]["DocumentKind"];
             /** @description Исходное имя (хранится под случайным именем) */
             filename: string;
-            /** @example application/pdf */
-            content_type: string;
+            /** @enum {string} */
+            content_type: "application/pdf" | "image/png" | "image/jpeg";
             size: number;
             sha256: string;
             /** Format: date-time */
@@ -624,6 +1335,143 @@ export interface components {
             kind: components["schemas"]["DocumentKind"];
             /** Format: binary */
             file: string;
+        };
+        Notification: {
+            id: number;
+            kind: components["schemas"]["EventKind"];
+            /** @example Готово предложение */
+            title: string;
+            /** @example Банк одобрил овердрафт на 900 000 ₽ */
+            message: string;
+            application_id: number | null;
+            /** Format: date-time */
+            created_at: string;
+            read_at: string | null;
+        };
+        NotificationPage: components["schemas"]["Page"] & {
+            unread_count: number;
+            results: components["schemas"]["Notification"][];
+        };
+        /** @enum {string} */
+        Grade: "A" | "B" | "C" | "D" | "E";
+        /** @enum {string} */
+        CheckSource: "egrul" | "transparent_business" | "bki" | "bank_account";
+        Check: {
+            source: components["schemas"]["CheckSource"];
+            /**
+             * @description unavailable — источник не ответил (сценарий 7)
+             * @enum {string}
+             */
+            status: "ok" | "warning" | "failed" | "unavailable";
+            summary: string;
+            data: {
+                [key: string]: unknown;
+            };
+            /** Format: date-time */
+            checked_at: string;
+        };
+        ScoreFactor: {
+            /** @example dscr */
+            name: string;
+            value: components["schemas"]["DecimalString"] | string | null;
+            points: number;
+            message: string;
+        };
+        Score: {
+            grade: components["schemas"]["Grade"];
+            total: number;
+            factors: components["schemas"]["ScoreFactor"][];
+            model_version: string;
+            /** Format: date-time */
+            created_at: string;
+        };
+        BankQueueItem: {
+            id: number;
+            /** @example ИП Демо Кофейня */
+            company_name: string;
+            company_inn: components["schemas"]["Inn"];
+            product_kind: components["schemas"]["ProductKind"] | null;
+            requested_amount: components["schemas"]["Money"];
+            status: components["schemas"]["ApplicationStatus"];
+            grade: components["schemas"]["Grade"] | null;
+            assignee: components["schemas"]["UserRef"] | null;
+            /** @description Хотя бы один источник не ответил */
+            source_unavailable: boolean;
+            /** Format: date-time */
+            status_changed_at: string;
+            hours_in_status: number;
+            version: components["schemas"]["Version"];
+        };
+        BankQueuePage: components["schemas"]["Page"] & {
+            results: components["schemas"]["BankQueueItem"][];
+            /**
+             * @description Количество заявок по статусам (без учёта фильтра по статусу)
+             * @example {
+             *       "manual_review": 12,
+             *       "info_requested": 3,
+             *       "offer": 7
+             *     }
+             */
+            counters: {
+                [key: string]: number;
+            };
+        };
+        BankApplicationDetail: {
+            application: components["schemas"]["Application"];
+            company: components["schemas"]["Company"];
+            members: components["schemas"]["Member"][];
+            snapshot: components["schemas"]["FinancialSnapshot"] | null;
+            checks: components["schemas"]["Check"][];
+            score: components["schemas"]["Score"] | null;
+            decisions: components["schemas"]["Decision"][];
+            offer: components["schemas"]["Offer"] | null;
+            info_requests: components["schemas"]["InfoRequest"][];
+            documents: components["schemas"]["Document"][];
+            /** @description Полный журнал, включая внутренние комментарии */
+            events: components["schemas"]["ApplicationEvent"][];
+            assignee: components["schemas"]["UserRef"] | null;
+        };
+        VersionedAction: {
+            version: components["schemas"]["Version"];
+            /** @description Комментарий для клиента */
+            comment?: string;
+        };
+        CounterofferAction: {
+            version: components["schemas"]["Version"];
+            /** @description Другой продукт; не указан — текущий */
+            product_code?: string;
+            amount: components["schemas"]["Money"];
+            term_months: number;
+            rate: components["schemas"]["Rate"];
+            comment: string;
+        };
+        RequestInfoAction: {
+            version: components["schemas"]["Version"];
+            message: string;
+            document_kinds?: components["schemas"]["DocumentKind"][];
+        };
+        DeclineAction: {
+            version: components["schemas"]["Version"];
+            /** @description Почему отказ — простым языком */
+            reasons_text: string;
+            improvements: string[];
+        };
+        CommentCreate: {
+            message: string;
+        };
+        BankDashboard: {
+            period_days: number;
+            total_applications: number;
+            /** @description Сколько заявок дошло до каждого этапа */
+            funnel: {
+                stage: components["schemas"]["ApplicationStatus"];
+                count: number;
+            }[];
+            avg_hours_in_status: {
+                [key: string]: components["schemas"]["DecimalString"];
+            };
+            /** @description Доля решений без участия сотрудника (0..1); null — решений ещё нет */
+            auto_decision_share: components["schemas"]["DecimalString"] | null;
         };
         AssistantMessageRequest: {
             text: string;
@@ -650,6 +1498,16 @@ export interface components {
             summary: string;
             application_id: number | null;
         };
+        AssistantMessage: {
+            id: number;
+            /** @enum {string} */
+            role: "user" | "assistant";
+            /** @description Простой текст без HTML */
+            content: string;
+            tool_calls: components["schemas"]["AssistantToolCall"][];
+            /** Format: date-time */
+            created_at: string;
+        };
         AssistantReply: {
             /** @description Простой текст без HTML */
             reply: string;
@@ -661,7 +1519,24 @@ export interface components {
             action_id: string;
             /** @enum {string} */
             status: "done";
-            application: components["schemas"]["Application"];
+            application: components["schemas"]["ApplicationDetail"];
+        };
+        DemoPersona: {
+            /** @example coffee_shop */
+            code: string;
+            /** @example Кофейня, ИП (демо) */
+            title: string;
+            username: string;
+            /** @description Номер сценария из docs/plan.md */
+            scenario: number;
+            kind: components["schemas"]["UserKind"];
+        };
+        /** @description true — источник «падает» (симулятор отвечает ошибкой или таймаутом) */
+        DemoFailures: {
+            egrul: boolean;
+            transparent_business: boolean;
+            bki: boolean;
+            bank_account: boolean;
         };
     };
     responses: {
@@ -704,7 +1579,7 @@ export interface components {
                 "application/json": components["schemas"]["Error"];
             };
         };
-        /** @description Нет прав или не прошла проверка CSRF */
+        /** @description Нет прав для этой роли или не прошла проверка CSRF */
         Forbidden: {
             headers: {
                 [name: string]: unknown;
@@ -738,7 +1613,7 @@ export interface components {
                 "application/json": components["schemas"]["Error"];
             };
         };
-        /** @description Действие недопустимо в текущем статусе */
+        /** @description invalid_transition — действие недопустимо в текущем статусе; version_conflict — заявку уже изменили */
         Conflict: {
             headers: {
                 [name: string]: unknown;
@@ -747,8 +1622,8 @@ export interface components {
                 /**
                  * @example {
                  *       "error": {
-                 *         "code": "invalid_transition",
-                 *         "message": "Заявку в этом статусе изменить нельзя."
+                 *         "code": "version_conflict",
+                 *         "message": "Заявку уже изменили. Обновите страницу."
                  *       }
                  *     }
                  */
@@ -761,6 +1636,14 @@ export interface components {
                 [name: string]: unknown;
             };
             content: {
+                /**
+                 * @example {
+                 *       "error": {
+                 *         "code": "payload_too_large",
+                 *         "message": "Файл больше допустимого размера."
+                 *       }
+                 *     }
+                 */
                 "application/json": components["schemas"]["Error"];
             };
         };
@@ -781,9 +1664,31 @@ export interface components {
                 "application/json": components["schemas"]["Error"];
             };
         };
+        /** @description Внешний источник (симулятор) недоступен */
+        SourceUnavailable: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                /**
+                 * @example {
+                 *       "error": {
+                 *         "code": "source_unavailable",
+                 *         "message": "Реестр временно недоступен. Попробуйте позже."
+                 *       }
+                 *     }
+                 */
+                "application/json": components["schemas"]["Error"];
+            };
+        };
     };
     parameters: {
         ApplicationId: number;
+        DocumentId: number;
+        /** @description UUID, новый на каждое намерение отправить; повтор с тем же ключом не создаёт второй переход */
+        IdempotencyKey: string;
+        Page: number;
+        PageSize: number;
     };
     requestBodies: never;
     headers: never;
@@ -832,6 +1737,35 @@ export interface operations {
             };
         };
     };
+    getReadiness: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Готов */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Readiness"];
+                };
+            };
+            /** @description Не готов */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Readiness"];
+                };
+            };
+        };
+    };
     getCsrf: {
         parameters: {
             query?: never;
@@ -850,6 +1784,33 @@ export interface operations {
                     "application/json": components["schemas"]["CsrfToken"];
                 };
             };
+        };
+    };
+    register: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegisterRequest"];
+            };
+        };
+        responses: {
+            /** @description Создан и вошёл */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Me"];
+                };
+            };
+            400: components["responses"]["ValidationError"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     login: {
@@ -871,7 +1832,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["User"];
+                    "application/json": components["schemas"]["Me"];
                 };
             };
             400: components["responses"]["ValidationError"];
@@ -914,13 +1875,39 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["User"];
+                    "application/json": components["schemas"]["Me"];
                 };
             };
             401: components["responses"]["Unauthorized"];
         };
     };
-    getBusiness: {
+    lookupCompany: {
+        parameters: {
+            query: {
+                inn: components["schemas"]["Inn"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Найдено в реестре */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegistryRecord"];
+                };
+            };
+            400: components["responses"]["ValidationError"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["SourceUnavailable"];
+        };
+    };
+    getCompany: {
         parameters: {
             query?: never;
             header?: never;
@@ -929,20 +1916,20 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Бизнес */
+            /** @description Компания */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Business"];
+                    "application/json": components["schemas"]["Company"];
                 };
             };
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
         };
     };
-    updateBusiness: {
+    createCompany: {
         parameters: {
             query?: never;
             header?: never;
@@ -951,17 +1938,46 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["BusinessUpdate"];
+                "application/json": components["schemas"]["CompanyCreate"];
             };
         };
         responses: {
-            /** @description Обновлённый бизнес */
+            /** @description Компания создана */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Company"];
+                };
+            };
+            400: components["responses"]["ValidationError"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            503: components["responses"]["SourceUnavailable"];
+        };
+    };
+    updateCompany: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CompanyUpdate"];
+            };
+        };
+        responses: {
+            /** @description Обновлённая компания */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Business"];
+                    "application/json": components["schemas"]["Company"];
                 };
             };
             400: components["responses"]["ValidationError"];
@@ -970,7 +1986,82 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
-    getBusinessMetrics: {
+    listCompanyMembers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Сотрудники */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Member"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    addCompanyMember: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MemberCreate"];
+            };
+        };
+        responses: {
+            /** @description Добавлен */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Member"];
+                };
+            };
+            400: components["responses"]["ValidationError"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    removeCompanyMember: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                member_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Убран */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getCompanyMetrics: {
         parameters: {
             query?: never;
             header?: never;
@@ -985,7 +2076,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["BusinessMetrics"];
+                    "application/json": components["schemas"]["CompanyMetrics"];
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -1003,7 +2094,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Источник подключён, создан снимок */
+            /** @description Подключено, создан снимок */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -1015,6 +2106,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            503: components["responses"]["SourceUnavailable"];
         };
     };
     listProducts: {
@@ -1035,7 +2127,29 @@ export interface operations {
                     "application/json": components["schemas"]["Product"][];
                 };
             };
-            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getProduct: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Продукт */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Product"];
+                };
+            };
+            404: components["responses"]["NotFound"];
         };
     };
     createRecommendations: {
@@ -1063,6 +2177,7 @@ export interface operations {
             400: components["responses"]["ValidationError"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
     calculateAnnuity: {
@@ -1088,7 +2203,6 @@ export interface operations {
                 };
             };
             400: components["responses"]["ValidationError"];
-            401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
         };
     };
@@ -1138,6 +2252,7 @@ export interface operations {
             400: components["responses"]["ValidationError"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
     getApplication: {
@@ -1157,7 +2272,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Application"];
+                    "application/json": components["schemas"]["ApplicationDetail"];
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -1185,7 +2300,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Application"];
+                    "application/json": components["schemas"]["ApplicationDetail"];
                 };
             };
             400: components["responses"]["ValidationError"];
@@ -1198,7 +2313,10 @@ export interface operations {
     submitApplication: {
         parameters: {
             query?: never;
-            header?: never;
+            header: {
+                /** @description UUID, новый на каждое намерение отправить; повтор с тем же ключом не создаёт второй переход */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
             path: {
                 id: components["parameters"]["ApplicationId"];
             };
@@ -1206,15 +2324,16 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Заявка отправлена */
+            /** @description Отправлена (или повтор с тем же ключом — тот же ответ) */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Application"];
+                    "application/json": components["schemas"]["ApplicationDetail"];
                 };
             };
+            400: components["responses"]["ValidationError"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
@@ -1232,19 +2351,43 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Заявка отозвана */
+            /** @description Отозвана */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Application"];
+                    "application/json": components["schemas"]["ApplicationDetail"];
                 };
             };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+        };
+    };
+    listApplicationEvents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ApplicationId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description События по возрастанию времени */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationEvent"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
         };
     };
     getApplicationDecision: {
@@ -1258,7 +2401,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Последнее решение по заявке */
+            /** @description Решение */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -1269,6 +2412,147 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    acceptOffer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ApplicationId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Оффер принят */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationDetail"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    declineOffer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ApplicationId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Оффер отклонён */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationDetail"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    startSignature: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ApplicationId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Код выдан */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SignatureChallenge"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    confirmSignature: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ApplicationId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SignatureConfirm"];
+            };
+        };
+        responses: {
+            /** @description Договор подписан */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationDetail"];
+                };
+            };
+            400: components["responses"]["ValidationError"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    respondInfoRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ApplicationId"];
+                request_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InfoRequestResponse"];
+            };
+        };
+        responses: {
+            /** @description Ответ отправлен */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationDetail"];
+                };
+            };
+            400: components["responses"]["ValidationError"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
         };
     };
     listApplicationDocuments: {
@@ -1327,6 +2611,421 @@ export interface operations {
             413: components["responses"]["PayloadTooLarge"];
         };
     };
+    downloadApplicationDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ApplicationId"];
+                document_id: components["parameters"]["DocumentId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Файл */
+            200: {
+                headers: {
+                    /** @description attachment; filename="…" */
+                    "Content-Disposition"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
+                    "image/png": string;
+                    "image/jpeg": string;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listNotifications: {
+        parameters: {
+            query?: {
+                unread?: boolean;
+                page?: components["parameters"]["Page"];
+                page_size?: components["parameters"]["PageSize"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Страница уведомлений */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationPage"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    markNotificationRead: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                notification_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Прочитано */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    markAllNotificationsRead: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Прочитано */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    listBankApplications: {
+        parameters: {
+            query?: {
+                status?: components["schemas"]["ApplicationStatus"][];
+                product_kind?: components["schemas"]["ProductKind"];
+                grade?: components["schemas"]["Grade"];
+                /** @description me — мои, none — никому не назначены, или id сотрудника */
+                assignee?: string;
+                min_hours_in_status?: number;
+                /** @description ИНН или название компании */
+                search?: string;
+                ordering?: "status_changed_at" | "-status_changed_at" | "requested_amount" | "-requested_amount" | "created_at" | "-created_at";
+                page?: components["parameters"]["Page"];
+                page_size?: components["parameters"]["PageSize"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Страница очереди */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BankQueuePage"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getBankApplication: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ApplicationId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Карточка */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BankApplicationDetail"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    assignBankApplication: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ApplicationId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VersionedAction"];
+            };
+        };
+        responses: {
+            /** @description Назначена */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BankApplicationDetail"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    approveBankApplication: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ApplicationId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VersionedAction"];
+            };
+        };
+        responses: {
+            /** @description Оффер выставлен */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BankApplicationDetail"];
+                };
+            };
+            400: components["responses"]["ValidationError"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    counterofferBankApplication: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ApplicationId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CounterofferAction"];
+            };
+        };
+        responses: {
+            /** @description Контроффер выставлен */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BankApplicationDetail"];
+                };
+            };
+            400: components["responses"]["ValidationError"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    requestInfoBankApplication: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ApplicationId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RequestInfoAction"];
+            };
+        };
+        responses: {
+            /** @description Запрос отправлен клиенту */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BankApplicationDetail"];
+                };
+            };
+            400: components["responses"]["ValidationError"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    declineBankApplication: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ApplicationId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeclineAction"];
+            };
+        };
+        responses: {
+            /** @description Отказ оформлен */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BankApplicationDetail"];
+                };
+            };
+            400: components["responses"]["ValidationError"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    commentBankApplication: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ApplicationId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommentCreate"];
+            };
+        };
+        responses: {
+            /** @description Добавлен */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationEvent"];
+                };
+            };
+            400: components["responses"]["ValidationError"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    downloadBankApplicationDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ApplicationId"];
+                document_id: components["parameters"]["DocumentId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Файл (attachment) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
+                    "image/png": string;
+                    "image/jpeg": string;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getBankDashboard: {
+        parameters: {
+            query?: {
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Метрики конвейера */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BankDashboard"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    listAssistantMessages: {
+        parameters: {
+            query?: {
+                application_id?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Сообщения */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssistantMessage"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
     sendAssistantMessage: {
         parameters: {
             query?: never;
@@ -1340,7 +3039,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Ответ ассистента, вызванные инструменты и действие на подтверждение */
+            /** @description Ответ, вызванные инструменты и действие на подтверждение */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -1361,7 +3060,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                id: string;
+                action_id: string;
             };
             cookie?: never;
         };
@@ -1380,6 +3079,128 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+        };
+    };
+    listDemoPersonas: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Персоны */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DemoPersona"][];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    demoLogin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @example coffee_shop */
+                    persona: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Вошли */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Me"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getDemoFailures: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Флаги */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DemoFailures"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    setDemoFailures: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DemoFailures"];
+            };
+        };
+        responses: {
+            /** @description Флаги применены */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DemoFailures"];
+                };
+            };
+            400: components["responses"]["ValidationError"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    resetDemo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Сброшено */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
 }
