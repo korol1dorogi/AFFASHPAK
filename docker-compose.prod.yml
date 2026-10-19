@@ -1,0 +1,82 @@
+# Production stand on the VPS (docs/deploy.md). Only Caddy publishes ports (80/443):
+# Docker bypasses UFW, so db and backend must never have `ports:`.
+# On the server, .env sets COMPOSE_FILE=docker-compose.prod.yml, so plain `docker compose ...` works.
+name: alfa-cabinet
+
+services:
+  db:
+    image: postgres:18.6
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?set in .env}
+      POSTGRES_USER: ${POSTGRES_USER:?set in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set in .env}
+    volumes:
+      - db-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      args:
+        REQUIREMENTS: requirements.txt
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DJANGO_DEBUG: "0"
+      CASE_DATA_DIR: /case-data
+    command: >
+      sh -c "python manage.py migrate --noinput
+      && python manage.py collectstatic --noinput
+      && gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 3 --timeout 60 --no-control-socket --access-logfile -"
+    volumes:
+      - static:/app/staticfiles
+      - media:/app/media
+      - ${CASE_DATA_DIR:?set in .env (path outside the repo)}:/case-data:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      # Host must be in DJANGO_ALLOWED_HOSTS; /api/health is exempt from the HTTPS redirect.
+      test:
+        - CMD
+        - python
+        - -c
+        - "import os, urllib.request as u; u.urlopen(u.Request('http://127.0.0.1:8000/api/health', headers={'Host': os.environ['DOMAIN']}), timeout=3)"
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+
+  caddy:
+    build:
+      context: .
+      dockerfile: deploy/caddy/Dockerfile
+    restart: unless-stopped
+    environment:
+      DOMAIN: ${DOMAIN:?set in .env}
+      ACME_EMAIL: ${ACME_EMAIL:?set in .env}
+      DJANGO_ADMIN_URL: ${DJANGO_ADMIN_URL:?set in .env}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - static:/srv/static:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  db-data:
+  static:
+  media:
+  caddy-data:
+  caddy-config:

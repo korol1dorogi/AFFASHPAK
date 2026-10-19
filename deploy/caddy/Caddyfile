@@ -1,0 +1,45 @@
+# One origin: SPA + /api + admin + static. HTTPS certificates are automatic (Let's Encrypt).
+# DOMAIN and DJANGO_ADMIN_URL come from the server .env (see docs/deploy.md).
+{
+	email {$ACME_EMAIL}
+}
+
+{$DOMAIN} {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "same-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		Content-Security-Policy "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+		-Server
+	}
+
+	# API and the back office (admin lives on an unguessable path) → gunicorn
+	handle /api/* {
+		reverse_proxy backend:8000
+	}
+	handle /{$DJANGO_ADMIN_URL}* {
+		reverse_proxy backend:8000
+	}
+
+	# Django static (admin CSS/JS), collected into a shared volume
+	handle_path /static/* {
+		root * /srv/static
+		file_server
+	}
+
+	# SPA: unknown paths fall back to index.html
+	handle {
+		root * /srv/site
+		try_files {path} /index.html
+		file_server
+	}
+
+	log {
+		output stdout
+		format console
+	}
+}

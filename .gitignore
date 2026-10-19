@@ -2,6 +2,7 @@
 .env
 .env.*
 !.env.example
+!deploy/.env.prod.example
 
 # Case data never lives in the repo (see CASE_DATA_DIR); only data/sample/ is committed
 /data/*

@@ -1,7 +1,9 @@
-# Build context is the repo root; send only what the backend image needs (allowlist).
+# Build context is the repo root for backend and caddy images; send only what they need (allowlist).
 *
 !backend/
 !docs/openapi.yaml
+!frontend/
+!deploy/
 
 # Never in the image, even inside allowed folders
 .env
@@ -16,3 +18,4 @@
 **/.ruff_cache
 backend/staticfiles
 backend/media
+frontend/dist

@@ -6,7 +6,7 @@
 from typing import Any
 
 from django.core.exceptions import PermissionDenied
-from django.http import Http404
+from django.http import Http404, HttpRequest, HttpResponse, JsonResponse
 from rest_framework import exceptions
 from rest_framework.response import Response
 from rest_framework.views import exception_handler
@@ -36,3 +36,16 @@ def api_exception_handler(exc: Exception, context: dict[str, Any]) -> Response |
         body["details"] = details
     response.data = {"error": body}
     return response
+
+
+def not_found_view(request: HttpRequest, exception: Exception) -> HttpResponse:
+    """handler404: unknown URLs also answer in the single error format (DEBUG=False)."""
+    return JsonResponse({"error": {"code": "not_found", "message": "Не найдено."}}, status=404)
+
+
+def server_error_view(request: HttpRequest) -> HttpResponse:
+    """handler500: no stack traces or HTML, just the single error format."""
+    return JsonResponse(
+        {"error": {"code": "server_error", "message": "Внутренняя ошибка. Попробуйте позже."}},
+        status=500,
+    )

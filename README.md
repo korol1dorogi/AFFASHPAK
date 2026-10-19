@@ -46,6 +46,9 @@ frontend/            React + TS + Vite + shadcn/ui: src/features/<фича>/, sr
 e2e/                 Playwright: journey.spec.ts — сквозной путь клиента
 ```
 
+## Стенд
+Прод-сборка — [docker-compose.prod.yml](docker-compose.prod.yml) + Caddy (HTTPS), инструкция — [docs/deploy.md](docs/deploy.md). Деплоит лид.
+
 ## Демо-учётки
 Появятся после Фазы 2 (команда `seed_demo`, персоны — [docs/demo.md](docs/demo.md)).
 

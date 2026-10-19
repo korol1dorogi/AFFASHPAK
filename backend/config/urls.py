@@ -9,3 +9,6 @@ urlpatterns = [
     path(settings.ADMIN_URL, admin.site.urls),
     path("api/", include("apps.core.urls")),
 ]
+
+handler404 = "apps.core.exceptions.not_found_view"
+handler500 = "apps.core.exceptions.server_error_view"

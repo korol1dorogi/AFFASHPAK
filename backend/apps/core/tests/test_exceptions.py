@@ -20,3 +20,12 @@ def test_validation_error_keeps_field_details():
     assert response.status_code == 400
     assert response.data["error"]["code"] == "invalid"
     assert response.data["error"]["details"] == {"amount": ["Обязательное поле."]}
+
+
+def test_unknown_url_returns_json_error(client, settings):
+    settings.DEBUG = False
+
+    response = client.get("/api/does-not-exist")
+
+    assert response.status_code == 404
+    assert response.json() == {"error": {"code": "not_found", "message": "Не найдено."}}
