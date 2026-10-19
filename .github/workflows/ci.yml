@@ -5,13 +5,15 @@ on:
     branches: [main]
   pull_request:
 
-# No secrets are used anywhere in this workflow. Third-party actions are pinned by commit SHA.
+# Only one secret: DEPLOY_SSH_KEY, used by the deploy job on main (docs/deploy.md).
+# Third-party actions are pinned by commit SHA.
 permissions:
   contents: read
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  # Never cancel main: a cancelled run could interrupt a deploy.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   backend:
@@ -148,3 +150,33 @@ jobs:
           tar -xzf gitleaks.tar.gz gitleaks
       - name: scan full git history
         run: ./gitleaks git . --redact --verbose --exit-code 1
+
+  # Auto-deploy after a merge to main, only when every check above is green.
+  # The key is restricted on the server to command="/usr/local/bin/alfa-deploy":
+  # it can only deploy the latest origin/main, nothing else (no shell, no forwarding).
+  deploy:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [backend, frontend, e2e, gitleaks]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    env:
+      DEPLOY_HOST: 194.67.92.122
+      # Server host key (public); pins the server so the runner cannot be pointed elsewhere.
+      DEPLOY_KNOWN_HOST: 194.67.92.122 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIA9B3vAaYJMVQL8o10ho2IynfufH+vR3mn4dEleVEeV7
+    steps:
+      - name: deploy latest main to the VPS
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$DEPLOY_KNOWN_HOST" > ~/.ssh/known_hosts
+          ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes -o ServerAliveInterval=30 "root@${DEPLOY_HOST}"
+      - name: remove the key
+        if: always()
+        run: rm -f ~/.ssh/deploy_key

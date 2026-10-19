@@ -1,6 +1,6 @@
 # Деплой стенда на VPS
 
-Делает только лид (docs/decisions.md D11). Схема: наружу смотрит только Caddy (80/443, HTTPS автоматически). Он раздаёт собранный фронт, проксирует `/api` и админку на gunicorn, раздаёт статику админки. У `db` и `backend` портов наружу нет: Docker обходит UFW, поэтому публиковать что-то, кроме Caddy, нельзя.
+Сервер настраивает лид; дальше каждый мерж в main с зелёным CI выкатывается сам (docs/decisions.md D11). Схема: наружу смотрит только Caddy (80/443, HTTPS автоматически). Он раздаёт собранный фронт, проксирует `/api` и админку на gunicorn, раздаёт статику админки. У `db` и `backend` портов наружу нет: Docker обходит UFW, поэтому публиковать что-то, кроме Caddy, нельзя.
 
 Секреты живут только в `/srv/alfa-cabinet/.env` на сервере (права 600). В репозиторий, чат и CI они не попадают.
 
@@ -61,11 +61,24 @@ docker compose run --rm backend python manage.py createsuperuser   # учётк�
 ```
 Проверка: `https://$DOMAIN/` — кабинет, `https://$DOMAIN/api/health` — `{"status":"ok",...}`, `https://$DOMAIN/$DJANGO_ADMIN_URL` — бэк-офис.
 
-## 6. Обновление (вручную, D11)
+## 6. Автодеплой после мержа (D11)
+Мерж в `main` → CI (backend, frontend, e2e, gitleaks) → при зелёном — джоба `deploy` заходит на сервер по SSH и запускает `/usr/local/bin/alfa-deploy` ([deploy/alfa-deploy.sh](../deploy/alfa-deploy.sh)): `git fetch` → `reset` на `origin/main` → `docker compose up -d --build --wait` → проверка `/api/health`. Не поднялось — откат на предыдущий коммит (миграции БД не откатываются: ломающие миграции делаем в два шага). Журнал — `/var/log/alfa-deploy.log`.
+
+Ключ CI в `authorized_keys` ограничен: `restrict,command="/usr/local/bin/alfa-deploy"`. С ним нельзя получить шелл, выполнить другую команду или пробросить порты — только выкатить последний `main`.
+
+Настройка (один раз):
 ```sh
-cd /srv/alfa-cabinet && git pull && docker compose up -d --build
+# на сервере
+install -m 755 deploy/alfa-deploy.sh /usr/local/bin/alfa-deploy
+# ключ CI (пара генерируется у лида, приватная часть — только в GitHub Secrets)
+echo 'restrict,command="/usr/local/bin/alfa-deploy" ssh-ed25519 AAAA... github-actions-deploy-alfa' >> ~/.ssh/authorized_keys
 ```
-Миграции и collectstatic выполняются при старте бэкенда.
+- GitHub → Settings → Secrets and variables → Actions → New repository secret `DEPLOY_SSH_KEY` — содержимое приватного ключа CI целиком.
+- GitHub → Settings → Deploy keys → публичный ключ сервера для чтения репозитория (раздел 2, без write access).
+- IP и ключ хоста сервера записаны в `.github/workflows/ci.yml` (джоба `deploy`); при смене сервера — обновить там.
+- Скрипт в репозитории поменялся → переустановить его на сервере командой выше (CI запускает установленную копию).
+
+Вручную (то же самое): `ssh root@<ip> alfa-deploy`, или на сервере `alfa-deploy`.
 
 ## 7. Демо-данные
 После Фазы 2: `docker compose run --rm backend python manage.py seed_demo` (персоны из docs/demo.md) и команда сброса демо-данных перед показом.
