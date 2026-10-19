@@ -2,7 +2,7 @@
 
 Источник истины для моделей Django (L2). Имена — из [domain.md](domain.md); статусы и переходы — [state-machine.md](state-machine.md). Деньги — `Decimal(14,2)`, ставки и коэффициенты — `Decimal(8,4)`, время — UTC с таймзоной. Необязательное — `null`, а не 0 или пустая строка.
 
-> v1 по плану лида. Уже в main (S3): `Business`, `Application`, `Document` — L2 доводит их до этой схемы **новыми** миграциями (стенд с автодеплоем, старые миграции не переписываем). `Business` переименовывается в `Company` (`RenameModel`).
+> v1, сверена с кейсом (docs/case.md). Уже в main (S3): `Business`, `Application`, `Document` — L2 доводит их до этой схемы **новыми** миграциями (стенд с автодеплоем, старые миграции не переписываем). `Business` переименовывается в `Company` (`RenameModel`).
 
 ```mermaid
 erDiagram
@@ -36,7 +36,7 @@ erDiagram
 - Данные из ЕГРЮЛ заполняются один раз (автозаполнение по ИНН) и дальше переиспользуются — повторного ввода нет (C3).
 
 **Membership** — пользователь в компании
-- `user` → User, `company` → Company, `role`: `director` | `accountant`; уникальная пара (user, company)
+- `user` → User, `company` → Company, `role`: `signatory` | `preparer`; `position` (должность текстом: «Генеральный директор», «Главный бухгалтер»…); уникальная пара (user, company)
 - Права — [state-machine.md](state-machine.md#роли). Scoping клиента: все queryset — через `company__memberships__user = request.user`.
 
 **FinancialSnapshot** — финансовый снимок компании за период
@@ -57,7 +57,7 @@ erDiagram
 **Application**
 - `company` → Company; `created_by` → User
 - `need_type`: `cash_gap` | `receivable_delay` | `working_capital` | `capex`; `purpose`
-- `product` → Product | null; `requested_amount`; `term_months`; `invoice_amount` | null (факторинг: сумма отгрузки)
+- `product` → Product | null; `requested_amount`; `term_months`; `invoice_amount` | null (факторинг: сумма отгрузки); `collateral_description` | null (залог, доп. условия)
 - `status` — [state-machine.md](state-machine.md); **read-only** в API
 - `version` (int, +1 на каждое изменение) — optimistic locking
 - `assignee` → User (банк) | null
@@ -79,14 +79,15 @@ erDiagram
 **Score** — `application` (1:1), `grade`: `A`–`E`, `total` (int), `factors` (JSON-список: `name`, `value`, `points`, `message`), `model_version`, `created_at`
 
 **Decision** — каждое решение по заявке (авто или сотрудник)
-- `application`, `outcome`: `offer` | `counteroffer` | `manual_review` | `info_requested` | `declined`
+- `application`, `outcome`: `offer` | `counteroffer` | `alternative_product` | `manual_review` | `info_requested` | `declined`
+- `grade` (A–E | null) и `policy_version` — на что опиралось решение: скоринг ≠ решение (F8)
 - `decided_by`: `auto` | `officer`; `officer` → User | null; `comment`
 - `reasons` (JSON-список Reason: `metric`, `value`, `threshold`, `passed`, `message`); `improvements` (JSON-список строк «что улучшить» — для отказа)
 - `created_at`
 
-**Offer** — `decision` (1:1), `application`, `product` → Product, `amount`, `term_months`, `rate`, `monthly_payment` | null (возобновляемые — null), `requested_amount`, `is_counteroffer`, `status`: `active` | `accepted` | `declined` | `superseded`, `expires_at`, `created_at`. Активный оффер у заявки — максимум один.
+**Offer** — `decision` (1:1), `application`, `product` → Product, `amount`, `term_months`, `rate`, `monthly_payment` | null (возобновляемые — null), `requested_amount`, `is_counteroffer` (иные сумма/срок), `product_changed` (другой продукт), `status`: `active` | `accepted` | `declined` | `superseded`, `expires_at`, `created_at`. Активный оффер у заявки — максимум один.
 
-**InfoRequest** — `application`, `requested_by` → User, `message`, `document_kinds` (список DocumentKind), `status`: `open` | `answered`, `response_message`, `answered_by` → User | null, `created_at`, `answered_at`
+**InfoRequest** — `application`, `origin`: `validation` (автопроверка полноты, F6) | `officer`; `requested_by` → User | null, `message`, `fields` (список полей для уточнения), `document_kinds` (список DocumentKind), `status`: `open` | `answered`, `response_message`, `answered_by` → User | null, `created_at`, `answered_at`
 
 **Document** (есть, S3) — `application`, `kind` (DocumentKind, + `shipment_document` для УПД), `file` (случайное имя), `original_name`, `content_type` (по сигнатуре), `size`, `sha256`, `uploaded_by` → User, `info_request` → InfoRequest | null, `uploaded_at`
 

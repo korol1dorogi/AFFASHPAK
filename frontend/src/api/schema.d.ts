@@ -150,7 +150,7 @@ export interface paths {
         /** Компания текущего пользователя (404 — ещё не создана) */
         get: operations["getCompany"];
         put?: never;
-        /** Создать компанию по ИНН; реквизиты — из ЕГРЮЛ, создатель становится директором */
+        /** Создать компанию по ИНН; реквизиты — из ЕГРЮЛ, создатель становится signatory */
         post: operations["createCompany"];
         delete?: never;
         options?: never;
@@ -169,7 +169,7 @@ export interface paths {
         /** Сотрудники компании и их роли */
         get: operations["listCompanyMembers"];
         put?: never;
-        /** Добавить сотрудника по логину (только директор) */
+        /** Добавить сотрудника по логину (только signatory) */
         post: operations["addCompanyMember"];
         delete?: never;
         options?: never;
@@ -189,7 +189,7 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Убрать сотрудника (только директор; себя убрать нельзя) */
+        /** Убрать сотрудника (только signatory; себя убрать нельзя) */
         delete: operations["removeCompanyMember"];
         options?: never;
         head?: never;
@@ -308,7 +308,7 @@ export interface paths {
         /** Заявки компании текущего пользователя (новые сверху) */
         get: operations["listApplications"];
         put?: never;
-        /** Создать черновик (директор или бухгалтер) */
+        /** Создать черновик (signatory или preparer) */
         post: operations["createApplication"];
         delete?: never;
         options?: never;
@@ -423,7 +423,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Принять активный оффер или контроффер (offer → signing; директор) */
+        /** Принять активный оффер или контроффер (offer → signing; signatory) */
         post: operations["acceptOffer"];
         delete?: never;
         options?: never;
@@ -442,7 +442,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Отказаться от оффера (offer → cancelled; директор) */
+        /** Отказаться от оффера (offer → cancelled; signatory) */
         post: operations["declineOffer"];
         delete?: never;
         options?: never;
@@ -500,7 +500,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Ответить на запрос банка (info_requested → manual_review); документы — заранее через /documents */
+        /** Ответить на запрос (info_requested → submitted, если запросила проверка полноты; → manual_review, если сотрудник); документы — заранее через /documents */
         post: operations["respondInfoRequest"];
         delete?: never;
         options?: never;
@@ -686,7 +686,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Изменить условия и/или продукт (manual_review → offer с is_counteroffer) */
+        /** Иные условия и/или другой продукт (manual_review → offer; is_counteroffer / product_changed) */
         post: operations["counterofferBankApplication"];
         delete?: never;
         options?: never;
@@ -974,10 +974,12 @@ export interface components {
          */
         UserKind: "client" | "bank";
         /**
-         * @description director — отправляет, принимает оффер, подписывает; accountant — готовит черновики и документы
+         * @description Права в компании (кейс: собственник, директор, финдиректор, бухгалтер, иной уполномоченный).
+         *     signatory — отправляет заявку, принимает оффер, подписывает (собственник, директор, уполномоченный по доверенности);
+         *     preparer — готовит черновики, документы, отвечает на запросы банка (бухгалтер, финдиректор, сотрудник). Должность — в position.
          * @enum {string}
          */
-        MemberRole: "director" | "accountant";
+        MemberRole: "signatory" | "preparer";
         Me: {
             id: number;
             /** @example demo_coffee */
@@ -1037,10 +1039,13 @@ export interface components {
             id: number;
             user: components["schemas"]["UserRef"];
             role: components["schemas"]["MemberRole"];
+            /** @example Главный бухгалтер */
+            position: string;
         };
         MemberCreate: {
             username: string;
             role: components["schemas"]["MemberRole"];
+            position: string;
         };
         /** @enum {string} */
         SnapshotSource: "case" | "demo" | "simulator" | "manual";
@@ -1146,8 +1151,10 @@ export interface components {
             rate: components["schemas"]["Rate"];
             /** @description Для возобновляемых продуктов (овердрафт, факторинг) — null */
             monthly_payment: components["schemas"]["Money"] | null;
-            /** @description Условия отличаются от запрошенных */
+            /** @description Сумма или срок отличаются от запрошенных */
             is_counteroffer: boolean;
+            /** @description Предложен другой продукт */
+            product_changed: boolean;
             /** @enum {string} */
             status: "active" | "accepted" | "declined" | "superseded";
             /** Format: date-time */
@@ -1212,6 +1219,8 @@ export interface components {
             term_months: number;
             /** @description Для факторинга — сумма отгрузки */
             invoice_amount: components["schemas"]["Money"] | null;
+            /** @description Залог или дополнительные условия (крупные проекты); null — без залога */
+            collateral_description: string | null;
             status: components["schemas"]["ApplicationStatus"];
             version: components["schemas"]["Version"];
             prefill_source: components["schemas"]["PrefillSource"];
@@ -1237,6 +1246,7 @@ export interface components {
             term_months: number;
             product_code?: string;
             invoice_amount?: components["schemas"]["Money"];
+            collateral_description?: string;
             prefill_source?: components["schemas"]["PrefillSource"];
         };
         ApplicationUpdate: {
@@ -1247,6 +1257,7 @@ export interface components {
             term_months?: number;
             product_code?: string | null;
             invoice_amount?: components["schemas"]["Money"] | null;
+            collateral_description?: string | null;
         };
         /** @enum {string} */
         ActorKind: "client" | "bank" | "system";
@@ -1265,12 +1276,24 @@ export interface components {
             /** Format: date-time */
             created_at: string;
         };
-        /** @enum {string} */
-        DecisionOutcome: "offer" | "counteroffer" | "manual_review" | "info_requested" | "declined";
+        /**
+         * @description offer — одобрено на запрошенных условиях; counteroffer — иные сумма или срок;
+         *     alternative_product — другой продукт; manual_review — нужен сотрудник;
+         *     info_requested — нужны уточнения; declined — отказ (кейс: «итог не обязательно бинарный»).
+         * @enum {string}
+         */
+        DecisionOutcome: "offer" | "counteroffer" | "alternative_product" | "manual_review" | "info_requested" | "declined";
         Decision: {
             id: number;
             application_id: number;
             outcome: components["schemas"]["DecisionOutcome"];
+            /** @description Грейд скоринга, на который опиралось решение (скоринг ≠ решение); null — до скоринга (стоп-фактор, неполные данные) */
+            grade: components["schemas"]["Grade"] | null;
+            /**
+             * @description Версия правил кредитной логики (decision-model.md)
+             * @example 2026.10-v1
+             */
+            policy_version: string;
             /**
              * @description auto — предварительная оценка системы; officer — сотрудник банка
              * @enum {string}
@@ -1288,8 +1311,15 @@ export interface components {
         };
         InfoRequest: {
             id: number;
+            /**
+             * @description validation — автоматическая проверка полноты и корректности (F6); officer — сотрудник банка
+             * @enum {string}
+             */
+            origin: "validation" | "officer";
             /** @description Что просит банк */
             message: string;
+            /** @description Какие поля заявки или компании нужно уточнить (для origin=validation) */
+            fields: string[];
             document_kinds: components["schemas"]["DocumentKind"][];
             /** @enum {string} */
             status: "open" | "answered";

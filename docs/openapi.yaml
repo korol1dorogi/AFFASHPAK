@@ -4,7 +4,7 @@ info:
   version: 1.0.0
   description: |
     Контракт v1 (L1). Источник истины (contract-first, docs/decisions.md D2). Меняет только лид.
-    Сверка с текстом кейса — после его получения.
+    Сверен с текстом кейса (docs/case.md: F1–F12, T1–T7, O1–O8).
 
     - Фронт генерирует клиент: `npm run gen:api` (frontend/). Бэк валидирует ответы по контракту в тестах.
       Мок: `docker compose --profile mock up -d mock` → http://localhost:4010.
@@ -188,7 +188,7 @@ paths:
     post:
       tags: [company]
       operationId: createCompany
-      summary: Создать компанию по ИНН; реквизиты — из ЕГРЮЛ, создатель становится директором
+      summary: Создать компанию по ИНН; реквизиты — из ЕГРЮЛ, создатель становится signatory
       requestBody:
         required: true
         content:
@@ -243,7 +243,7 @@ paths:
     post:
       tags: [company]
       operationId: addCompanyMember
-      summary: Добавить сотрудника по логину (только директор)
+      summary: Добавить сотрудника по логину (только signatory)
       requestBody:
         required: true
         content:
@@ -270,7 +270,7 @@ paths:
     delete:
       tags: [company]
       operationId: removeCompanyMember
-      summary: Убрать сотрудника (только директор; себя убрать нельзя)
+      summary: Убрать сотрудника (только signatory; себя убрать нельзя)
       responses:
         "204": { description: Убран }
         "401": { $ref: "#/components/responses/Unauthorized" }
@@ -407,7 +407,7 @@ paths:
     post:
       tags: [applications]
       operationId: createApplication
-      summary: Создать черновик (директор или бухгалтер)
+      summary: Создать черновик (signatory или preparer)
       requestBody:
         required: true
         content:
@@ -539,7 +539,7 @@ paths:
     post:
       tags: [applications]
       operationId: acceptOffer
-      summary: Принять активный оффер или контроффер (offer → signing; директор)
+      summary: Принять активный оффер или контроффер (offer → signing; signatory)
       responses:
         "200":
           description: Оффер принят
@@ -557,7 +557,7 @@ paths:
     post:
       tags: [applications]
       operationId: declineOffer
-      summary: Отказаться от оффера (offer → cancelled; директор)
+      summary: Отказаться от оффера (offer → cancelled; signatory)
       responses:
         "200":
           description: Оффер отклонён
@@ -621,7 +621,7 @@ paths:
     post:
       tags: [applications]
       operationId: respondInfoRequest
-      summary: Ответить на запрос банка (info_requested → manual_review); документы — заранее через /documents
+      summary: Ответить на запрос (info_requested → submitted, если запросила проверка полноты; → manual_review, если сотрудник); документы — заранее через /documents
       requestBody:
         required: true
         content:
@@ -866,7 +866,7 @@ paths:
     post:
       tags: [bank]
       operationId: counterofferBankApplication
-      summary: Изменить условия и/или продукт (manual_review → offer с is_counteroffer)
+      summary: Иные условия и/или другой продукт (manual_review → offer; is_counteroffer / product_changed)
       requestBody:
         required: true
         content:
@@ -1328,8 +1328,11 @@ components:
 
     MemberRole:
       type: string
-      enum: [director, accountant]
-      description: director — отправляет, принимает оффер, подписывает; accountant — готовит черновики и документы
+      enum: [signatory, preparer]
+      description: |
+        Права в компании (кейс: собственник, директор, финдиректор, бухгалтер, иной уполномоченный).
+        signatory — отправляет заявку, принимает оффер, подписывает (собственник, директор, уполномоченный по доверенности);
+        preparer — готовит черновики, документы, отвечает на запросы банка (бухгалтер, финдиректор, сотрудник). Должность — в position.
 
     Me:
       type: object
@@ -1405,19 +1408,21 @@ components:
 
     Member:
       type: object
-      required: [id, user, role]
+      required: [id, user, role, position]
       properties:
         id: { type: integer }
         user: { $ref: "#/components/schemas/UserRef" }
         role: { $ref: "#/components/schemas/MemberRole" }
+        position: { type: string, examples: ["Главный бухгалтер"] }
 
     MemberCreate:
       type: object
-      required: [username, role]
+      required: [username, role, position]
       additionalProperties: false
       properties:
         username: { type: string, minLength: 1, maxLength: 150 }
         role: { $ref: "#/components/schemas/MemberRole" }
+        position: { type: string, minLength: 1, maxLength: 100 }
 
     SnapshotSource:
       type: string
@@ -1590,6 +1595,7 @@ components:
         - rate
         - monthly_payment
         - is_counteroffer
+        - product_changed
         - status
         - expires_at
         - reasons
@@ -1603,7 +1609,8 @@ components:
         monthly_payment:
           description: Для возобновляемых продуктов (овердрафт, факторинг) — null
           oneOf: [{ $ref: "#/components/schemas/Money" }, { type: "null" }]
-        is_counteroffer: { type: boolean, description: Условия отличаются от запрошенных }
+        is_counteroffer: { type: boolean, description: Сумма или срок отличаются от запрошенных }
+        product_changed: { type: boolean, description: Предложен другой продукт, чем в заявке }
         status: { type: string, enum: [active, accepted, declined, superseded] }
         expires_at: { type: string, format: date-time }
         reasons:
@@ -1708,6 +1715,7 @@ components:
         - requested_amount
         - term_months
         - invoice_amount
+        - collateral_description
         - status
         - version
         - prefill_source
@@ -1728,6 +1736,9 @@ components:
         invoice_amount:
           description: Для факторинга — сумма отгрузки
           oneOf: [{ $ref: "#/components/schemas/Money" }, { type: "null" }]
+        collateral_description:
+          description: Залог или дополнительные условия (крупные проекты); null — без залога
+          oneOf: [{ type: string }, { type: "null" }]
         status: { $ref: "#/components/schemas/ApplicationStatus" }
         version: { $ref: "#/components/schemas/Version" }
         prefill_source: { $ref: "#/components/schemas/PrefillSource" }
@@ -1767,6 +1778,7 @@ components:
         term_months: { type: integer, minimum: 1, maximum: 360 }
         product_code: { type: string }
         invoice_amount: { $ref: "#/components/schemas/Money" }
+        collateral_description: { type: string, maxLength: 1000 }
         prefill_source: { $ref: "#/components/schemas/PrefillSource" }
 
     ApplicationUpdate:
@@ -1784,6 +1796,8 @@ components:
           oneOf: [{ type: string }, { type: "null" }]
         invoice_amount:
           oneOf: [{ $ref: "#/components/schemas/Money" }, { type: "null" }]
+        collateral_description:
+          oneOf: [{ type: string, maxLength: 1000 }, { type: "null" }]
 
     ActorKind:
       type: string
@@ -1823,15 +1837,23 @@ components:
 
     DecisionOutcome:
       type: string
-      enum: [offer, counteroffer, manual_review, info_requested, declined]
+      enum: [offer, counteroffer, alternative_product, manual_review, info_requested, declined]
+      description: |
+        offer — одобрено на запрошенных условиях; counteroffer — иные сумма или срок;
+        alternative_product — другой продукт; manual_review — нужен сотрудник;
+        info_requested — нужны уточнения; declined — отказ (кейс: «итог не обязательно бинарный»).
 
     Decision:
       type: object
-      required: [id, application_id, outcome, decided_by, is_preliminary, reasons, improvements, comment, created_at]
+      required: [id, application_id, outcome, decided_by, is_preliminary, grade, policy_version, reasons, improvements, comment, created_at]
       properties:
         id: { type: integer }
         application_id: { type: integer }
         outcome: { $ref: "#/components/schemas/DecisionOutcome" }
+        grade:
+          description: Грейд скоринга, на который опиралось решение (скоринг ≠ решение); null — до скоринга (стоп-фактор, неполные данные)
+          oneOf: [{ $ref: "#/components/schemas/Grade" }, { type: "null" }]
+        policy_version: { type: string, description: Версия правил кредитной логики (decision-model.md), examples: ["2026.10-v1"] }
         decided_by:
           type: string
           enum: [auto, officer]
@@ -1851,10 +1873,18 @@ components:
 
     InfoRequest:
       type: object
-      required: [id, message, document_kinds, status, response_message, created_at, answered_at]
+      required: [id, origin, message, fields, document_kinds, status, response_message, created_at, answered_at]
       properties:
         id: { type: integer }
-        message: { type: string, description: Что просит банк }
+        origin:
+          type: string
+          enum: [validation, officer]
+          description: validation — автоматическая проверка полноты и корректности (F6); officer — сотрудник банка
+        message: { type: string, description: Что просит банк, простым языком }
+        fields:
+          type: array
+          description: Какие поля заявки или компании нужно уточнить (для origin=validation)
+          items: { type: string, examples: [purpose] }
         document_kinds:
           type: array
           items: { $ref: "#/components/schemas/DocumentKind" }
