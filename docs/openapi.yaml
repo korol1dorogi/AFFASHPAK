@@ -1,0 +1,964 @@
+openapi: 3.1.0
+info:
+  title: Умный кредитный кабинет предпринимателя — API
+  version: 0.1.0-draft
+  description: |
+    ЧЕРНОВИК ДО КЕЙСА. Контракт — источник истины (contract-first, docs/decisions.md D2).
+    Меняет только лид. Фронт генерирует клиент (frontend: npm run gen:api), бэк валидирует
+    ответы по контракту в тестах, Prism отдаёт мок (docker compose --profile mock up -d mock).
+
+    Соглашения:
+    - Деньги, ставки и коэффициенты — строки-десятичные ("900000.00", "0.24"). Ставки — годовые, в долях.
+    - Ошибки — единый формат Error.
+    - Аутентификация — сессия (cookie sessionid). Небезопасные методы требуют заголовок
+      X-CSRFToken со значением cookie csrftoken (GET /api/auth/csrf выставляет cookie).
+    - Все данные — только текущего пользователя: чужой id → 404.
+servers:
+  - url: /
+security:
+  - session: []
+tags:
+  - name: system
+  - name: auth
+  - name: business
+  - name: products
+  - name: applications
+  - name: assistant
+
+paths:
+  /api/health:
+    get:
+      tags: [system]
+      operationId: getHealth
+      summary: Состояние API и базы данных
+      security: []
+      responses:
+        "200":
+          description: Всё работает
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Health" }
+              example: { status: ok, database: ok }
+        "503":
+          description: База недоступна
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Health" }
+              example: { status: degraded, database: unavailable }
+
+  /api/auth/csrf:
+    get:
+      tags: [auth]
+      operationId: getCsrf
+      summary: Выставить cookie csrftoken
+      security: []
+      responses:
+        "200":
+          description: Cookie выставлена
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CsrfToken" }
+
+  /api/auth/login:
+    post:
+      tags: [auth]
+      operationId: login
+      summary: Вход по логину и паролю (сессия)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LoginRequest" }
+      responses:
+        "200":
+          description: Вход выполнен
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "400": { $ref: "#/components/responses/ValidationError" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
+  /api/auth/logout:
+    post:
+      tags: [auth]
+      operationId: logout
+      summary: Выход
+      responses:
+        "204": { description: Сессия завершена }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/auth/me:
+    get:
+      tags: [auth]
+      operationId: getMe
+      summary: Текущий пользователь
+      responses:
+        "200":
+          description: Пользователь
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/business:
+    get:
+      tags: [business]
+      operationId: getBusiness
+      summary: Бизнес текущего пользователя
+      responses:
+        "200":
+          description: Бизнес
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Business" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [business]
+      operationId: updateBusiness
+      summary: Изменить редактируемые поля бизнеса
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BusinessUpdate" }
+      responses:
+        "200":
+          description: Обновлённый бизнес
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Business" }
+        "400": { $ref: "#/components/responses/ValidationError" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/business/metrics:
+    get:
+      tags: [business]
+      operationId: getBusinessMetrics
+      summary: Последний финансовый снимок и метрики с пояснениями
+      responses:
+        "200":
+          description: Снимок (может отсутствовать) и метрики в формате Reason
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BusinessMetrics" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/integrations/{source}/connect:
+    post:
+      tags: [business]
+      operationId: connectIntegration
+      summary: Подключить источник данных (загружает демо-данные с пометкой)
+      parameters:
+        - name: source
+          in: path
+          required: true
+          schema: { $ref: "#/components/schemas/IntegrationSource" }
+      responses:
+        "200":
+          description: Источник подключён, создан снимок
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/IntegrationConnectResult" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/products:
+    get:
+      tags: [products]
+      operationId: listProducts
+      summary: Каталог кредитных продуктов
+      responses:
+        "200":
+          description: Продукты
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Product" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/recommendations:
+    post:
+      tags: [products]
+      operationId: createRecommendations
+      summary: Подбор продукта под потребность (с суммой, платежом и reasons)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RecommendationRequest" }
+      responses:
+        "200":
+          description: Ранжированные предложения и стоп-факторы
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RecommendationResult" }
+        "400": { $ref: "#/components/responses/ValidationError" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/calculators/annuity:
+    post:
+      tags: [products]
+      operationId: calculateAnnuity
+      summary: Аннуитетный калькулятор с графиком платежей
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AnnuityRequest" }
+      responses:
+        "200":
+          description: Платёж, итог, переплата, график
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AnnuityResult" }
+        "400": { $ref: "#/components/responses/ValidationError" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/applications:
+    get:
+      tags: [applications]
+      operationId: listApplications
+      summary: Заявки текущего пользователя (новые сверху)
+      responses:
+        "200":
+          description: Заявки
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Application" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      tags: [applications]
+      operationId: createApplication
+      summary: Создать черновик заявки
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ApplicationCreate" }
+      responses:
+        "201":
+          description: Черновик создан
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Application" }
+        "400": { $ref: "#/components/responses/ValidationError" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/applications/{id}:
+    parameters:
+      - $ref: "#/components/parameters/ApplicationId"
+    get:
+      tags: [applications]
+      operationId: getApplication
+      summary: Заявка
+      responses:
+        "200":
+          description: Заявка
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Application" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [applications]
+      operationId: updateApplication
+      summary: Изменить черновик (только status=draft, только редактируемые поля)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ApplicationUpdate" }
+      responses:
+        "200":
+          description: Обновлённая заявка
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Application" }
+        "400": { $ref: "#/components/responses/ValidationError" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /api/applications/{id}/submit:
+    parameters:
+      - $ref: "#/components/parameters/ApplicationId"
+    post:
+      tags: [applications]
+      operationId: submitApplication
+      summary: Отправить заявку (draft|info_requested → submitted), запускает предварительную оценку
+      responses:
+        "200":
+          description: Заявка отправлена
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Application" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /api/applications/{id}/cancel:
+    parameters:
+      - $ref: "#/components/parameters/ApplicationId"
+    post:
+      tags: [applications]
+      operationId: cancelApplication
+      summary: Отозвать заявку (draft|submitted → cancelled)
+      responses:
+        "200":
+          description: Заявка отозвана
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Application" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /api/applications/{id}/decision:
+    parameters:
+      - $ref: "#/components/parameters/ApplicationId"
+    get:
+      tags: [applications]
+      operationId: getApplicationDecision
+      summary: Предварительная оценка или решение сотрудника с причинами
+      responses:
+        "200":
+          description: Последнее решение по заявке
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Decision" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/applications/{id}/documents:
+    parameters:
+      - $ref: "#/components/parameters/ApplicationId"
+    get:
+      tags: [applications]
+      operationId: listApplicationDocuments
+      summary: Документы заявки
+      responses:
+        "200":
+          description: Документы
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Document" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      tags: [applications]
+      operationId: uploadApplicationDocument
+      summary: Загрузить документ (лимит размера, тип проверяется по содержимому)
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema: { $ref: "#/components/schemas/DocumentUpload" }
+      responses:
+        "201":
+          description: Документ загружен
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Document" }
+        "400": { $ref: "#/components/responses/ValidationError" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+
+  /api/assistant/messages:
+    post:
+      tags: [assistant]
+      operationId: sendAssistantMessage
+      summary: Сообщение ИИ-ассистенту; инструменты работают от имени пользователя
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AssistantMessageRequest" }
+      responses:
+        "200":
+          description: Ответ ассистента, вызванные инструменты и действие на подтверждение
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AssistantReply" }
+        "400": { $ref: "#/components/responses/ValidationError" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
+  /api/assistant/actions/{id}/confirm:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      tags: [assistant]
+      operationId: confirmAssistantAction
+      summary: Человек подтверждает действие, предложенное ассистентом
+      responses:
+        "200":
+          description: Действие выполнено
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AssistantActionResult" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+components:
+  securitySchemes:
+    session:
+      type: apiKey
+      in: cookie
+      name: sessionid
+
+  parameters:
+    ApplicationId:
+      name: id
+      in: path
+      required: true
+      schema: { type: integer, minimum: 1 }
+
+  responses:
+    ValidationError:
+      description: Ошибка валидации (details — ошибки по полям)
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example:
+            error:
+              code: invalid
+              message: Проверьте введённые данные.
+              details: { requested_amount: ["Обязательное поле."] }
+    Unauthorized:
+      description: Нужен вход
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example: { error: { code: not_authenticated, message: Учётные данные не были предоставлены. } }
+    Forbidden:
+      description: Нет прав или не прошла проверка CSRF
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example: { error: { code: permission_denied, message: Недостаточно прав. } }
+    NotFound:
+      description: Не найдено (в том числе чужой объект)
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example: { error: { code: not_found, message: Не найдено. } }
+    Conflict:
+      description: Действие недопустимо в текущем статусе
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example: { error: { code: invalid_transition, message: Заявку в этом статусе изменить нельзя. } }
+    PayloadTooLarge:
+      description: Файл больше лимита
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    TooManyRequests:
+      description: Слишком много запросов (троттлинг)
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example: { error: { code: throttled, message: Слишком много запросов. Попробуйте позже. } }
+
+  schemas:
+    Money:
+      type: string
+      description: Сумма в рублях, строка-десятичная с копейками
+      pattern: '^-?\d+(\.\d{1,2})?$'
+      examples: ["900000.00"]
+    Rate:
+      type: string
+      description: Годовая ставка в долях (0.24 = 24%)
+      pattern: '^\d+(\.\d+)?$'
+      examples: ["0.24"]
+    DecimalString:
+      type: string
+      description: Десятичное число строкой (коэффициенты — 4 знака)
+      pattern: '^-?\d+(\.\d+)?$'
+      examples: ["1.2500"]
+
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code: { type: string, examples: [not_found] }
+            message: { type: string, description: Текст для пользователя (по-русски) }
+            details:
+              type: object
+              description: Ошибки по полям
+              additionalProperties: true
+
+    Health:
+      type: object
+      required: [status, database]
+      properties:
+        status: { type: string, enum: [ok, degraded] }
+        database: { type: string, enum: [ok, unavailable] }
+
+    CsrfToken:
+      type: object
+      required: [csrf_token]
+      properties:
+        csrf_token: { type: string }
+
+    LoginRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username: { type: string, minLength: 1, maxLength: 150 }
+        password: { type: string, minLength: 1, maxLength: 128, format: password }
+
+    UserRole:
+      type: string
+      enum: [client, officer]
+      description: client — предприниматель; officer — сотрудник банка (работает через Django admin)
+
+    User:
+      type: object
+      required: [id, username, role, full_name]
+      properties:
+        id: { type: integer }
+        username: { type: string }
+        role: { $ref: "#/components/schemas/UserRole" }
+        full_name: { type: string }
+
+    LegalForm:
+      type: string
+      enum: [ip, ooo]
+
+    Business:
+      type: object
+      required: [id, legal_form, name, inn, ogrn, okved, registered_at, region, is_demo]
+      properties:
+        id: { type: integer }
+        legal_form: { $ref: "#/components/schemas/LegalForm" }
+        name: { type: string, examples: ["ИП Иванова (демо)"] }
+        inn: { type: string, pattern: '^\d{10}(\d{2})?$' }
+        ogrn: { type: string, pattern: '^\d{13}(\d{2})?$' }
+        okved: { type: string, examples: ["56.10"] }
+        registered_at: { type: string, format: date }
+        region: { type: string }
+        is_demo: { type: boolean, description: Синтетические данные (показываем пометку «демо») }
+
+    BusinessUpdate:
+      type: object
+      minProperties: 1
+      additionalProperties: false
+      properties:
+        name: { type: string, minLength: 1, maxLength: 255 }
+        okved: { type: string, maxLength: 16 }
+        region: { type: string, maxLength: 128 }
+
+    SnapshotSource:
+      type: string
+      enum: [case, demo, manual]
+
+    FinancialSnapshot:
+      type: object
+      description: Финансовый снимок бизнеса за период. null — данных нет.
+      required:
+        - id
+        - period
+        - source
+        - cleaned_credit_turnover
+        - cfads
+        - debt_service
+        - revenue
+        - cogs
+        - ebitda
+        - debt
+        - cash
+        - receivables
+        - inventory
+        - payables
+        - counterparty_concentration
+        - revenue_trend
+      properties:
+        id: { type: integer }
+        period: { type: string, description: Период снимка, examples: ["2026-09"] }
+        source: { $ref: "#/components/schemas/SnapshotSource" }
+        cleaned_credit_turnover:
+          description: Среднемесячный очищенный кредитовый оборот
+          oneOf: [{ $ref: "#/components/schemas/Money" }, { type: "null" }]
+        cfads:
+          description: Денежный поток для обслуживания долга, в месяц
+          oneOf: [{ $ref: "#/components/schemas/Money" }, { type: "null" }]
+        debt_service:
+          description: Текущие платежи по долгам, в месяц
+          oneOf: [{ $ref: "#/components/schemas/Money" }, { type: "null" }]
+        revenue: { oneOf: [{ $ref: "#/components/schemas/Money" }, { type: "null" }] }
+        cogs: { oneOf: [{ $ref: "#/components/schemas/Money" }, { type: "null" }] }
+        ebitda: { oneOf: [{ $ref: "#/components/schemas/Money" }, { type: "null" }] }
+        debt: { oneOf: [{ $ref: "#/components/schemas/Money" }, { type: "null" }] }
+        cash: { oneOf: [{ $ref: "#/components/schemas/Money" }, { type: "null" }] }
+        receivables: { oneOf: [{ $ref: "#/components/schemas/Money" }, { type: "null" }] }
+        inventory: { oneOf: [{ $ref: "#/components/schemas/Money" }, { type: "null" }] }
+        payables: { oneOf: [{ $ref: "#/components/schemas/Money" }, { type: "null" }] }
+        counterparty_concentration:
+          oneOf: [{ $ref: "#/components/schemas/DecimalString" }, { type: "null" }]
+        revenue_trend:
+          oneOf: [{ $ref: "#/components/schemas/DecimalString" }, { type: "null" }]
+
+    Reason:
+      type: object
+      description: Одна объяснённая проверка (AGENTS.md, «Деньги и расчёты»)
+      required: [metric, value, threshold, passed, message]
+      properties:
+        metric: { type: string, examples: [dscr] }
+        value:
+          description: Значение метрики; null — посчитать нельзя (причина в message)
+          oneOf: [{ $ref: "#/components/schemas/DecimalString" }, { type: "null" }]
+        threshold:
+          oneOf: [{ $ref: "#/components/schemas/DecimalString" }, { type: "null" }]
+        passed: { type: boolean }
+        message: { type: string, description: Текст для клиента }
+
+    BusinessMetrics:
+      type: object
+      required: [snapshot, metrics, is_demo]
+      properties:
+        snapshot:
+          oneOf: [{ $ref: "#/components/schemas/FinancialSnapshot" }, { type: "null" }]
+        metrics:
+          type: array
+          items: { $ref: "#/components/schemas/Reason" }
+        is_demo: { type: boolean }
+
+    IntegrationSource:
+      type: string
+      enum: [bank_statement, edo]
+
+    IntegrationConnectResult:
+      type: object
+      required: [source, status, is_demo, snapshot]
+      properties:
+        source: { $ref: "#/components/schemas/IntegrationSource" }
+        status: { type: string, enum: [connected] }
+        is_demo: { type: boolean, description: Всегда true, пока интеграции — мок }
+        snapshot: { $ref: "#/components/schemas/FinancialSnapshot" }
+
+    ProductKind:
+      type: string
+      enum: [overdraft, factoring, working_capital_loan, investment_loan, leasing]
+
+    Product:
+      type: object
+      required:
+        - id
+        - code
+        - kind
+        - name
+        - rate_min
+        - rate_max
+        - term_min_months
+        - term_max_months
+        - amount_min
+        - amount_max
+        - params
+        - requirements
+      properties:
+        id: { type: integer }
+        code: { type: string, examples: [overdraft_basic] }
+        kind: { $ref: "#/components/schemas/ProductKind" }
+        name: { type: string }
+        rate_min: { $ref: "#/components/schemas/Rate" }
+        rate_max: { $ref: "#/components/schemas/Rate" }
+        term_min_months: { type: integer, minimum: 1 }
+        term_max_months: { type: integer, minimum: 1 }
+        amount_min: { $ref: "#/components/schemas/Money" }
+        amount_max: { $ref: "#/components/schemas/Money" }
+        params:
+          type: object
+          description: Параметры продукта (alpha, beta, min_dscr, max_debt_to_ebitda, tranche_days…)
+          additionalProperties: { $ref: "#/components/schemas/DecimalString" }
+        requirements:
+          type: object
+          required: [min_business_age_months, legal_forms]
+          properties:
+            min_business_age_months: { type: integer, minimum: 0 }
+            legal_forms:
+              type: array
+              items: { $ref: "#/components/schemas/LegalForm" }
+
+    NeedType:
+      type: string
+      enum: [cash_gap, receivable_delay, working_capital, capex]
+      description: |
+        cash_gap — кассовый разрыв; receivable_delay — покупатель платит позже;
+        working_capital — закупка, сезон; capex — оборудование, транспорт, недвижимость.
+
+    RecommendationRequest:
+      type: object
+      required: [need_type]
+      additionalProperties: false
+      properties:
+        need_type: { $ref: "#/components/schemas/NeedType" }
+        amount: { $ref: "#/components/schemas/Money" }
+        term_months: { type: integer, minimum: 1, maximum: 360 }
+
+    Offer:
+      type: object
+      required: [rank, product, amount, term_months, rate, monthly_payment, fits, reasons]
+      properties:
+        rank: { type: integer, minimum: 1 }
+        product: { $ref: "#/components/schemas/Product" }
+        amount: { $ref: "#/components/schemas/Money" }
+        term_months: { type: integer, minimum: 1 }
+        rate: { $ref: "#/components/schemas/Rate" }
+        monthly_payment:
+          description: Для возобновляемых продуктов (овердрафт, факторинг) — null
+          oneOf: [{ $ref: "#/components/schemas/Money" }, { type: "null" }]
+        fits: { type: boolean, description: Все проверки пройдены }
+        reasons:
+          type: array
+          items: { $ref: "#/components/schemas/Reason" }
+
+    RecommendationResult:
+      type: object
+      required: [need_type, offers, stop_factors, is_preliminary]
+      properties:
+        need_type: { $ref: "#/components/schemas/NeedType" }
+        offers:
+          type: array
+          items: { $ref: "#/components/schemas/Offer" }
+        stop_factors:
+          type: array
+          items: { $ref: "#/components/schemas/Reason" }
+        is_preliminary: { type: boolean, const: true }
+
+    AnnuityRequest:
+      type: object
+      required: [principal, annual_rate, term_months]
+      additionalProperties: false
+      properties:
+        principal: { $ref: "#/components/schemas/Money" }
+        annual_rate: { $ref: "#/components/schemas/Rate" }
+        term_months: { type: integer, minimum: 1, maximum: 360 }
+
+    ScheduleRow:
+      type: object
+      required: [number, payment, interest, principal, balance]
+      properties:
+        number: { type: integer, minimum: 1 }
+        payment: { $ref: "#/components/schemas/Money" }
+        interest: { $ref: "#/components/schemas/Money" }
+        principal: { $ref: "#/components/schemas/Money" }
+        balance: { $ref: "#/components/schemas/Money" }
+
+    AnnuityResult:
+      type: object
+      required: [payment, total_paid, overpayment, schedule]
+      properties:
+        payment: { $ref: "#/components/schemas/Money" }
+        total_paid: { $ref: "#/components/schemas/Money" }
+        overpayment: { $ref: "#/components/schemas/Money" }
+        schedule:
+          type: array
+          items: { $ref: "#/components/schemas/ScheduleRow" }
+
+    ApplicationStatus:
+      type: string
+      enum: [draft, submitted, in_review, approved, declined, info_requested, cancelled]
+      description: |
+        draft → submitted → in_review → approved | declined | info_requested;
+        info_requested → submitted; draft | submitted → cancelled.
+        Меняется только через действия (submit, cancel) и бэк-офис.
+
+    PrefillSource:
+      type: string
+      enum: [manual, recommendation, assistant]
+
+    Application:
+      type: object
+      required:
+        - id
+        - need_type
+        - purpose
+        - requested_amount
+        - term_months
+        - product_code
+        - status
+        - prefill_source
+        - created_at
+        - submitted_at
+      properties:
+        id: { type: integer }
+        need_type: { $ref: "#/components/schemas/NeedType" }
+        purpose: { type: string }
+        requested_amount: { $ref: "#/components/schemas/Money" }
+        term_months: { type: integer, minimum: 1 }
+        product_code:
+          description: Код выбранного продукта; null до выбора
+          oneOf: [{ type: string }, { type: "null" }]
+        status: { $ref: "#/components/schemas/ApplicationStatus" }
+        prefill_source: { $ref: "#/components/schemas/PrefillSource" }
+        created_at: { type: string, format: date-time }
+        submitted_at:
+          oneOf: [{ type: string, format: date-time }, { type: "null" }]
+
+    ApplicationCreate:
+      type: object
+      required: [need_type, purpose, requested_amount, term_months]
+      additionalProperties: false
+      properties:
+        need_type: { $ref: "#/components/schemas/NeedType" }
+        purpose: { type: string, minLength: 1, maxLength: 1000 }
+        requested_amount: { $ref: "#/components/schemas/Money" }
+        term_months: { type: integer, minimum: 1, maximum: 360 }
+        product_code: { type: string }
+        prefill_source: { $ref: "#/components/schemas/PrefillSource" }
+
+    ApplicationUpdate:
+      type: object
+      minProperties: 1
+      additionalProperties: false
+      properties:
+        need_type: { $ref: "#/components/schemas/NeedType" }
+        purpose: { type: string, minLength: 1, maxLength: 1000 }
+        requested_amount: { $ref: "#/components/schemas/Money" }
+        term_months: { type: integer, minimum: 1, maximum: 360 }
+        product_code:
+          oneOf: [{ type: string }, { type: "null" }]
+
+    DecisionOutcome:
+      type: string
+      enum: [approved, declined, info_requested]
+
+    Decision:
+      type: object
+      required:
+        - application_id
+        - outcome
+        - decided_by
+        - is_preliminary
+        - approved_amount
+        - rate
+        - term_months
+        - monthly_payment
+        - reasons
+        - created_at
+      properties:
+        application_id: { type: integer }
+        outcome: { $ref: "#/components/schemas/DecisionOutcome" }
+        decided_by:
+          type: string
+          enum: [auto, officer]
+          description: auto — предварительная оценка системы; officer — сотрудник банка
+        is_preliminary: { type: boolean, description: true для decided_by=auto }
+        approved_amount:
+          oneOf: [{ $ref: "#/components/schemas/Money" }, { type: "null" }]
+        rate:
+          oneOf: [{ $ref: "#/components/schemas/Rate" }, { type: "null" }]
+        term_months:
+          oneOf: [{ type: integer, minimum: 1 }, { type: "null" }]
+        monthly_payment:
+          oneOf: [{ $ref: "#/components/schemas/Money" }, { type: "null" }]
+        reasons:
+          type: array
+          items: { $ref: "#/components/schemas/Reason" }
+        created_at: { type: string, format: date-time }
+
+    DocumentKind:
+      type: string
+      enum: [bank_statement, financial_report, tax_return, contract, invoice, other]
+
+    Document:
+      type: object
+      required: [id, kind, filename, content_type, size, sha256, uploaded_at, download_url]
+      properties:
+        id: { type: integer }
+        kind: { $ref: "#/components/schemas/DocumentKind" }
+        filename: { type: string, description: Исходное имя (хранится под случайным именем) }
+        content_type: { type: string, examples: [application/pdf] }
+        size: { type: integer, minimum: 1 }
+        sha256: { type: string, pattern: '^[a-f0-9]{64}$' }
+        uploaded_at: { type: string, format: date-time }
+        download_url: { type: string, description: Отдаётся как attachment }
+
+    DocumentUpload:
+      type: object
+      required: [kind, file]
+      properties:
+        kind: { $ref: "#/components/schemas/DocumentKind" }
+        file: { type: string, format: binary }
+
+    AssistantMessageRequest:
+      type: object
+      required: [text]
+      additionalProperties: false
+      properties:
+        text: { type: string, minLength: 1, maxLength: 2000 }
+        application_id: { type: integer, minimum: 1 }
+
+    AssistantToolCall:
+      type: object
+      required: [name, arguments, result]
+      description: Запись журнала — что ассистент вызвал и что получил
+      properties:
+        name: { type: string, examples: [get_recommendations] }
+        arguments: { type: object, additionalProperties: true }
+        result:
+          oneOf: [{ type: object, additionalProperties: true }, { type: "null" }]
+
+    PendingAction:
+      type: object
+      required: [id, kind, summary, application_id]
+      description: Действие, которое выполнится только после подтверждения человеком
+      properties:
+        id: { type: string, format: uuid }
+        kind: { type: string, enum: [create_application, submit_application] }
+        summary: { type: string, description: Что произойдёт — текстом для клиента }
+        application_id:
+          oneOf: [{ type: integer }, { type: "null" }]
+
+    AssistantReply:
+      type: object
+      required: [reply, tool_calls, pending_action]
+      properties:
+        reply: { type: string, description: Простой текст без HTML }
+        tool_calls:
+          type: array
+          items: { $ref: "#/components/schemas/AssistantToolCall" }
+        pending_action:
+          oneOf: [{ $ref: "#/components/schemas/PendingAction" }, { type: "null" }]
+
+    AssistantActionResult:
+      type: object
+      required: [action_id, status, application]
+      properties:
+        action_id: { type: string, format: uuid }
+        status: { type: string, enum: [done] }
+        application: { $ref: "#/components/schemas/Application" }

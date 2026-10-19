@@ -1,0 +1,18 @@
+# Build context is the repo root; send only what the backend image needs (allowlist).
+*
+!backend/
+!docs/openapi.yaml
+
+# Never in the image, even inside allowed folders
+.env
+.env.*
+**/.env
+**/.env.*
+.git
+**/node_modules
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+**/.ruff_cache
+backend/staticfiles
+backend/media

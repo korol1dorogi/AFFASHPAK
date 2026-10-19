@@ -1,0 +1,45 @@
+# Secrets and local env
+.env
+.env.*
+!.env.example
+
+# Case data never lives in the repo (see CASE_DATA_DIR); only data/sample/ is committed
+/data/*
+!/data/SCHEMA.md
+!/data/sample/
+*.xlsx
+*.parquet
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+backend/staticfiles/
+backend/media/
+
+# Node
+node_modules/
+frontend/dist/
+*.tsbuildinfo
+
+# Playwright
+e2e/test-results/
+e2e/playwright-report/
+e2e/blob-report/
+e2e/playwright/.cache/
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# Local agent files (rules live only in AGENTS.md, see docs/decisions.md D1)
+CLAUDE.md
+CLAUDE.local.md

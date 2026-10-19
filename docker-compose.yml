@@ -1,0 +1,57 @@
+# Local development: db + backend (+ Prism mock with --profile mock).
+# The frontend runs locally via npm (frontend/: npm run dev) and proxies /api to the backend.
+# All ports are bound to 127.0.0.1 only.
+name: alfa-cabinet
+
+services:
+  db:
+    image: postgres:18.6
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?set in .env}
+      POSTGRES_USER: ${POSTGRES_USER:?set in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set in .env}
+    volumes:
+      - db-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      args:
+        REQUIREMENTS: requirements-dev.txt
+    env_file: .env
+    environment:
+      CASE_DATA_DIR: /case-data
+    command: sh -c "python manage.py migrate --noinput && python manage.py runserver 0.0.0.0:8000"
+    volumes:
+      - ./backend:/app
+      - ./docs:/docs:ro
+      - ${CASE_DATA_DIR:-./data/sample}:/case-data:ro
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=3)"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+
+  mock:
+    image: stoplight/prism:5.15.10
+    profiles: ["mock"]
+    command: mock -h 0.0.0.0 -p 4010 --multiprocess=false /docs/openapi.yaml
+    volumes:
+      - ./docs:/docs:ro
+    ports:
+      - "127.0.0.1:4010:4010"
+
+volumes:
+  db-data:

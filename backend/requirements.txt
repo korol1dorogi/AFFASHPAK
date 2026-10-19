@@ -1,0 +1,6 @@
+# Runtime dependencies. Exact versions only; new ones go through the lead.
+Django==6.1.2
+djangorestframework==3.18.3
+psycopg[binary]==3.3.6
+gunicorn==26.2.0
+openai==3.35.1
