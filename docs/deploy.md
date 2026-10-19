@@ -47,7 +47,7 @@ cp deploy/.env.prod.example .env && chmod 600 .env
 python3 -c "import secrets; print('DJANGO_SECRET_KEY=' + secrets.token_urlsafe(64))"
 python3 -c "import secrets; print('POSTGRES_PASSWORD=' + secrets.token_urlsafe(24))"
 python3 -c "import secrets; print('DJANGO_ADMIN_URL=office-' + secrets.token_hex(6) + '/')"
-nano .env   # вписать DOMAIN, ACME_EMAIL и три значения выше
+nano .env   # вписать DOMAIN и три значения выше
 ```
 - `LLM_PROVIDER=mock`, пока организаторы не ответят, можно ли отправлять данные кейса во внешние LLM (D8). Потом — **отдельный** ключ для стенда с жёстким месячным лимитом бюджета в кабинете провайдера.
 - Данные кейса: `sudo mkdir -p /srv/alfa-case-data && sudo chown deploy:deploy /srv/alfa-case-data`, загрузить туда по `scp`. Путь — в `CASE_DATA_DIR`; бэкенд видит его только на чтение.

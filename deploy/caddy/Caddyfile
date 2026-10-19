@@ -1,9 +1,5 @@
 # One origin: SPA + /api + admin + static. HTTPS certificates are automatic (Let's Encrypt).
 # DOMAIN and DJANGO_ADMIN_URL come from the server .env (see docs/deploy.md).
-{
-	email {$ACME_EMAIL}
-}
-
 {$DOMAIN} {
 	encode zstd gzip
 

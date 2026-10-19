@@ -60,7 +60,6 @@ services:
     restart: unless-stopped
     environment:
       DOMAIN: ${DOMAIN:?set in .env}
-      ACME_EMAIL: ${ACME_EMAIL:?set in .env}
       DJANGO_ADMIN_URL: ${DJANGO_ADMIN_URL:?set in .env}
     ports:
       - "80:80"
