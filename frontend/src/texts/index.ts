@@ -29,7 +29,9 @@ export const STATUS: Record<Schemas["ApplicationStatus"], StatusText> = {
     label: "Отправлена",
     group: "progress",
     meaning: "Заявка в банке, скоро начнётся проверка.",
-    next: "Ничего делать не нужно — обновим статус сами.",
+    // TODO(L4): until the pipeline runs, nothing moves the status on by itself; once L4 is
+    // merged, return to «Ничего делать не нужно — обновим статус сами.»
+    next: "Заявка в банке. Проверка запускается — статус обновится здесь.",
   },
   processing: {
     label: "Проверяем",
