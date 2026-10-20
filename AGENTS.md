@@ -14,6 +14,7 @@
 - docs/openapi.yaml — контракт API.
 - docs/decisions.md — принятые решения, не пересматривай.
 - docs/knowledge/credit.md — если задача про расчёты, подбор, решение или ассистента.
+- docs/frontend.md и docs/design.md — если задача во frontend/ (маршруты, экраны, правила, дизайн-система).
 
 ## Структура
 - backend/ — Django + DRF: config/ — настройки, apps/<домен>/ — приложения, apps/credit_math/ — все кредитные расчёты, apps/scoring/ — балльная карта.
