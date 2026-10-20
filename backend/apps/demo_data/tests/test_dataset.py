@@ -17,7 +17,7 @@ RATIO = re.compile(r"^-?\d+\.\d{4}$")
 MONEY_FIELDS = {
     "cleaned_credit_turnover", "cfads", "debt_service", "revenue", "cogs", "ebitda", "debt",
     "cash", "receivables", "inventory", "payables", "amount", "tax_arrears", "monthly_payment",
-    "balance",
+    "balance", "requested_amount", "invoice_amount",
 }  # fmt: skip
 RATIO_FIELDS = {"counterparty_concentration", "revenue_trend", "share"}
 EMAIL = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+\.[A-Za-z]{2,}")
@@ -60,20 +60,25 @@ def test_ids_valid_unique_and_in_demo_region(dataset):
         assert inn[:2] == DEMO_REGION_CODE, inn
         assert owners.setdefault(inn, owner) == owner, (inn, owner, owners[inn])
 
-    for company in dataset["companies"]:
+    edges = [e["company"] for e in dataset["edge_cases"]]
+    for company in dataset["companies"] + edges:
         claim(company["inn"], company["_key"])
         ogrn = company["ogrn"]
         assert is_valid_ogrn(ogrn) and ogrn[3:5] == DEMO_REGION_CODE
-        assert ogrn[1:3] == company["registered_at"][2:4]
+        if company["registered_at"] is not None:  # g10: unknown date is the point of the case
+            assert ogrn[1:3] == company["registered_at"][2:4]
         expected = (12, 15, "3") if company["legal_form"] == "ip" else (10, 13, "1")
         assert (len(company["inn"]), len(ogrn), ogrn[0]) == expected
-    for statement in dataset["statements"]:
+    statements = dataset["statements"] + [e["statement"] for e in dataset["edge_cases"]]
+    for statement in filter(None, statements):
         for tx in statement["transactions"]:
             if tx["counterparty_inn"] is not None:
                 assert tx["counterparty_inn"][2:4] == "02"
                 claim(tx["counterparty_inn"], "cp:" + tx["counterparty"])
-    for record in dataset["simulators"]["egrul"].values():
-        for founder in record["data"]["founders"]:
+    egrul = list(dataset["simulators"]["egrul"].values())
+    egrul += [e["checks"]["egrul"] for e in dataset["edge_cases"]]
+    for record in egrul:
+        for founder in record["data"].get("founders", []):
             if founder["inn"] not in owners or not founder["inn"].startswith("0001"):
                 assert founder["inn"][2:4] == "03"
                 claim(founder["inn"], "person:" + founder["name"])
