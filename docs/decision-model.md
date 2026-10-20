@@ -95,3 +95,90 @@
 | E | < 50 | риск неприемлем | — (оффера нет) |
 
 `Score.total` — целое; `Score.model_version = "scorecard-2026.10-v1"`. Любая правка шкал или порогов грейда — новая `model_version`; старые `Score` не пересчитываются.
+
+## 5. Правила решения поверх грейда
+Правила проверяются **по порядку, первое сработавшее определяет исход**. Каждое проверенное правило добавляет свои `reasons` (раздел 7), даже если не сработало: клиент и сотрудник видят, что прошло, а что нет.
+
+| # | Условие | `outcome` | Статус (переход) | Что ещё |
+|---|---|---|---|---|
+| П1 | любой стоп-фактор С1–С5 | `declined` | `declined` (3) | `grade = null`; `improvements` из таблицы раздела 2 |
+| П2 | есть пробелы полноты (раздел 3) | `info_requested` | `info_requested` (4a) | `info_request {message, fields, document_kinds}`, `grade = null` |
+| П3 | хотя бы один `Check.status = unavailable` | `manual_review` | `manual_review` (5) | `source_unavailable = true`; при **любом** грейде, включая E: на неполных данных не отказываем (сценарий 7) |
+| П4 | грейд E | `declined` | `declined` (6) | `improvements` — все факторы с `passed = false`, по убыванию потерянных баллов |
+| П5 | грейд C или D; **или** пропущены ≥ 2 ключевые метрики (раздел 4); **или** невозобновляемый продукт и `debt_to_ebitda` > `max_debt_to_ebitda` | `manual_review` | `manual_review` (5) | в `reasons` — допустимая сумма по П7, ставка по грейду: заготовка решения для сотрудника |
+| П6 | продукт заявки не проходит своё требование: `requirements.legal_forms`, `requirements.min_business_age_months`, или `collateral_required` при пустом `collateral_description` | `alternative_product`, если подходит продукт из `alternatives`; иначе `declined` | `offer` (4) / `declined` (6) | альтернатива должна пройти свои требования и П7 с суммой ≥ её `amount_min`; срок — `term_months`, прижатый к её диапазону; сумма — min(запрошенная, допустимая для альтернативы) |
+| П7 | допустимая сумма (таблица ниже) < `requested_amount` | `counteroffer`, если допустимая ≥ `amount_min`; иначе `manual_review` | `offer` (4) / `manual_review` (5) | `offer.amount` = допустимая, срок — как в заявке; `improvements` — как получить запрошенное |
+| П8 | всё прошло | `offer` | `offer` (4) | `offer.amount = requested_amount` |
+
+**Альтернативы** (`alternatives`, политика): `investment_loan` → `leasing` (нет залога — лизингу он не нужен); `leasing` → `investment_loan` (только если залог описан); `working_capital_loan` → `overdraft` (бизнесу 6–11 мес: КПО требует 12, овердрафт — 6). Факторинг и овердрафт без альтернатив. Если сработали и П6, и уменьшение суммы, исход `alternative_product`, а `Offer.is_counteroffer` и `Offer.product_changed` оба `true` (их считает `create_offer`).
+
+### Допустимая сумма (П6, П7)
+Ставка и срок — те, что пойдут в оффер: ставка по грейду (ниже), срок из заявки.
+
+| `Product.kind` | Допустимая сумма | Функции `credit_math` | Нельзя посчитать |
+|---|---|---|---|
+| `overdraft` | min(лимит, `amount_max`) | `overdraft_limit(cleaned_credit_turnover, alpha)` | `cleaned_credit_turnover = null` → `manual_review` |
+| `factoring` | min(аванс, `amount_max`) | `factoring_advance(invoice_amount, beta)` | `invoice_amount` проверен в validation |
+| `working_capital_loan` | min(потребность, по DSCR, `amount_max`) | `working_capital_need(receivables, inventory, payables)`, `max_loan_by_dscr(cfads, debt_service, rate, term_months, min_dscr)` | остатки `null` → ограничивает только DSCR, в `reasons` пометка; `max_loan_by_dscr` = None → `manual_review` |
+| `investment_loan`, `leasing` | min(по DSCR, `amount_max`) | `max_loan_by_dscr(...)` | None → `manual_review` |
+
+- Для невозобновляемых в `reasons` добавляется DSCR с новым платежом: `dscr(cfads, debt_service + annuity_payment(amount, rate, term_months))` ≥ `min_dscr` — `max_loan_by_dscr` это гарантирует, reason показывает клиенту итог.
+- **Для D5**: `working_capital_need` принимает только числа; нужна обёртка, возвращающая `Metric.unavailable(...)`, если любой из остатков `null`.
+- **Для D5**: комиссия факторинга `invoice_amount × commission` (персона 2: 25 000 ₽) — функции нет; добавить в `credit_math` (`factoring_commission(invoice_amount, commission)`, `round_money`), показывается отдельной строкой в `reasons` оффера.
+
+### Ставка по грейду
+`rate = round_ratio(rate_min + (rate_max − rate_min) × rate_share[grade])`, `rate_share` — политика: A 0.2 · B 0.4 · C 0.6 · D 0.8 · E 1.0 (E — только если оффер делает сотрудник после П3). Одинаковый грейд — разные ставки у разных продуктов (F8).
+
+| Продукт | A | B | C | D |
+|---|---|---|---|---|
+| `overdraft_basic` (20–32%) | 22.4% | 24.8% | 27.2% | 29.6% |
+| `factoring_basic` (20–30%) | 22% | 24% | 26% | 28% |
+| `working_capital_loan_basic` (20–30%) | 22% | **24%** | 26% | 28% |
+| `investment_loan_basic` (19–28%) | 20.8% | 22.6% | **24.4%** | 26.2% |
+| `leasing_basic` (20–30%) | 22% | 24% | 26% | 28% |
+
+**Предложение лиду**: `rate_for` в `backend/apps/applications/offers.py` (L2) сейчас линейный A→`rate_min`, E→`rate_max` (КПО B = 22.5%); заменить на эту сетку — иначе контроффер персоны 3 не совпадёт с 2 009 314 ₽ при 24%. Сотрудник при `approve` получает ту же ставку по грейду.
+
+`Decision.policy_version = "2026.10-v1"`. Любая правка правил, порогов политики или сетки — новая `policy_version`.
+
+## 6. Пороги: где живут
+Все пороги — данные, а не константы в коде. Две группы:
+
+| Группа | Где | Параметры v1 |
+|---|---|---|
+| Условия продукта (D3) | `Product`: поля и `params`, `requirements`, `required_documents` (фикстура `backend/apps/products/fixtures/products.json`) | `alpha` 0.3, `tranche_days` 60, `beta` 0.9, `commission` 0.005, `min_dscr` 1.25, `max_debt_to_ebitda` 3.5; `rate_min`/`rate_max`, `term_*_months`, `amount_min`/`amount_max`; `min_business_age_months`, `legal_forms`; `collateral_required` |
+| Политика модели | версионированный конфиг в `apps/scoring` (D5: словарь/JSON по ключу `policy_version` и `model_version`; модели БД не нужны) | шкалы и баллы факторов (раздел 4), нейтральные баллы для None, пороги `passed`; пороги грейдов 90/75/60/50; `rate_share`; `stop_current_overdue_days` 30, `stop_min_business_age_months` 6; `max_missing_key_metrics` 1; `alternatives`; `purpose_min_length` 10; концентрация (0.3/0.5/0.7) и тренд (1.0/0.9/0.8) — общая политика, не условие продукта ([products.md](products.md), «Вне каталога») |
+
+Пороги `dscr` в карте и `min_dscr` продукта — разные вещи: карта меряет текущую нагрузку заёмщика (общая шкала), `min_dscr` — требование продукта к сумме нового кредита (П7). В v1 порог `passed` фактора `dscr` берётся из `min_dscr` продукта заявки (1.25 у всех).
+
+## 7. reasons и improvements
+`Reason`: `metric`, `value` (DecimalString | null), `threshold` (DecimalString | null), `passed`, `message` ([openapi.yaml](openapi.yaml), схема `Reason`). Нечисловые признаки (статус реестра, флаги) — `value = null`, суть в `message`. Метрика не посчитана — `value = null`, `passed = false`, `message` = `Metric.note` (так работают `check_at_least`/`check_at_most`), кроме случаев «долга нет», где `passed = true`.
+
+Клиенту всё — «предварительная оценка». «Что это значит» — в `message`, «что улучшить» — в `Decision.improvements` (для отказа и контроффера). Тексты — основа для D8, D8 может их переформулировать, не меняя смысла.
+
+| `metric` | `value` | `threshold` | `message` при passed / fail («что это значит») | «Что улучшить» (fail) |
+|---|---|---|---|---|
+| `registry_status` | null | null | — / «По данным ЕГРЮЛ компания в процессе ликвидации — кредит оформить нельзя» | — |
+| `egrul_found` | null | null | «Компания найдена в реестре» / «Компанию не нашли в ЕГРЮЛ/ЕГРИП» | «Проверьте ИНН компании» |
+| `ebitda` | EBITDA | 0 | — / «Операционная прибыль за год ≤ 0: бизнесу нечем обслуживать долг» | «Подайте заявку, когда бизнес выйдет на прибыль» |
+| `bki_current_overdue_days` | дни | 30 | — / «Сейчас есть просрочка по кредиту больше 30 дней» | «Погасите текущую просрочку» |
+| `business_age_months` | мес | 12 (или `min_business_age_months` продукта) | «Бизнесу N мес — достаточно» / «Бизнесу N мес, а продукт требует от M» | «Вернитесь через {M − N} мес или выберите {альтернативу}» |
+| `score_total` | сумма баллов | нижняя граница грейда | «Предварительная оценка риска: грейд B (87 из 100)» | — |
+| `dscr` | DSCR | 1.25 | «На каждый рубль платежей по долгам приходится {x} ₽ свободных денег» / «Свободных денег на платежи по долгам мало: {x} ₽ на рубль при норме 1,25» | «Снизьте текущие платежи по долгам или увеличьте свободный денежный поток» |
+| `debt_to_ebitda` | x | 3.5 | «Долги — {x} годовых прибыли, норма до 3,5» / «Долги — {x} годовых прибыли, это больше нормы 3,5» | «Снизьте долг до 3,5 годовой прибыли (EBITDA)» |
+| `revenue_trend` | x | 0.9 | «Выручка за 3 мес — {±%} к тем же месяцам прошлого года» / «Выручка упала на {%} к прошлому году» | «Восстановите выручку хотя бы до уровня прошлого года» |
+| `counterparty_concentration` | доля | 0.5 | «Крупнейший покупатель приносит {%} поступлений» / «{%} денег приходит от одного покупателя: если он уйдёт, бизнес останется без выручки» | «Снизьте долю крупнейшего покупателя до 50% и меньше» |
+| `bki_history` | дни прошлой просрочки | 30 | «Кредитная история без серьёзных просрочек» / «В кредитной истории была просрочка {N} дней» | «Подтвердите, что просрочка погашена; новых просрочек не допускайте» |
+| `transparent_business` | null | null | «Признаков риска в ФНС нет» / «ФНС: {массовый адрес / массовый руководитель / налоговый долг N ₽}» | «Погасите налоговый долг» / «Подтвердите фактический адрес» |
+| `source_{egrul\|transparent_business\|bki\|bank_account}` | null | null | — / «{Источник} сейчас не отвечает — заявку проверит сотрудник банка. Это не отказ» | — |
+| `missing_key_metrics` | число пропущенных | 1 | — / «Не хватает данных по счёту для автоматической оценки — заявку посмотрит сотрудник» | — |
+| `overdraft_limit` | лимит | `requested_amount` | «Лимит — 30% среднемесячных поступлений: {x} ₽» / «По оборотам доступно {x} ₽ — меньше запрошенного» | «Лимит вырастет вместе с поступлениями на счёт» |
+| `factoring_advance` | аванс | `requested_amount` | «Сразу — 90% суммы отгрузки: {x} ₽» / «Под эту отгрузку доступно {x} ₽» | — |
+| `factoring_commission` | комиссия | null | «Разовая комиссия — {x} ₽ (0,5% отгрузки)» | — |
+| `working_capital_need` | потребность | `requested_amount` | «В дебиторке и запасах за вычетом кредиторки заморожено {x} ₽ — больше бизнесу не нужно» / «Потребность в оборотных средствах — {x} ₽, меньше запрошенного» | — |
+| `max_loan_by_dscr` | P_max | `requested_amount` | «Платёж посилен: допустимо до {x} ₽» / «Чтобы платежи не съели запас 25%, сумма ограничена {x} ₽ на {n} мес при {r}%» | «При сроке {term_max} мес допустимо {max_loan_by_dscr на term_max} ₽» · «Снизьте текущие платежи по долгам» |
+| `dscr_after` | DSCR с новым платежом | `min_dscr` | «С новым платежом {p} ₽/мес запас покрытия — {x}» / — | — |
+| `amount_max` | `amount_max` | `requested_amount` | — / «Максимальная сумма по продукту — {x} ₽» | — |
+| `product_requirements` | null | null | — / «{Продукт} требует {залог / возраст / правовую форму}; подходит {альтернатива}» | — |
+
+`improvements` отказа по грейду E — тексты «что улучшить» всех факторов с `passed = false`, по убыванию потерянных баллов (максимум фактора минус полученные), при равенстве — в порядке таблицы раздела 4.
