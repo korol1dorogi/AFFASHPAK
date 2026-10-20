@@ -1,4 +1,4 @@
-"""Personas 1–7 (docs/data-spec.md §9, decision-model.md §8): fixed, independent of the seed.
+"""Personas 1–8 (docs/data-spec.md §9, decision-model.md §8): fixed, independent of the seed.
 
 Their streams use the seed string "fixed", so `seed` changes the population only (§11.1).
 """
@@ -100,6 +100,14 @@ PERSONAS = (
         7, "bki_outage", "ip", "ИП Миронов Артём Валерьевич — кофейня «Северный ветер»" + DEMO,
         "food_service", "56.10", date(2023, 10, 1), "active", "Миронов Артём Валерьевич",
         "36000000", "450000", "1.05", "0.10", "ООО «Офис на Северной»" + DEMO, (), True,
+    ),
+    # D15 (data-spec.md §12.3): persona 4's business, clean BKI, flat trend, no collateral.
+    PersonaSpec(
+        8, "equipment_no_collateral", "ooo", "ООО «Ковка и Фреза»" + DEMO,
+        "manufacturing", "25.62", date(2017, 10, 1), "active", "Тимофеев Роман Ильич",
+        "144000000", "1800000", "1.00", "0.40", "ООО «Гидропривод Сервис»" + DEMO,
+        ("0.25", "0.20", "0.15"), False,
+        obligations=(("loan", "600000"), ("leasing", "400000")),
     ),
 )  # fmt: skip
 PERSONAS_BY_CODE = {spec.code: spec for spec in PERSONAS}

@@ -2236,7 +2236,7 @@ components:
         code: { type: string, examples: [coffee_shop] }
         title: { type: string, examples: ["Кофейня, ИП (демо)"] }
         username: { type: string }
-        scenario: { type: integer, minimum: 1, maximum: 7, description: Номер сценария из docs/plan.md }
+        scenario: { type: integer, minimum: 1, maximum: 8, description: Номер сценария из docs/plan.md (8 — D15) }
         kind: { $ref: "#/components/schemas/UserKind" }
 
     DemoFailures:
