@@ -14,8 +14,13 @@ from rest_framework.views import APIView
 
 from apps.accounts.models import UserKind
 from apps.applications.access import NOT_FOUND, current_membership, is_bank_user, user_kind
-from apps.applications.serializers import CompanySerializer, MemberSerializer
+from apps.applications.serializers import (
+    CompanySerializer,
+    FinancialSnapshotSerializer,
+    MemberSerializer,
+)
 from apps.business import registry
+from apps.business.metrics import company_metrics, latest_snapshot
 from apps.business.models import Company, LegalForm, MemberRole, Membership
 from apps.business.serializers import (
     CompanyUpdateSerializer,
@@ -23,6 +28,7 @@ from apps.business.serializers import (
     MemberCreateSerializer,
 )
 from apps.core.exceptions import Conflict
+from apps.recommendations.serializers import ReasonSerializer
 
 SIGNATORY_ONLY = "Это может сделать только подписант компании."
 CREATOR_POSITION = {LegalForm.IP: "Индивидуальный предприниматель", LegalForm.OOO: "Руководитель"}
@@ -145,3 +151,17 @@ class MemberDetailView(APIView):
             raise Conflict("Себя убрать нельзя.", code="cannot_remove_self")
         member.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class CompanyMetricsView(APIView):
+    def get(self, request: Request) -> Response:
+        company = _membership(request.user).company
+        snapshot = latest_snapshot(company)
+        reasons = company_metrics(company, snapshot)
+        return Response(
+            {
+                "snapshot": FinancialSnapshotSerializer(snapshot).data if snapshot else None,
+                "metrics": ReasonSerializer(reasons, many=True).data,
+                "is_demo": company.is_demo,
+            }
+        )
