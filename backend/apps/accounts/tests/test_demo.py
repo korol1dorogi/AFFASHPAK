@@ -8,6 +8,7 @@ from rest_framework.test import APIClient
 from apps.accounts.demo import persona_catalog, seed
 from apps.business.models import Company, FinancialSnapshot, Membership
 from apps.core.testing import assert_matches_contract
+from apps.products.models import Product
 
 pytestmark = pytest.mark.django_db
 
@@ -27,9 +28,41 @@ def test_seed_creates_personas_once_and_keeps_demo_edits():
     company = Company.objects.get(inn=_persona_inn("coffee_shop"))
     company.name = "Переименовано на демо"
     company.save()
-    assert seed() == {"companies": 0, "users": 0, "memberships": 0, "snapshots": 0}
+    assert seed() == {"products": 0, "companies": 0, "users": 0, "memberships": 0, "snapshots": 0}
     company.refresh_from_db()
     assert company.name == "Переименовано на демо"
+
+
+CATALOG = {
+    "overdraft_basic",
+    "factoring_basic",
+    "working_capital_loan_basic",
+    "investment_loan_basic",
+    "leasing_basic",
+}
+
+
+def test_seed_loads_the_catalog_once():
+    assert seed()["products"] == 5
+    assert set(Product.objects.values_list("code", flat=True)) == CATALOG
+    Product.objects.filter(code="overdraft_basic").update(name="Изменено на демо")
+    assert seed()["products"] == 0
+    assert Product.objects.count() == 5
+    assert Product.objects.get(code="overdraft_basic").name == "Изменено на демо"
+
+
+def test_after_seed_the_coffee_shop_gets_offers(demo_on):
+    call_command("seed_demo")
+    call_command("seed_demo")  # a restart must not fail or duplicate
+    assert Product.objects.count() == 5
+    client = APIClient()
+    client.post("/api/demo/login", {"persona": "coffee_shop"}, format="json")
+    body = {"need_type": "cash_gap"}
+    response = client.post("/api/recommendations", body, format="json")
+    assert response.status_code == 200
+    assert_matches_contract(response, method="post", path="/api/recommendations", request_body=body)
+    offers = response.json()["offers"]
+    assert offers and offers[0]["product"]["kind"] == "overdraft"
 
 
 def test_demo_users_cannot_sign_in_with_a_password():
