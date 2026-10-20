@@ -13,14 +13,24 @@ endobj
 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
 endobj
 5 0 obj
-<< /Length 415 >>
+<< /Length 798 >>
 stream
 q 0.85 g BT /F1 150 Tf 0.7071 0.7071 -0.7071 0.7071 150 230 Tm
 (DEMO) Tj ET Q
+q 0.85 G 1 J 1 j 0.7071 0.7071 -0.7071 0.7071 150 230 cm
+1 0 0 1 0 -150 cm
+1.25 0 0 1.25 0 0 cm 11 w
+0 -15 m 0 0 l 60 0 l 60 -15 l S
+8 0 m 20 100 l 52 100 l 52 0 l S
+150 100 m 90 100 l 90 0 l 150 0 l S
+90 50 m 135 50 l S
+180 0 m 180 100 l 210 35 l 240 100 l 240 0 l S
+330 50 m 330 77.615 316.569 100 300 100 c 283.431 100 270 77.615 270 50 c 270 22.385 283.431 0 300 0 c 316.569 0 330 22.385 330 50 c S
+Q
 BT /F1 22 Tf 60 760 Td
-(Financial report for the last year) Tj ET
+(Bank statement) Tj ET
 BT /F1 12 Tf 60 720 Td 16 TL
-(Document kind: financial_report) Tj T*
+(Document kind: bank_statement) Tj T*
 (Company: OOO Dubrava Mebel \(demo\)) Tj T*
 (INN: 0001000042) Tj T*
 (Date: 2026-10-01) Tj T*
@@ -30,7 +40,7 @@ T*
 endstream
 endobj
 6 0 obj
-<< /Title (Financial report for the last year \(demo\)) /Producer (S2/S9 demo data generator) /CreationDate (D:20261001000000Z) /ModDate (D:20261001000000Z) >>
+<< /Title (Bank statement \(demo\)) /Producer (S2/S9 demo data generator) /CreationDate (D:20261001000000Z) /ModDate (D:20261001000000Z) >>
 endobj
 xref
 0 7
@@ -40,9 +50,9 @@ xref
 0000000121 00000 n 
 0000000247 00000 n 
 0000000344 00000 n 
-0000000810 00000 n 
+0000001193 00000 n 
 trailer
 << /Size 7 /Root 1 0 R /Info 6 0 R >>
 startxref
-985
+1348
 %%EOF

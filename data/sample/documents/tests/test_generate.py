@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pytest
 
+import generate as gen
 from generate import DOCUMENTS, build_pdf, file_name, generate
 
 HERE = Path(__file__).resolve().parent.parent
@@ -58,6 +59,37 @@ def test_content(pdfs):
         assert b"(INN: 0001000042) Tj" in data
         assert b"Synthetic document" in data
         assert b"/CreationDate (D:20261001000000Z)" in data
+
+
+def test_cyrillic_demo_is_drawn_without_a_font(pdfs):
+    """«ДЕМО» is vector strokes: no Cyrillic bytes, no second font, stroked paths present."""
+    strokes = gen.cyrillic_demo_strokes()
+    assert len(strokes) == 6  # Д: 2 lines, Е: 2, М: 1, О: 1 ellipse
+    for data in pdfs.values():
+        assert data.count(b"/BaseFont") == 1
+        assert all(stroke.encode("ascii") in data for stroke in strokes)
+        assert re.search(rb"0\.85 G 1 J 1 j 0\.7071 0\.7071 -0\.7071 0\.7071 150 230 cm", data)
+
+
+def test_watermark_fits_the_page_and_does_not_hit_latin_demo():
+    """Glyph box (with half the stroke width) mapped to the page stays inside A4."""
+    scale, half = gen._WATERMARK_SCALE, gen._STROKE * gen._WATERMARK_SCALE / 2
+    ox, oy = gen._CYRILLIC_ORIGIN
+    width = 3 * gen._ADVANCE + 60
+    local = [(ox + x * scale, oy + y * scale) for x in (0, width) for y in (-15, 100)]
+    for x, y in local:
+        for dx in (-half, half):
+            for dy in (-half, half):
+                page_x = 150 + 0.7071 * (x + dx) - 0.7071 * (y + dy)
+                page_y = 230 + 0.7071 * (x + dx) + 0.7071 * (y + dy)
+                assert 0 < page_x < gen.PAGE_WIDTH and 0 < page_y < gen.PAGE_HEIGHT
+    assert oy + 100 * scale + half < 0  # top of «ДЕМО» stays below the DEMO baseline
+
+
+def test_file_names_are_ascii():
+    """Deviation from data-spec §7.6 («_демо»): Cyrillic names break zip on Windows."""
+    for kind, _ in DOCUMENTS:
+        assert file_name(kind) == f"{kind}_0001000042_demo.pdf" and file_name(kind).isascii()
 
 
 def test_deterministic(tmp_path):
