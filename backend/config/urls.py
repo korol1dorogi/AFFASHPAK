@@ -14,6 +14,7 @@ urlpatterns = [
     path("api/", include("apps.applications.urls")),
     path("api/", include("apps.notifications.urls")),
     path("api/", include("apps.products.urls")),
+    path("api/", include("apps.recommendations.urls")),
 ]
 
 handler404 = "apps.core.exceptions.not_found_view"
