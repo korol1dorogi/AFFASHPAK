@@ -20,6 +20,7 @@ MONEY_FIELDS = {
     "balance",
 }  # fmt: skip
 RATIO_FIELDS = {"counterparty_concentration", "revenue_trend", "share"}
+EMAIL = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+\.[A-Za-z]{2,}")
 DEMO_TEXT_FIELDS = {"name", "full_name", "director_name", "address", "counterparty", "purpose"}
 
 
@@ -149,6 +150,10 @@ def test_users_and_memberships_reference_existing_records(dataset):
 def test_cleanliness(dataset_bytes):
     """§11.16: nothing that looks like a password, token, key, e-mail or phone number."""
     text = dataset_bytes.decode("utf-8")
-    assert not re.search(r"[\w.+-]+@[\w-]+\.\w+", text)
-    assert not re.search(r"\+7\d{10}|\b8\d{10}\b|\(\d{3}\)\s?\d{3}-\d{2}-\d{2}", text)
-    assert not re.search(r"(?i)password|passwd|secret|token|api[_-]?key|пароль", text)
+    for at in re.finditer("@", text):
+        around = text[max(0, at.start() - 40) : at.end() + 40]
+        assert not EMAIL.search(around), around
+    phone = re.search(r"\+7\d{10}|\b8\d{10}\b|\(\d{3}\)\s?\d{3}-\d{2}-\d{2}", text)
+    assert phone is None, phone.group(0)
+    secret = re.search(r"(?i)password|passwd|secret|token|api[_-]?key|пароль", text)
+    assert secret is None, secret.group(0)

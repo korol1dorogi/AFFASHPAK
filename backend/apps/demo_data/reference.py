@@ -319,15 +319,19 @@ TB_BUCKETS = ("no_flags", "one_flag", "debt_or_both")
 TAX_ARREARS = (5_000, 500_000)
 MASS_VALUES = 3  # shared addresses / director names
 
-# §4.4 step 8 and the decision on population obligations (see edge notes in the PR).
-OBLIGATION_WEIGHTS = (("1",), ("0.6", "0.4"), ("0.5", "0.3", "0.2"))
+# §4.4 step 8: debt_service over 1–3 obligations, 0.5 / 0.3 / the last takes the rest.
+OBLIGATION_SHARES = ("0.5", "0.3")
+# Not in the spec (decided for S2, see the PR): kinds and opening dates of population debts.
 LEASING_SHARE = "0.25"
-OPENED_INSIDE_SHARE = "0.30"
+OPENED_INSIDE_SHARE = "0.30"  # only loans, only if a month before the window exists
 OPENED_INSIDE_MAX_MONTH = 3
 OPENED_BEFORE_MONTHS = (1, 36)
 LOAN_PAYMENTS_IN_ADVANCE = (12, 24)
 REMAINING_MONTHS = (6, 48)
 PAYMENT_DAY = (10, 20)
+PAYER_WEIGHTS = (95, 105)  # near-equal shares keep every other payer below kappa
+OTHER_PAYERS = (1, 6)
+SUPPLIERS = (2, 8)
 
 # §8
 OOO_DIRECTOR_POSITIONS = (("Генеральный директор", "0.85"), ("Директор", "0.15"))

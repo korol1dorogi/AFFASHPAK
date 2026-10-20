@@ -10,8 +10,10 @@ from datetime import date
 
 from apps.demo_data import people
 from apps.demo_data.assemble import Bundle, Registries, assemble
+from apps.demo_data.companies import draft_population
 from apps.demo_data.personas import PERSONAS, persona_inputs, persona_rng
 from apps.demo_data.reference import GENERATOR_VERSION, SPEC_REF
+from apps.demo_data.rng import Rng
 
 DEFAULT_SEED = 2026
 DEFAULT_AS_OF = date(2026, 10, 1)
@@ -81,6 +83,18 @@ def generate(
             "users": [user["_key"] for user in bundle.users],
         }
     data.users.extend(_bank_users(generator_version))
+
+    for draft in draft_population(seed, generator_version, n_companies, as_of):
+        key = str(draft.index)
+        bundle = assemble(
+            draft.inputs,
+            Rng(seed, generator_version, "registry", key),
+            Rng(seed, generator_version, "statement", key),
+            registries,
+            as_of,
+        )
+        data.add(bundle)
+        data.latent[draft.inputs.key] = draft.latent
 
     sections = {
         "companies": data.companies,
