@@ -12,6 +12,7 @@ from apps.credit_math.statement import statement_metrics
 from apps.demo_data.companies import labels
 from apps.demo_data.reference import GENERATOR_VERSION
 from apps.demo_data.rng import Rng
+from apps.demo_data.simulators import transparent_business
 
 D = Decimal
 AS_OF = date(2026, 10, 1)
@@ -156,8 +157,8 @@ def test_reporting_only_for_ooo(population):
     for row in population:
         s = row["snapshot"]
         values = [s[f] for f in fields]
-        if row["company"]["legal_form"] == "ip":
-            assert values == [None] * len(fields)
+        if row["company"]["legal_form"] == "ip" or _months(row["statement"]) < 12:
+            assert values == [None] * len(fields)  # §6.2: revenue is annual, h < 12 → no report
         elif values[0] is not None:
             with_reporting += 1
             assert None not in values
@@ -197,6 +198,19 @@ def test_mass_values_are_shared(population):
         flagged = any(row["tb"]["data"][f] for f in ("mass_address", "mass_director"))
         flagged = flagged or D(row["tb"]["data"]["tax_arrears"]) > 0
         assert row["tb"]["status"] == ("warning" if flagged else "ok")
+
+
+def test_entrepreneur_tax_flags():
+    """§5.2: an ИП has no mass_director; its «debt or both» is always the tax debt (0 points)."""
+    for i in range(200):
+        rng = Rng(2026, GENERATOR_VERSION, "tb_test", str(i))
+        one = transparent_business(rng, "one_flag", can_have_mass_director=False)["data"]
+        assert (one["mass_address"], one["mass_director"], one["tax_arrears"]) == (
+            True, False, "0.00",
+        )  # fmt: skip
+        debt = transparent_business(rng, "debt_or_both", can_have_mass_director=False)["data"]
+        assert not debt["mass_address"] and not debt["mass_director"]
+        assert D(debt["tax_arrears"]) > 0
 
 
 def test_latent_risk(population):

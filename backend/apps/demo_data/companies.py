@@ -214,7 +214,7 @@ def draft_company(seed: int, version: str, i: int, label: str, as_of: date) -> D
 
     de_bucket = bucket("debt_to_ebitda")
     report: dict[str, Decimal | None] = {}
-    if reporting:
+    if reporting and h >= 12:  # §6.2: revenue is annual in D4, a shorter history has no report
         report = _reporting(rng, group, turnover, window, cfads, debt_service, de_bucket, label)
 
     tau = None

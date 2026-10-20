@@ -9,7 +9,7 @@ from dataclasses import dataclass
 GENERATOR_VERSION = "datagen-2026.10-v1"
 # Commits of the draft specs this generator follows (branches not merged yet).
 SPEC_REF = {
-    "data_spec": "origin/D7-data-spec@321368af48561ed05c83f75a04d8fb44b66425d5",
+    "data_spec": "origin/D7-data-spec@8160cc1591e2e29ca01bb7aa66a4910bc16688ac",
     "decision_model": "origin/D4-decision-model@385348dee6dc5d901bb8dfc501c83f44fe49707f",
     "product_catalog": "origin/D3-product-catalog@18ed0e89547e62ee51c1295731e5531dc2b85c0d",
 }
@@ -311,7 +311,7 @@ MASS_VALUES = 3  # shared addresses / director names
 
 # §4.4 step 8: debt_service over 1–3 obligations, 0.5 / 0.3 / the last takes the rest.
 OBLIGATION_SHARES = ("0.5", "0.3")
-# Not in the spec (decided for S2, see the PR): kinds and opening dates of population debts.
+# §4.4 step 8, §5.1: kinds and opening dates of population debts.
 LEASING_SHARE = "0.25"
 OPENED_INSIDE_SHARE = "0.30"  # only loans, only if a month before the window exists
 OPENED_INSIDE_MAX_MONTH = 3

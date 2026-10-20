@@ -28,7 +28,8 @@ def months(edge) -> int:
 
 def test_codes_and_order(dataset):
     assert [e["code"] for e in dataset["edge_cases"]] == [e.code for e in EDGES]
-    assert "e_score_90_60_50" not in {e.code for e in EDGES}  # inputs not given by §10
+    test_only = {"g4", "g10", "e_score_90_60_50"}  # §10: «только вход теста», not generated
+    assert not test_only & {e.code for e in EDGES}
 
 
 def test_edge_companies_are_not_seeded(dataset):
@@ -64,10 +65,7 @@ def test_snapshot_comes_from_the_statement(dataset):
         for field in ("counterparty_concentration", "revenue_trend"):
             value = getattr(metrics, field).value
             got = None if value is None else str(value)
-            if edge["code"] == "g4":  # §10: null metrics are given directly as test inputs
-                assert snapshot[field] is None
-            else:
-                assert got == snapshot[field], (edge["code"], field)
+            assert got == snapshot[field], (edge["code"], field)
 
 
 def test_differences(edges):
@@ -78,7 +76,6 @@ def test_differences(edges):
         assert edges[code]["checks"]["bki"] == {"status": "unavailable", "data": {}}
     assert edges["g5"]["checks"]["egrul"]["data"]["registry_status"] == "liquidating"
     assert edges["g8"]["snapshot"]["ebitda"] == "0.00"
-    assert edges["g10"]["company"]["registered_at"] is None
     assert edges["e_ebitda_negative"]["snapshot"]["ebitda"] == "-500000.00"
     assert edges["e_no_invoice"]["application"]["invoice_amount"] is None
     assert edges["e_over_amount_max"]["application"]["requested_amount"] == "12000000.00"

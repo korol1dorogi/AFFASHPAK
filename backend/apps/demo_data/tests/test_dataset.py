@@ -65,8 +65,7 @@ def test_ids_valid_unique_and_in_demo_region(dataset):
         claim(company["inn"], company["_key"])
         ogrn = company["ogrn"]
         assert is_valid_ogrn(ogrn) and ogrn[3:5] == DEMO_REGION_CODE
-        if company["registered_at"] is not None:  # g10: unknown date is the point of the case
-            assert ogrn[1:3] == company["registered_at"][2:4]
+        assert ogrn[1:3] == company["registered_at"][2:4]
         expected = (12, 15, "3") if company["legal_form"] == "ip" else (10, 13, "1")
         assert (len(company["inn"]), len(ogrn), ogrn[0]) == expected
     statements = dataset["statements"] + [e["statement"] for e in dataset["edge_cases"]]

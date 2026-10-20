@@ -353,7 +353,7 @@ def _noise_transactions(b: _Builder, plan: StatementPlan, revenue: list[Decimal]
             (day,) = b.days(period, 1)
             b.add(
                 day, "credit", round_money(revenue[k] * share), name, b.registry.inn(name),
-                "refund", "Возврат от поставщика",
+                "refund", "Возврат от поставщика" + DEMO,
             )  # fmt: skip
 
 

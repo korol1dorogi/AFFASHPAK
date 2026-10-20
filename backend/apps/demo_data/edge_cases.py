@@ -1,9 +1,9 @@
 """Edge cases of docs/data-spec.md §10: «persona + differences», read by D5/L4 tests, not seeded.
 
 Differences go through the statement (§4.4) or simulator data, never by editing the snapshot —
-except g4 (null metrics cannot come from a statement) and e_all_unavailable (no snapshot at all).
-`expected` holds only what §10 states; `note` quotes the rest. e_score_90_60_50 is left out:
-§10 gives the scores, not the inputs that produce them.
+except e_all_unavailable (no snapshot at all). `expected` holds only what §10 states; `note`
+quotes the rest. Cases marked «только вход теста» (g4, g10, e_score_90_60_50) are not generated:
+§10 gives their inputs to the D5 tests directly.
 """
 
 from collections.abc import Callable
@@ -60,7 +60,6 @@ class Edge:
     change: Change | None = None
     application: dict = field(default_factory=dict)
     unavailable: tuple[str, ...] = ()
-    null_snapshot_fields: tuple[str, ...] = ()
     no_snapshot: bool = False
 
 
@@ -139,10 +138,6 @@ def _window_of(inputs: CompanyInputs) -> tuple[str, ...]:
     return inputs.months[-12:]
 
 
-def _no_registration_date(inputs: CompanyInputs, as_of: date) -> None:
-    inputs.registered_at = None
-
-
 def _all(*changes: Change) -> Change:
     def change(inputs: CompanyInputs, as_of: date) -> None:
         for one in changes:
@@ -158,9 +153,6 @@ EDGES = (
          application={"requested_amount": "2009314.00"}),
     Edge("g3", "garden_store", "D4 Г3: 75 → B, контроффер 24 %", outcome="counteroffer",
          grade="B", total=75, change=_bki(0, 10)),
-    Edge("g4", "coffee_shop", "D4 Г4: 79 → B, П5 manual_review", outcome="manual_review",
-         grade="B", total=79,
-         null_snapshot_fields=("revenue_trend", "counterparty_concentration")),
     Edge("g5", "liquidating_company", "D4 Г5: declined, source_unavailable не ставится",
          outcome="declined", unavailable=("bki",)),
     Edge("g6", "dependent_supplier", "D4 Г6: 37 → E, П3 manual_review", outcome="manual_review",
@@ -172,8 +164,6 @@ EDGES = (
     Edge("g8", "retail_supplier", "D4 Г8: С3, declined, grade = null", outcome="declined",
          change=_reporting("ebitda", "0")),
     Edge("g9", "dependent_supplier", "D4 Г9: тренд 0.80 → 4 балла, passed = false"),
-    Edge("g10", "coffee_shop", "D4 Г10: 86 → B, П3 manual_review; засеять нельзя",
-         outcome="manual_review", grade="B", total=86, change=_no_registration_date),
     Edge("e_no_debt", "coffee_shop", "dscr None → 25 баллов, reason passed = true"),
     Edge("e_ebitda_negative", "retail_supplier", "С3, declined", outcome="declined",
          change=_reporting("ebitda", "-500000")),
@@ -260,8 +250,6 @@ def build_edge_cases(generator_version: str, as_of: date, registries: Registries
         for source in edge.unavailable:
             checks[source] = unavailable()
         snapshot = None if edge.no_snapshot else dict(bundle.snapshot)
-        for name in edge.null_snapshot_fields:
-            snapshot[name] = None
         result.append(
             {
                 "code": edge.code,

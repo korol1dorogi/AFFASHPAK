@@ -36,18 +36,21 @@ def egrul(company: dict, founders: list[dict]) -> dict:
 
 
 def transparent_business(rng: Rng, bucket: str, *, can_have_mass_director: bool) -> dict:
-    """§5.2 buckets: no_flags · one_flag · debt_or_both."""
+    """§5.2 buckets: no_flags · one_flag · debt_or_both.
+
+    An ИП has no mass_director (the director is the entrepreneur): one flag is always
+    mass_address, and debt_or_both is always the tax debt, so it still scores 0 as in D4.
+    """
     mass_address = mass_director = False
     arrears = Decimal(0)
     if bucket == "one_flag":
         mass_director = can_have_mass_director and rng.chance("0.5")
         mass_address = not mass_director
     elif bucket == "debt_or_both":
-        if rng.chance("0.7"):
+        if not can_have_mass_director or rng.chance("0.7"):
             arrears = Decimal(rng.between(*TAX_ARREARS))
         else:
-            mass_address = True
-            mass_director = can_have_mass_director
+            mass_address = mass_director = True
     elif bucket != "no_flags":
         raise ValueError(f"unknown transparent_business bucket: {bucket}")
     return tb_answer(mass_address, mass_director, arrears)
