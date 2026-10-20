@@ -21,11 +21,11 @@ export function useHealth() {
 export function HealthPage() {
   const { data, isPending, isError } = useHealth();
 
-  let status: { text: string; variant: "success" | "destructive" | "secondary" };
-  if (isPending) status = { text: "Проверяем…", variant: "secondary" };
-  else if (isError || !data) status = { text: "API недоступен", variant: "destructive" };
+  let status: { text: string; variant: "success" | "danger" | "neutral" };
+  if (isPending) status = { text: "Проверяем…", variant: "neutral" };
+  else if (isError || !data) status = { text: "API недоступен", variant: "danger" };
   else if (data.status === "ok") status = { text: "Бэкенд работает", variant: "success" };
-  else status = { text: "База данных недоступна", variant: "destructive" };
+  else status = { text: "База данных недоступна", variant: "danger" };
 
   return (
     <Card>
