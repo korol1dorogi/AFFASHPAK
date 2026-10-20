@@ -1,0 +1,58 @@
+%PDF-1.4
+%‚„œ”
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+5 0 obj
+<< /Length 790 >>
+stream
+q 0.85 g BT /F1 150 Tf 0.7071 0.7071 -0.7071 0.7071 150 230 Tm
+(DEMO) Tj ET Q
+q 0.85 G 1 J 1 j 0.7071 0.7071 -0.7071 0.7071 150 230 cm
+1 0 0 1 0 -150 cm
+1.25 0 0 1.25 0 0 cm 11 w
+0 -15 m 0 0 l 60 0 l 60 -15 l S
+8 0 m 20 100 l 52 100 l 52 0 l S
+150 100 m 90 100 l 90 0 l 150 0 l S
+90 50 m 135 50 l S
+180 0 m 180 100 l 210 35 l 240 100 l 240 0 l S
+330 50 m 330 77.615 316.569 100 300 100 c 283.431 100 270 77.615 270 50 c 270 22.385 283.431 0 300 0 c 316.569 0 330 22.385 330 50 c S
+Q
+BT /F1 22 Tf 60 760 Td
+(Tax return) Tj ET
+BT /F1 12 Tf 60 720 Td 16 TL
+(Document kind: tax_return) Tj T*
+(Company: OOO Dubrava Mebel \(demo\)) Tj T*
+(INN: 0001000042) Tj T*
+(Date: 2026-10-01) Tj T*
+T*
+(Synthetic document created by the demo data generator.) Tj T*
+(Not a real document. For demo only.) Tj ET
+endstream
+endobj
+6 0 obj
+<< /Title (Tax return \(demo\)) /Producer (S2/S9 demo data generator) /CreationDate (D:20261001000000Z) /ModDate (D:20261001000000Z) >>
+endobj
+xref
+0 7
+0000000000 65535 f 
+0000000015 00000 n 
+0000000064 00000 n 
+0000000121 00000 n 
+0000000247 00000 n 
+0000000344 00000 n 
+0000001185 00000 n 
+trailer
+<< /Size 7 /Root 1 0 R /Info 6 0 R >>
+startxref
+1336
+%%EOF
