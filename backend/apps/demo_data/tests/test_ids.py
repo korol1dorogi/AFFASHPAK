@@ -1,7 +1,10 @@
 import pytest
 
 from apps.demo_data.ids import (
-    DEMO_REGION_CODE,
+    INSPECTION_COUNTERPARTY,
+    INSPECTION_FOUNDER,
+    Counter,
+    company_ids,
     is_valid_inn,
     is_valid_ogrn,
     make_inn10,
@@ -9,24 +12,40 @@ from apps.demo_data.ids import (
     make_ogrn,
     make_ogrnip,
 )
-from apps.demo_data.rng import Rng
 
-# Hand-checked vectors on synthetic digits (region 00):
-# INN-10: 0·2+0·4+1·10+2·3+3·5+4·9+5·4+6·6+7·8 = 179; 179 mod 11 = 3
-# INN-12: n11 = 228 mod 11 = 8; n12 = 271 mod 11 = 7
-# OGRN: 120001234567 mod 11 = 5; OGRNIP: 32000123456789 mod 13 = 7
-VALID_INN = ["0012345673", "001234567887"]
-VALID_OGRN = ["1200012345675", "320001234567897"]
-
-
-@pytest.mark.parametrize("inn", VALID_INN)
-def test_known_valid_inn(inn):
-    assert is_valid_inn(inn)
+# docs/data-spec.md §9.1: (legal form, persona number, registration year) → (inn, ogrn)
+PERSONA_IDS = [
+    ("ip", 1, 2023, "000100000170", "323000100000013"),
+    ("ooo", 2, 2020, "0001000028", "1200001000022"),
+    ("ip", 3, 2018, "000100000318", "318000100000031"),
+    ("ooo", 4, 2014, "0001000042", "1140001000040"),
+    ("ooo", 5, 2022, "0001000050", "1220001000053"),
+    ("ooo", 6, 2021, "0001000067", "1210001000065"),
+    ("ip", 7, 2023, "000100000702", "323000100000079"),
+]
 
 
-@pytest.mark.parametrize("ogrn", VALID_OGRN)
-def test_known_valid_ogrn(ogrn):
-    assert is_valid_ogrn(ogrn)
+@pytest.mark.parametrize(("form", "number", "year", "inn", "ogrn"), PERSONA_IDS)
+def test_persona_ids_match_data_spec(form, number, year, inn, ogrn):
+    assert company_ids(form, number, year) == (inn, ogrn)
+    assert is_valid_inn(inn) and is_valid_ogrn(ogrn)
+
+
+def test_structure():
+    assert make_inn10(1234) == "000101234" + make_inn10(1234)[-1]
+    assert make_inn12(1234)[:10] == "0001001234"
+    assert make_inn10(13, INSPECTION_COUNTERPARTY).startswith("0002")
+    assert make_inn12(5, INSPECTION_FOUNDER).startswith("0003")
+    assert make_ogrn(1000, 2019)[:12] == "119000101000"
+    assert make_ogrnip(1000, 2021)[:14] == "32100010001000"
+
+
+def test_all_numbers_in_ranges_are_valid():
+    for number in [*range(1, 1200), 99_999]:
+        assert is_valid_inn(make_inn10(number))
+        assert is_valid_inn(make_inn12(number))
+        assert is_valid_ogrn(make_ogrn(number, 2015))
+        assert is_valid_ogrn(make_ogrnip(number, 2015))
 
 
 @pytest.mark.parametrize(
@@ -34,8 +53,8 @@ def test_known_valid_ogrn(ogrn):
     [
         "0012345678",  # wrong check digit
         "001234567878",  # wrong second check digit
-        "001234567",  # too short
-        "00123456788",  # 11 digits
+        "001234567",
+        "00123456788",
         "00123456 3",
         "００12345673",  # non-ASCII digits
         "",
@@ -52,15 +71,17 @@ def test_invalid_ogrn(ogrn):
     assert not is_valid_ogrn(ogrn)
 
 
-def test_generated_ids_are_valid_and_in_demo_region():
-    rng = Rng(7, "ids")
-    for _ in range(500):
-        inn10, inn12 = make_inn10(rng), make_inn12(rng)
-        ogrn, ogrnip = make_ogrn(rng, 2019), make_ogrnip(rng, 2021)
-        assert len(inn10) == 10 and is_valid_inn(inn10)
-        assert len(inn12) == 12 and is_valid_inn(inn12)
-        assert len(ogrn) == 13 and is_valid_ogrn(ogrn)
-        assert len(ogrnip) == 15 and is_valid_ogrn(ogrnip)
-        assert inn10[:2] == inn12[:2] == DEMO_REGION_CODE
-        assert ogrn[3:5] == ogrnip[3:5] == DEMO_REGION_CODE
-        assert ogrn[:3] == "119" and ogrnip[:3] == "321"
+def test_number_overflow_and_bad_form():
+    with pytest.raises(ValueError):
+        make_inn10(100_000)
+    with pytest.raises(ValueError):
+        make_inn12(0)
+    with pytest.raises(ValueError):
+        company_ids("zao", 1, 2020)
+
+
+def test_counter():
+    counter = Counter(100, 101)
+    assert [counter.next(), counter.next()] == [100, 101]
+    with pytest.raises(ValueError):
+        counter.next()
