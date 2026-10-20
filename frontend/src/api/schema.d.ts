@@ -981,6 +981,7 @@ export interface components {
          */
         MemberRole: "signatory" | "preparer";
         Me: {
+            /** @example 1 */
             id: number;
             /** @example demo_coffee */
             username: string;
@@ -993,6 +994,7 @@ export interface components {
             is_demo: boolean;
         };
         UserRef: {
+            /** @example 1 */
             id: number;
             /** @example Анна Демо */
             full_name: string;
@@ -1004,6 +1006,7 @@ export interface components {
         /** @description Запись ЕГРЮЛ/ЕГРИП из симулятора */
         RegistryRecord: {
             inn: components["schemas"]["Inn"];
+            /** @example 1267700000017 */
             ogrn: string;
             legal_form: components["schemas"]["LegalForm"];
             /** @example ООО «Демо Мебель» */
@@ -1023,6 +1026,7 @@ export interface components {
             director_name: string;
         };
         Company: components["schemas"]["RegistryRecord"] & {
+            /** @example 1 */
             id: number;
             /** @description Синтетические данные — показываем пометку «демо» */
             is_demo: boolean;
@@ -1037,6 +1041,7 @@ export interface components {
             name?: string;
         };
         Member: {
+            /** @example 1 */
             id: number;
             user: components["schemas"]["UserRef"];
             role: components["schemas"]["MemberRole"];
@@ -1052,6 +1057,7 @@ export interface components {
         SnapshotSource: "case" | "demo" | "simulator" | "manual";
         /** @description Финансовый снимок компании за период. null — данных нет. */
         FinancialSnapshot: {
+            /** @example 1 */
             id: number;
             /** @example 2026-09 */
             period: string;
@@ -1081,7 +1087,10 @@ export interface components {
             value: components["schemas"]["DecimalString"] | null;
             threshold: components["schemas"]["DecimalString"] | null;
             passed: boolean;
-            /** @description Текст для клиента */
+            /**
+             * @description Текст для клиента
+             * @example Платежи по кредиту покрываются денежным потоком с запасом
+             */
             message: string;
         };
         CompanyMetrics: {
@@ -1144,6 +1153,7 @@ export interface components {
             invoice_amount?: components["schemas"]["Money"];
         };
         Offer: {
+            /** @example 1 */
             id: number;
             product: components["schemas"]["Product"];
             amount: components["schemas"]["Money"];
@@ -1209,7 +1219,9 @@ export interface components {
         /** @enum {string} */
         PrefillSource: "manual" | "recommendation" | "assistant";
         Application: {
+            /** @example 1 */
             id: number;
+            /** @example 1 */
             company_id: number;
             need_type: components["schemas"]["NeedType"];
             /** @example Выплатить зарплату до поступления оплаты от клиентов */
@@ -1265,6 +1277,7 @@ export interface components {
         /** @enum {string} */
         EventKind: "status_changed" | "document_uploaded" | "info_requested" | "info_responded" | "assigned" | "check_completed" | "score_calculated" | "decision" | "comment" | "signed" | "issued";
         ApplicationEvent: {
+            /** @example 1 */
             id: number;
             kind: components["schemas"]["EventKind"];
             from_status: components["schemas"]["ApplicationStatus"] | null;
@@ -1285,7 +1298,9 @@ export interface components {
          */
         DecisionOutcome: "offer" | "counteroffer" | "alternative_product" | "manual_review" | "info_requested" | "declined";
         Decision: {
+            /** @example 1 */
             id: number;
+            /** @example 1 */
             application_id: number;
             outcome: components["schemas"]["DecisionOutcome"];
             /** @description Грейд скоринга, на который опиралось решение (скоринг ≠ решение); null — до скоринга (стоп-фактор, неполные данные) */
@@ -1311,13 +1326,17 @@ export interface components {
             created_at: string;
         };
         InfoRequest: {
+            /** @example 1 */
             id: number;
             /**
              * @description validation — автоматическая проверка полноты и корректности (F6); officer — сотрудник банка
              * @enum {string}
              */
             origin: "validation" | "officer";
-            /** @description Что просит банк */
+            /**
+             * @description Что просит банк, простым языком
+             * @example Приложите выписку по счёту за последние 6 месяцев
+             */
             message: string;
             /** @description Какие поля заявки или компании нужно уточнить (для origin=validation) */
             fields: string[];
@@ -1349,17 +1368,25 @@ export interface components {
         /** @enum {string} */
         DocumentKind: "bank_statement" | "financial_report" | "tax_return" | "contract" | "invoice" | "shipment_document" | "other";
         Document: {
+            /** @example 1 */
             id: number;
             kind: components["schemas"]["DocumentKind"];
-            /** @description Исходное имя (хранится под случайным именем) */
+            /**
+             * @description Исходное имя (хранится под случайным именем)
+             * @example vypiska-demo.pdf
+             */
             filename: string;
             /** @enum {string} */
             content_type: "application/pdf" | "image/png" | "image/jpeg";
             size: number;
+            /** @example e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 */
             sha256: string;
             /** Format: date-time */
             uploaded_at: string;
-            /** @description Отдаётся как attachment */
+            /**
+             * @description Отдаётся как attachment
+             * @example /api/applications/1/documents/1
+             */
             download_url: string;
         };
         DocumentUpload: {
@@ -1368,6 +1395,7 @@ export interface components {
             file: string;
         };
         Notification: {
+            /** @example 1 */
             id: number;
             kind: components["schemas"]["EventKind"];
             /** @example Готово предложение */
@@ -1417,6 +1445,7 @@ export interface components {
             created_at: string;
         };
         BankQueueItem: {
+            /** @example 1 */
             id: number;
             /** @example ИП Демо Кофейня */
             company_name: string;
@@ -1530,6 +1559,7 @@ export interface components {
             application_id: number | null;
         };
         AssistantMessage: {
+            /** @example 1 */
             id: number;
             /** @enum {string} */
             role: "user" | "assistant";
