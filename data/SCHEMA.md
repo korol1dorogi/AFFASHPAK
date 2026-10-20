@@ -29,5 +29,5 @@
 
 ## Синтетика
 - [sample/](sample/) — небольшой пример, **все строки — демо**, персональных данных нет (ИНН и названия выдуманы).
-- `sample/bank_statement_demo.csv` — выписка по счёту (формат условный, до кейса): `date` (YYYY-MM-DD), `direction` (`credit` поступление | `debit` списание), `amount` (рубли, точка-разделитель), `counterparty`, `category` (`revenue`, `own_transfer`, `loan`, `refund`, `payroll`, `rent`, `supplier`, `tax`, `loan_payment`), `purpose`.
+- `sample/bank_statement_demo.csv` — выписка по счёту (формат условный, до кейса): `date` (YYYY-MM-DD), `direction` (`credit` поступление | `debit` списание), `amount` (рубли, точка-разделитель), `counterparty`, `counterparty_inn` (ИНН плательщика или получателя; пусто у розницы, эквайринга, сотрудников, ФНС и своих счетов — нужен для концентрации на плательщике), `category` (`revenue`, `own_transfer`, `loan`, `refund`, `payroll`, `rent`, `supplier`, `tax`, `loan_payment`), `purpose`. Полная спецификация — docs/data-spec.md.
 - После кейса формат синтетики приводим к формату данных кейса; персоны демо — [docs/demo.md](../docs/demo.md).

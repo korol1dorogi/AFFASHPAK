@@ -44,3 +44,6 @@ Thumbs.db
 # Local agent files (rules live only in AGENTS.md, see docs/decisions.md D1)
 CLAUDE.md
 CLAUDE.local.md
+
+# Generated synthetic dataset (D18): seed_demo rebuilds it deterministically
+demo_data*.json

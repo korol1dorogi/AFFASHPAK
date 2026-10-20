@@ -35,6 +35,10 @@ test.describe("scenario 7: BKI outage — manual review", () => {
   test.fixme("demo panel turns BKI off → application lands in manual review with a note (B7, L4)", async () => {});
 });
 
+test.describe("scenario 8: equipment without collateral — alternative product", () => {
+  test.fixme("investment loan without collateral → leasing offer → issued (S6, D15)", async () => {});
+});
+
 test.describe("access", () => {
   test.fixme("another client cannot open this application (404) (L3)", async () => {});
 });

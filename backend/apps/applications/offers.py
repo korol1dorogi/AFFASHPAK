@@ -13,7 +13,7 @@ from apps.applications.models import Application, Decision, Offer, OfferStatus
 from apps.credit_math import annuity_payment, round_ratio
 from apps.products.models import Product
 
-OFFER_TTL = timedelta(days=14)
+OFFER_TTL = timedelta(days=30)  # D17
 GRADE_POSITION = {"A": 0, "B": 1, "C": 2, "D": 3, "E": 4}
 
 
