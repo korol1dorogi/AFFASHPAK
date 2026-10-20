@@ -97,7 +97,7 @@
 `Score.total` — целое; `Score.model_version = "scorecard-2026.10-v1"`. Любая правка шкал или порогов грейда — новая `model_version`; старые `Score` не пересчитываются.
 
 ## 5. Правила решения поверх грейда
-Правила проверяются **по порядку, первое сработавшее определяет исход**. Каждое проверенное правило добавляет свои `reasons` (раздел 7), даже если не сработало: клиент и сотрудник видят, что прошло, а что нет.
+Правила проверяются **по порядку, первое сработавшее определяет исход**. Каждое проверенное правило добавляет свои `reasons` (раздел 7), даже если не сработало: клиент и сотрудник видят, что прошло, а что нет. При исходе `manual_review` (П3, П5) допустимая сумма и ставка по П6–П7 всё равно считаются и кладутся в `reasons` — это заготовка решения для сотрудника.
 
 | # | Условие | `outcome` | Статус (переход) | Что ещё |
 |---|---|---|---|---|
@@ -182,3 +182,55 @@
 | `product_requirements` | null | null | — / «{Продукт} требует {залог / возраст / правовую форму}; подходит {альтернатива}» | — |
 
 `improvements` отказа по грейду E — тексты «что улучшить» всех факторов с `passed = false`, по убыванию потерянных баллов (максимум фактора минус полученные), при равенстве — в порядке таблицы раздела 4.
+
+## 8. Эталонные случаи (для тестов D5 и генератора S2)
+Числа персон 1–4 совпадают с [demo.md](demo.md), [knowledge/credit.md](knowledge/credit.md) и [products.md](products.md). Входы, которых там нет, задаёт этот раздел — их воспроизводит S2 (D7). Все суммы получены функциями `credit_math` и проверены прогоном. Деньги — ₽, снимок — месячные значения, кроме `revenue`/`cogs`/`ebitda` (за 12 мес).
+
+### Входы персон
+| # | Компания | Заявка | `FinancialSnapshot` | `Check` |
+|---|---|---|---|---|
+| 1 `coffee_shop` | ИП, `active`, 36 мес | `cash_gap`, `overdraft_basic`, 900 000, 12 мес | `cleaned_credit_turnover` 3 000 000; `cfads` 450 000; `debt_service` 0; `debt`, `ebitda` null; `revenue_trend` 1.05; `counterparty_concentration` 0.10 | все `ok`; БКИ 0/0; ФНС без флагов |
+| 2 `retail_supplier` | ООО, `active`, 72 мес | `receivable_delay`, `factoring_basic`, 4 500 000, 2 мес, `invoice_amount` 5 000 000; документы `contract`, `shipment_document` | `cfads` 550 000; `debt_service` 250 000; `debt` 9 000 000; `ebitda` 3 000 000; `cash` 600 000; тренд 1.00; концентрация 0.60 | все `ok`; БКИ 0/0; ФНС без флагов |
+| 3 `garden_store` | ИП, `active`, 96 мес | `working_capital`, `working_capital_loan_basic`, 5 300 000, 12 мес; `bank_statement`, `tax_return` | `revenue` 36 500 000; `cogs` 29 200 000; `receivables` 4 500 000; `inventory` 2 400 000; `payables` 1 600 000; `cfads` 300 000; `debt_service` 50 000; `debt`, `ebitda` null; тренд 0.95; концентрация 0.05 | все `ok`; БКИ 0/0; ФНС без флагов |
+| 4 `furniture_maker` | ООО, `active`, 144 мес | `capex`, `investment_loan_basic`, 8 000 000, 36 мес, залог «станок»; `bank_statement`, `tax_return`, `contract`, `invoice` | `cfads` 1 800 000; `debt_service` 1 000 000; `debt`, `ebitda` null (отчётность не загружена); тренд 0.97; концентрация 0.40 | все `ok`; БКИ `current_overdue_days` 0, `past_overdue_max_days` 10; ФНС без флагов |
+| 5 `dependent_supplier` | ООО, `active`, 48 мес | `working_capital`, `working_capital_loan_basic`, 3 000 000, 12 мес; `bank_statement`, `tax_return` | `cfads` 330 000; `debt_service` 300 000; `debt` 10 500 000; `ebitda` 2 500 000; `cash` 0; тренд 0.80 (2,4 млн к 3,0 млн); концентрация 0.80 (2,4 млн из 3 млн) | все `ok`; БКИ 0/0; ФНС без флагов |
+| 6 `liquidating_company` | ООО, **`liquidating`** | любая, напр. `cash_gap`, `overdraft_basic`, 500 000, 6 мес | не важно | не запрашиваются |
+| 7 `bki_outage` | как персона 1 | как персона 1 | как персона 1 | **БКИ `unavailable`**, остальные `ok` |
+
+### Баллы по факторам
+| # | `business_age_months` | `dscr` | `debt_to_ebitda` | `revenue_trend` | `counterparty_concentration` | `bki_history` | `transparent_business` | Итого | Грейд |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | 36 → 10 | None, долга нет → 25 | None → 7 | 1.05 → 15 | 0.10 → 10 | 20 | 5 | **92** | **A** |
+| 2 | 72 → 10 | 2.2000 → 25 | 2.8000 → 10 | 1.00 → 15 | 0.60 → 3 ✗ | 20 | 5 | **88** | **B** |
+| 3 | 96 → 10 | 6.0000 → 25 | None → 7 | 0.95 → 10 | 0.05 → 10 | 20 | 5 | **87** | **B** |
+| 4 | 144 → 10 | 1.8000 → 18 | None → 7 | 0.97 → 10 | 0.40 → 7 | прошлая 10 дн. → 8 | 5 | **65** | **C** |
+| 5 | 48 → 10 | 1.1000 → 4 ✗ | 4.2000 → 4 ✗ | 0.80 → 4 ✗ | 0.80 → 0 ✗ | 20 | 5 | **47** | **E** |
+| 6 | — | — | — | — | — | — | — | — | null |
+| 7 | 36 → 10 | None, долга нет → 25 | None → 7 | 1.05 → 15 | 0.10 → 10 | `unavailable` → 10 ✗ | 5 | **82** | **B** |
+
+✗ — `passed = false`.
+
+### Исходы
+| # | Правило | `outcome` → статус | Сумма / ставка / срок | Ключевые `reasons` (metric: value / threshold → passed) | `improvements` |
+|---|---|---|---|---|---|
+| 1 | П8 | `offer` → `offer` | **900 000 ₽**, 22.4%, 12 мес; `monthly_payment` null (возобновляемый) | `score_total` 92 / 90 → ✓; `overdraft_limit` 900 000 / 900 000 → ✓ (`overdraft_limit(3 000 000, 0.3)`); `dscr` null → ✓ «долгов нет» | — |
+| 2 | П8 | `offer` → `offer` | **4 500 000 ₽**, 24%, 2 мес; комиссия 25 000 ₽ | `score_total` 88 / 75 → ✓; `factoring_advance` 4 500 000 / 4 500 000 → ✓ (`factoring_advance(5 000 000, 0.9)`); `factoring_commission` 25 000; `counterparty_concentration` 0.6 / 0.5 → ✗ (видно, но грейд B) | — |
+| 3 | П7 | `counteroffer` → `offer` | **2 009 314 ₽**, 24%, 12 мес; платёж 189 999.92; переплата 270 685.07 (`annuity_summary`) | `score_total` 87 / 75 → ✓; `working_capital_need` 5 300 000 / 5 300 000 → ✓; `max_loan_by_dscr` 2 009 314 / 5 300 000 → ✗ (`max_loan_by_dscr(300 000, 50 000, 0.24, 12, 1.25)`); `dscr_after` 1.2500 / 1.25 → ✓; для сравнения при 5 300 000 платёж 501 165.86 и DSCR 0.5443 | «При сроке 24 мес допустимо 3 593 645 ₽» (`max_loan_by_dscr(…, 24)`); «Снизьте текущие платежи по долгам» |
+| 4 | П5 (грейд C) | `manual_review` → `manual_review` | заготовка: 8 000 000 ₽, 24.4%, 36 мес; платёж 315 545.46 | `score_total` 65 / 75 → ✗; `bki_history` 10 / 30 → ✓ (прошлая короткая, но баллы снижены); `max_loan_by_dscr` 11 155 286 / 8 000 000 → ✓; `dscr_after` 1.3683 / 1.25 → ✓; `debt_to_ebitda` null — «отчётности нет» | — |
+| 4 → | сотрудник | `request_info` (`document_kinds` = [`financial_report`], «Загрузите бухгалтерскую отчётность за последний год — по ней оценим долговую нагрузку») → загрузка → `respond` → `manual_review` → `approve` | **8 000 000 ₽**, 24.4% (`rate_for` по C), 36 мес; платёж 315 545.46; переплата 3 359 636.36 | решение сотрудника: `decided_by = officer`, `grade = C`, `policy_version = "officer"` | — |
+| 5 | П4 | `declined` → `declined` | — | `score_total` 47 / 50 → ✗; `dscr` 1.1 / 1.25 → ✗; `debt_to_ebitda` 4.2 / 3.5 → ✗; `revenue_trend` 0.8 / 0.9 → ✗; `counterparty_concentration` 0.8 / 0.5 → ✗ | по потерянным баллам: «Снизьте текущие платежи по долгам или увеличьте свободный денежный поток» (−21); «Снизьте долг до 3,5 годовой прибыли» (−11); «Восстановите выручку хотя бы до уровня прошлого года» (−11); «Снизьте долю крупнейшего покупателя до 50% и меньше» (−10) |
+| 6 | П1 (С1) | `declined` → `declined` (переход 3) | — | `registry_status` null → ✗ «компания в процессе ликвидации» | — |
+| 7 | П3 | `manual_review` → `manual_review`, `source_unavailable = true` | заготовка: 900 000 ₽, 24.8% (B), 12 мес | `source_bki` null → ✗ «БКИ сейчас не отвечает — это не отказ»; `score_total` 82 / 75 → ✓; `overdraft_limit` 900 000 → ✓ | — |
+
+### Граничные случаи
+| # | Случай | Вход (отличия от базы) | Ожидание |
+|---|---|---|---|
+| Г1 | DSCR ровно на пороге | `cfads` 300 000, `debt_service` 240 000 | `dscr` = 1.2500 → интервал [1.25; 1.5) → 10 баллов, `passed = true`; но `max_loan_by_dscr(300 000, 240 000, 0.24, 12)` = None (свободного потока под новый платёж нет) → при A–B исход П7 → `manual_review`, не оффер на 0 ₽ |
+| Г2 | Запрошено ровно столько, сколько позволяет DSCR | персона 3, `requested_amount` 2 009 314 | П8 `offer` (не контроффер): `is_counteroffer = false`, платёж 189 999.92, `dscr_after` 1.2500 ≥ 1.25 |
+| Г3 | Сумма баллов ровно на границе грейда | персона 3, БКИ `past_overdue_max_days` 10 (20 → 8) | 87 − 12 = **75** → B (граница включительно) → контроффер как у персоны 3, ставка 24%; при 74 было бы C → `manual_review` |
+| Г4 | Метрики None | персона 1, `revenue_trend` и `counterparty_concentration` null | 10+25+7+7+5+20+5 = 79 → B, но пропущены 2 ключевые метрики → П5 `manual_review` (`missing_key_metrics` 2 / 1 → ✗); `debt_service = 0` не пропуск |
+| Г5 | Стоп-фактор и сбой источника сразу | персона 6 + БКИ `unavailable` | П1 раньше П3 → `declined`, `source_unavailable` не ставится |
+| Г6 | Грейд E и сбой источника сразу | персона 5 + БКИ `unavailable` | 47 − 20 + 10 = 37 → E, но П3 раньше П4 → `manual_review`, `source_unavailable = true` |
+| Г7 | Другой продукт и меньшая сумма сразу | персона 4, БКИ чисто, тренд 1.00 (10+18+7+15+7+20+5 = 82 → B), `collateral_description` пусто, 12 000 000 | П6: инвест-кредит требует залог → `leasing_basic`, ставка B 24%, 36 мес; `max_loan_by_dscr(1 800 000, 1 000 000, 0.24, 36)` = 11 215 090 → `alternative_product`, **11 215 090 ₽**, платёж 439 999.97, `dscr_after` 1.2500; `product_changed` и `is_counteroffer` — оба `true` |
+| Г8 | EBITDA = 0 | персона 2, `ebitda` 0 | `debt_to_ebitda` = None с пометкой стоп-фактора → С3 → `declined`, `grade = null` |
+| Г9 | Тренд ровно 0.8 | персона 5 | 0.80 ∈ [0.8; 0.9) → 4 балла (не 0), `passed = false` (порог 0.9) |
