@@ -387,3 +387,61 @@
 | `e_young_wcl` | КПО, бизнесу 8 мес | персона 3, возраст 8 мес | 83 → B; П6 → `alternative_product`, `overdraft_basic`, сумма = min(5 300 000, `overdraft_limit(cleaned_credit_turnover, 0.3)`) | план: D5, L4 |
 
 Проверки самого генератора (детерминизм, персоны до копейки, коридор грейдов, Gini, метка «демо», типы; data-spec, раздел 11) — план: S2, `backend/apps/demo_data/tests/`.
+
+## 7. Матрица покрытия
+Статус строки — по самому сильному тесту, который доказывает требование целиком: «есть» — доказано; «есть частично» — часть требования не проверена; «заготовка» — есть только `test.fixme`; «нет» — нет даже заготовки.
+
+| ID | Требование | Сценарии | Тесты в main | Статус | Чего не хватает → кто |
+|---|---|---|---|---|---|
+| F1 | Исследование потребностей | — | автотестов не бывает: доказательство — документ [research.md](research.md) | нет (не тестируется) | — |
+| F2 | Модель процесса | все | `test_table_matches_the_documented_state_machine` (переходы = state-machine.md) | есть частично | process.md и mvp.md (D2) — документы, не тесты |
+| F3 | Кабинет: выбор продукта, путь до результата | 1, 2, 3 | `test_scenario_1_offer_signing_and_disbursement`, `test_scenario_3_counteroffer_by_dscr`, `test_create_list_and_get_match_contract`; e2e — заготовки сценариев 1–3 | есть частично | подбор → D6; e2e → C2 (вход), C10 (1, 3), S6 (3); исполнителя e2e сценария 2 нет (раздел 9) |
+| F4 | Обработка банком, модель решения | 4, 7 | `test_scenario_4_info_request_document_and_approval`, `test_card_matches_contract`, `test_assign_and_stale_version`, `test_approve_creates_offer_on_requested_terms`, `test_decline_requires_improvements_and_reaches_the_client`; e2e — заготовки 4, 7 | есть частично | модель решения (П1–П8) → L4; очередь и фильтры → L3; e2e → S6 |
+| F5 | Данные сохраняются, статус меняется последовательно | 1–7 | `test_transition_moves_status_bumps_version_writes_event_and_notifies`, таймлайн в `test_scenario_1_offer_signing_and_disbursement`, `test_autosave_with_version_and_conflict`, `test_list_pagination_and_unread_count` | есть частично | «смена статуса видна без перезагрузки» (e2e) → C8 |
+| F6 | Проверка полноты, запрос уточнений | 4 (+ край `e_no_invoice`) | `test_completeness_check_asks_and_reruns_the_pipeline`, `test_scenario_4_info_request_document_and_approval`, `test_upload_is_allowed_when_the_bank_asked_for_documents` | есть частично | правила полноты D4 §3 в конвейере → L4 |
+| F7 | Обогащение: БКИ, ЕГРЮЛ, «Прозрачный бизнес» | 4, 6, 7 | — | нет | симуляторы → S1; адаптеры и `Check` → L4; e2e → S6 |
+| F8 | Скоринг отдельно от решения | 2, 3, 4, 5, 7 | формулы: `test_card_example_max_loan_by_dscr`, `test_card_example_overdraft_limit`, `test_card_example_factoring_advance`, `test_dscr_without_debt_is_none_with_reason`, `test_non_positive_ebitda_is_none_and_fails_check` | есть частично | балльная карта и грейды персон (A 92, B 88, B 87, C 65, E 47, B 82) → D5; правила поверх грейда → L4 |
+| F9 | Небинарные исходы | 1 (оффер), 3 (иные условия), 4 (запрос, одобрение сотрудником), 5 и 6 (отказ), 7 (ручное рассмотрение), кандидат Г7 (другой продукт) | `test_scenario_1_…`, `test_scenario_3_…`, `test_scenario_4_…`, `test_counteroffer_with_another_product_is_alternative_product`, `test_decline_requires_improvements_and_reaches_the_client`, `test_completeness_check_asks_and_reruns_the_pipeline` | есть частично | все пять исходов проходят через API, но решения подставляет сам тест; автоматические исходы → L4; «другой продукт» в демо → решение лида (раздел 5) |
+| F10 | Оформление и выдача (симуляция) | 1–4 | `test_scenario_1_offer_signing_and_disbursement` (подписание кодом, неверный код, `issued`) | есть частично | выдача через симулятор, а не `services.mark_issued` → S1, L4; e2e → C10 |
+| F11 | Понятно без банковской экспертизы | 1–7 | — | заготовка | тексты «что это значит / что дальше» → D8; e2e-проверки экранов → C10, S6; пустые и ошибочные состояния → C9 |
+| F12 | Контекст сохраняется, без повторного ввода | 1, 4 | `test_autosave_with_version_and_conflict`, `test_create_list_and_get_match_contract` (`prefill_source`) | есть частично | ИНН → ЕГРЮЛ (`lookupCompany`) → L3, C3; «черновик переживает перезагрузку» (e2e) → C5 |
+| T5 | Синтетика и тестовые учётки для e2e | все | — | нет | генератор и его проверки (data-spec §11) → S2; `seed_demo` и init-контейнер → S2, L5 |
+| T7 | Тест-сценарии, коллекция | все | этот документ | есть частично | коллекция Postman + newman в CI → S4 |
+| O4 | Внешние источники — симуляторы | 6, 7 | — | заготовка | симуляторы и флаг сбоя → S1; демо-панель → B7 |
+| O5 | Без email и SMS | 1–4 (код на экране), уведомления во всех | `test_scenario_1_offer_signing_and_disbursement` (код приходит в ответе API, а не по SMS), `test_list_pagination_and_unread_count`, `test_read_one_read_all_and_unread_filter` (уведомления только в интерфейсе) | есть частично | регистрация без почты → L3, C2; код на экране в e2e → C10 |
+
+## 8. Как запускать
+Команды из [AGENTS.md](../AGENTS.md). Из корня репозитория:
+
+| Что | Команда | Что нужно поднять |
+|---|---|---|
+| Первый запуск | `cp .env.example .env && docker compose up -d --build` | Docker |
+| Миграции | `docker compose run --rm backend python manage.py migrate` | db |
+| Каталог продуктов (после мержа D3) | `docker compose run --rm backend python manage.py loaddata products` | db |
+| Все тесты бэка (unit + API) | `docker compose run --rm backend pytest` | db; данные не нужны: тесты сами строят свой мир фабриками |
+| Один файл или сценарий | `docker compose run --rm backend pytest apps/applications/tests/test_api_client.py -k scenario` | то же |
+| Линт бэка | `docker compose run --rm backend sh -c "ruff check --fix . && ruff format ."` | — |
+| e2e | в `e2e/`: `npm ci && npx playwright install chromium && npx playwright test` | бэкенд уже запущен (`docker compose up -d --build`); `npm ci` в `frontend/` — dev-сервер фронта Playwright поднимает сам (`e2e/playwright.config.ts`). Для стенда: `E2E_BASE_URL=<адрес>`. Заготовки `test.fixme` попадают в отчёт как skipped |
+| e2e по сценариям 1–7 на живых данных | то же, плюс `seed_demo` и `DEMO_MODE=1` (быстрый вход, флаги сбоев) | появится в S2/L5 и B7 — сейчас в main этого нет |
+
+## 9. Пробелы и предложения лиду
+Ничего из этого в этом PR не сделано: задача S5 меняет только этот файл.
+
+| # | Что | У кого (по [tasks.md](tasks.md)) | Почему |
+|---|---|---|---|
+| 1 | Тесты балльной карты по персонам 1–7 и краям раздела 6: баллы, грейд, `improvements` | D5 («тесты по персонам зелёные») | `apps/scoring` в main нет; F8 закрыт только формулами `credit_math` |
+| 2 | Конвейер: персоны 1–7 от `submit` до исхода с числами D4 §8; правила полноты D4 §3; Г1–Г10 по исходу | L4 («персоны 1 и 6 и сценарий сбоя проходят») | сейчас все сценарные API-тесты сами вызывают `record_auto_decision` со своими числами («есть частично») |
+| 3 | e2e сценария 2 (факторинг) без исполнителя | лиду: назначить C10 или S6 | C10 — «e2e для персон 1 и 3», S6 — «e2e для сценариев 3–7»; заготовка сценария 2 есть, исполнителя нет |
+| 4 | e2e сценария 3 записан в двух задачах | лиду: C10 или S6 | чтобы не написать его дважды |
+| 5 | API-тест: preparer → 403 на `/offer/accept`, `/offer/decline`, `/signature`, `/signature/confirm`, `/cancel` | L3 (роли и доступ) | сейчас это проверено только на уровне сервиса (`test_only_the_right_role_may_act`) |
+| 6 | API-тест: клиент → 403 на `GET /api/bank/applications` и `GET /api/bank/dashboard` | L3 (очередь), L7 (дашборд) | `test_clients_get_403_on_bank_endpoints` их не перебирает |
+| 7 | Тест `rate_for` на таблицу D4 §5 (B → 24 % у КПО, C → 23.5 % у инвест-кредита, A → 20 % у овердрафта) | лиду: D5 или L2 (`apps/applications/offers.py` — код L2) | ставки персон 1–4 и одобрения сотрудником зависят от `rate_for`, а прямого теста нет |
+| 8 | Сценарий 4 на данных персоны: запрашивать `financial_report`, а не `contract` | S6 (e2e), L4 | `test_scenario_4_info_request_document_and_approval` запрашивает `contract`; так D4 §8 не проверяется. Сам тест здесь не меняется |
+| 9 | Выдача через симулятор (`signed → issued`) | S1, L4 | тесты вызывают `services.mark_issued` напрямую |
+| 10 | `/api/demo/*` (`demoLogin`, `getDemoFailures`, `setDemoFailures`, `resetDemo`) и `seed_demo` | L5/B7 (демо-панель), S2 (засев) | без них e2e не может войти за персону и не может провести сценарий 7 |
+| 11 | Функция `factoring_commission` и обёртка `working_capital_need` с None | D5 | нужны для reasons сценариев 2 и 3 (D4 §5, «для D5») |
+| 12 | «Другой продукт» (F9) в демо: персона 4 или новая персона 8 | лид (D4 §11) | раздел 5; от решения зависят demo.md, plan.md, state-machine.md, генератор и e2e |
+| 13 | В demo.md у персоны 4 «инвест-кредит или лизинг», в D4 и D7 — `investment_loan_basic`; логинов и грейдов персон в demo.md нет | лиду и владельцу demo.md (B10) | здесь взяты D4 и D7; demo.md стоит выровнять (то же предлагают D4 §11 и D7 §12) |
+| 14 | Г10 нельзя засеять: `Company.registered_at` NOT NULL | лид (модели и миграции) | D7 §12 предлагает `null=True`; пока Г10 — только вход теста |
+| 15 | Коллекция Postman по шагам сценариев 1–7 из раздела 3 | S4 | T7 требует коллекцию; таблицы шагов можно перенести в неё один к одному |
+| 16 | e2e «смена статуса без перезагрузки» и «черновик переживает перезагрузку» | C8, C5 | F5 и F12 в e2e пока не проверяются |
