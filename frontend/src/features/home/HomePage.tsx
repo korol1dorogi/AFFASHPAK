@@ -8,13 +8,14 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
 import { useApplications } from "@/features/applications/api";
+import { greetingName } from "@/lib/format";
 import { NEED, STATUS } from "@/texts";
 
 /** Home, first version: what needs the client's action first, then the rest (C8 adds metrics). */
 export function HomePage() {
   const me = useMe();
   const applications = useApplications();
-  const firstName = me.data?.full_name.split(" ")[0] ?? "";
+  const firstName = greetingName(me.data?.full_name ?? "");
 
   const cta = (
     <Button asChild size="lg">
