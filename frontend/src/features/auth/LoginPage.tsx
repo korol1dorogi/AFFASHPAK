@@ -47,7 +47,9 @@ function DemoPersonas() {
           >
             <span className="min-w-0 flex-1">
               <span className="block font-medium">{persona.title}</span>
-              <span className="text-sm text-ink-muted">Сценарий {persona.scenario}</span>
+              <span className="text-sm text-ink-muted">
+                {persona.kind === "bank" ? "Рабочее место банка" : `Сценарий ${persona.scenario}`}
+              </span>
             </span>
             <Button
               variant="secondary"

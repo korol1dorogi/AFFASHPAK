@@ -50,6 +50,7 @@ python3 -c "import secrets; print('DJANGO_ADMIN_URL=office-' + secrets.token_hex
 nano .env   # вписать DOMAIN и три значения выше
 ```
 - `LLM_PROVIDER=mock`, пока организаторы не ответят, можно ли отправлять данные кейса во внешние LLM (D8). Потом — **отдельный** ключ для стенда с жёстким месячным лимитом бюджета в кабинете провайдера.
+- `DEMO_MODE` (по умолчанию `1` в docker-compose.prod.yml): при каждом старте бэкенд досоздаёт синтетические демо-персоны (`manage.py seed_demo`, существующее не трогает), работают быстрый вход за персону и `/api/demo/*`. `DEMO_MODE=0` в `.env` выключает и то и другое.
 - Данные кейса: `sudo mkdir -p /srv/alfa-case-data && sudo chown deploy:deploy /srv/alfa-case-data`, загрузить туда по `scp`. Путь — в `CASE_DATA_DIR`; бэкенд видит его только на чтение.
 
 ## 5. Первый запуск

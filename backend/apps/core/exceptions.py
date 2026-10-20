@@ -60,3 +60,19 @@ def server_error_view(request: HttpRequest) -> HttpResponse:
         {"error": {"code": "server_error", "message": "Внутренняя ошибка. Попробуйте позже."}},
         status=500,
     )
+
+
+class SourceUnavailable(exceptions.APIException):
+    """An external source (simulator) did not answer: 503 source_unavailable."""
+
+    status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+    default_detail = "Источник данных временно недоступен. Попробуйте позже."
+    default_code = "source_unavailable"
+
+
+class Conflict(exceptions.APIException):
+    """409 for a state that forbids the request; pass a specific code."""
+
+    status_code = status.HTTP_409_CONFLICT
+    default_detail = "Действие сейчас недоступно."
+    default_code = "conflict"

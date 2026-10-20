@@ -7,6 +7,7 @@ import {
   formatMoneyInput,
   formatRate,
   formatRelative,
+  greetingName,
   parseMoneyInput,
   percentToFraction,
 } from "./format";
@@ -102,5 +103,14 @@ describe("dates", () => {
   it("is relative within a day", () => {
     expect(formatRelative("2026-10-20T08:48:00Z", now)).toBe("12 минут назад");
     expect(formatRelative("2026-10-20T08:59:40Z", now)).toBe("только что");
+  });
+});
+
+describe("greetingName", () => {
+  it("greets by first name and patronymic, or by the first word", () => {
+    expect(greetingName("Лаврова Анна Сергеевна (демо)")).toBe("Анна Сергеевна");
+    expect(greetingName("Анна Демо")).toBe("Анна");
+    expect(greetingName("Ирина")).toBe("Ирина");
+    expect(greetingName("")).toBe("");
   });
 });

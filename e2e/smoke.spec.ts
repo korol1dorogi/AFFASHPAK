@@ -14,5 +14,5 @@ test("status page shows that the backend works", async ({ page }) => {
 test("the cabinet sends a visitor without a session to sign in", async ({ page }) => {
   await page.goto("/app/match");
   await expect(page).toHaveURL(/\/login\?next=%2Fapp%2Fmatch/);
-  await expect(page.getByRole("heading", { name: "Вход" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Вход", exact: true })).toBeVisible();
 });

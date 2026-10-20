@@ -117,3 +117,12 @@ export function formatRelative(iso: string | null | undefined, now = new Date())
   if (abs < 86400) return relative.format(Math.round(seconds / 3600), "hour");
   return formatDateTime(iso, now);
 }
+
+/** How to greet a person: «Анна Сергеевна» for «Фамилия Имя Отчество», else the first word. */
+export function greetingName(fullName: string): string {
+  const words = fullName
+    .replace(/\(демо\)/giu, "")
+    .split(/\s+/u)
+    .filter(Boolean);
+  return words.length === 3 ? `${words[1]} ${words[2]}` : (words[0] ?? "");
+}

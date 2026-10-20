@@ -182,6 +182,9 @@ LLM_API_KEY = env("LLM_API_KEY", "")
 LLM_MODEL = env("LLM_MODEL", "")
 LLM_TIMEOUT_SECONDS = env_int("LLM_TIMEOUT_SECONDS", 30)
 
+# --- Demo stand: /api/demo/* and the seed of personas exist only with DEMO_MODE=1 ---
+DEMO_MODE = env_bool("DEMO_MODE", default=False)
+
 # --- Case data: read-only mount, never inside the repo ---
 CASE_DATA_DIR = Path(env("CASE_DATA_DIR", "/case-data"))
 
