@@ -4,23 +4,25 @@
 
 ## Проект
 Хакатон «Альфа-Будущее», трек «Умный кредитный кабинет предпринимателя» (малый и микробизнес).
-Путь клиента: зачем нужны деньги → подбор инструмента (овердрафт, факторинг, КПО, инвест-кредит, лизинг) с суммой и обоснованием → заявка → предварительная оценка с причинами → бэк-офис банка. ИИ-ассистент ведёт клиента по этому пути.
+Путь клиента: зачем нужны деньги → подбор инструмента (овердрафт, факторинг, КПО, инвест-кредит, лизинг) с суммой и обоснованием → заявка → проверки и скоринг → оффер, контроффер, запрос информации или отказ с причинами → подписание → выдача. Банк работает в той же заявке на своём рабочем месте (/bank). ИИ-ассистент ведёт клиента по этому пути.
+Ограничения кейса: LLM — только с открытыми весами; ни email, ни SMS; все внешние источники — симуляторы; всё поднимается из чистого клона без платных ключей.
 Что сдаём — docs/case.md (F1…Fn). Задачи и владельцы — docs/tasks.md. План — docs/plan.md.
 
 ## Перед задачей прочитай
-- docs/domain.md — термины, модели, статусы. Имена сущностей и полей — только отсюда.
+- docs/domain.md и docs/data-model.md — термины и сущности. Имена сущностей и полей — только отсюда.
+- docs/state-machine.md — статусы, переходы, роли, available_actions.
 - docs/openapi.yaml — контракт API.
 - docs/decisions.md — принятые решения, не пересматривай.
 - docs/knowledge/credit.md — если задача про расчёты, подбор, решение или ассистента.
 
 ## Структура
-- backend/ — Django + DRF: config/ — настройки, apps/<домен>/ — приложения, apps/credit_math/ — все кредитные расчёты.
-- frontend/ — React + TS: src/features/<фича>/, src/api/ — сгенерированный клиент, src/components/ui/ — shadcn.
+- backend/ — Django + DRF: config/ — настройки, apps/<домен>/ — приложения, apps/credit_math/ — все кредитные расчёты, apps/scoring/ — балльная карта.
+- frontend/ — React + TS: src/features/<фича>/, src/api/ — сгенерированный клиент, src/components/ — дизайн-система, src/components/ui/ — shadcn.
 - e2e/ — Playwright, journey.spec.ts — сквозной путь клиента.
 - docs/ — знания и контракт. data/SCHEMA.md — схема данных и синтетический пример.
 
 ## Стек (зафиксирован; новые зависимости — только через лида)
-Python 3.12, Django, DRF, PostgreSQL, pytest, ruff · React, TypeScript strict, Vite, Tailwind + shadcn/ui, TanStack Query, react-hook-form + zod, Biome, Vitest · openapi-typescript + openapi-fetch · Playwright · Docker Compose · GitHub Actions · Prism.
+Python 3.12, Django, DRF, PostgreSQL, Redis + Celery, pytest, ruff · React, TypeScript strict, Vite, react-router, Tailwind + shadcn/ui, TanStack Query, react-hook-form + zod, Biome, Vitest · openapi-typescript + openapi-fetch · Playwright · Postman/newman · Docker Compose · GitHub Actions · Prism · Caddy · LLM с открытыми весами (mock / OpenAI-совместимый API / Ollama).
 
 ## Команды
 - Первый запуск: `cp .env.example .env && docker compose up -d --build`
@@ -43,14 +45,14 @@ Python 3.12, Django, DRF, PostgreSQL, pytest, ruff · React, TypeScript strict, 
 8. Сомневаешься в требовании — спроси человека, не додумывай.
 
 ## Деньги и расчёты
-1. Формулы — только в backend/apps/credit_math/; всё остальное вызывает этот модуль.
+1. Формулы — только в backend/apps/credit_math/; всё остальное вызывает этот модуль. Балльная карта живёт в apps/scoring/, но денежные метрики берёт из credit_math.
 2. Деньги и ставки — Decimal, округление до копеек ROUND_HALF_UP; float запрещён. Ставки — годовые, в долях.
 3. Метрику нельзя посчитать — None и причина, не 0.
 4. Подбор и оценка всегда возвращают reasons: metric, value, threshold, passed, message. В интерфейсе — «предварительная оценка», не «решение банка».
 
 ## Безопасность
 1. Каждый queryset фильтруется по текущему пользователю. На каждый эндпоинт с id — тест: чужой пользователь получает 404.
-2. Сериализаторы — только явные поля, без "__all__". Статус, решение, одобренные сумма и ставка — read-only; статус меняется только через функции стейт-машины.
+2. Сериализаторы — только явные поля, без "__all__". Статус, version, решение, одобренные сумма и ставка — read-only; статус меняется только через функции стейт-машины (docs/state-machine.md). Кнопки на фронте — только по available_actions.
 3. Аутентификация — сессии + CSRF, фронт и API на одном origin, CORS не включаем. Запрещено: csrf_exempt, JWT в localStorage, сырой SQL, |safe, dangerouslySetInnerHTML.
 4. Загрузка файлов: лимит размера, проверка типа по содержимому, случайные имена, отдача как attachment.
 5. ИИ-ассистент: инструменты работают от имени текущего пользователя через сервисный слой и валидируются теми же сериализаторами; инструментов стороны банка нет; отправку заявки подтверждает человек; ответ без сырого HTML; в системном промте ничего секретного; каждый вызов инструмента пишется в журнал.

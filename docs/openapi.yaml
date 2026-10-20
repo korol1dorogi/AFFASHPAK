@@ -1,18 +1,21 @@
 openapi: 3.1.0
 info:
   title: Умный кредитный кабинет предпринимателя — API
-  version: 0.1.0-draft
+  version: 1.0.0
   description: |
-    ЧЕРНОВИК ДО КЕЙСА. Контракт — источник истины (contract-first, docs/decisions.md D2).
-    Меняет только лид. Фронт генерирует клиент (frontend: npm run gen:api), бэк валидирует
-    ответы по контракту в тестах, Prism отдаёт мок (docker compose --profile mock up -d mock).
+    Контракт v1 (L1). Источник истины (contract-first, docs/decisions.md D2). Меняет только лид.
+    Сверен с текстом кейса (docs/case.md: F1–F12, T1–T7, O1–O8).
 
-    Соглашения:
+    - Фронт генерирует клиент: `npm run gen:api` (frontend/). Бэк валидирует ответы по контракту в тестах.
+      Мок: `docker compose --profile mock up -d mock` → http://localhost:4010.
+    - Статусы, переходы и роли — docs/state-machine.md; сущности — docs/data-model.md.
     - Деньги, ставки и коэффициенты — строки-десятичные ("900000.00", "0.24"). Ставки — годовые, в долях.
-    - Ошибки — единый формат Error.
-    - Аутентификация — сессия (cookie sessionid). Небезопасные методы требуют заголовок
-      X-CSRFToken со значением cookie csrftoken (GET /api/auth/csrf выставляет cookie).
-    - Все данные — только текущего пользователя: чужой id → 404.
+    - Ошибки — единый формат Error. 409: `invalid_transition` (действие недопустимо в статусе)
+      или `version_conflict` (заявку изменили, перечитайте).
+    - Сессия (cookie sessionid). Небезопасные методы требуют X-CSRFToken = cookie csrftoken
+      (GET /api/auth/csrf выставляет cookie). CORS нет, один origin.
+    - Клиент видит только данные своей компании, банк — все заявки. Чужой id → 404.
+    - `/api/demo/*` существует только на стенде (DEMO_MODE=1), иначе 404.
 servers:
   - url: /
 security:
@@ -20,17 +23,21 @@ security:
 tags:
   - name: system
   - name: auth
-  - name: business
+  - name: company
   - name: products
   - name: applications
+  - name: notifications
+  - name: bank
   - name: assistant
+  - name: demo
 
 paths:
+  # ───────────────────────────── system ─────────────────────────────
   /api/health:
     get:
       tags: [system]
       operationId: getHealth
-      summary: Состояние API и базы данных
+      summary: Живость API и базы
       security: []
       responses:
         "200":
@@ -46,6 +53,25 @@ paths:
               schema: { $ref: "#/components/schemas/Health" }
               example: { status: degraded, database: unavailable }
 
+  /api/ready:
+    get:
+      tags: [system]
+      operationId: getReadiness
+      summary: Готовность к трафику (база, очередь, симуляторы)
+      security: []
+      responses:
+        "200":
+          description: Готов
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Readiness" }
+        "503":
+          description: Не готов
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Readiness" }
+
+  # ───────────────────────────── auth ─────────────────────────────
   /api/auth/csrf:
     get:
       tags: [auth]
@@ -58,6 +84,27 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/CsrfToken" }
+
+  /api/auth/register:
+    post:
+      tags: [auth]
+      operationId: register
+      summary: Регистрация клиента без подтверждения почты; сразу входит
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RegisterRequest" }
+      responses:
+        "201":
+          description: Создан и вошёл
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Me" }
+        "400": { $ref: "#/components/responses/ValidationError" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
 
   /api/auth/login:
     post:
@@ -75,7 +122,7 @@ paths:
           description: Вход выполнен
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/User" }
+              schema: { $ref: "#/components/schemas/Me" }
         "400": { $ref: "#/components/responses/ValidationError" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
@@ -94,67 +141,162 @@ paths:
     get:
       tags: [auth]
       operationId: getMe
-      summary: Текущий пользователь
+      summary: Текущий пользователь, его сторона и роль
       responses:
         "200":
           description: Пользователь
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/User" }
+              schema: { $ref: "#/components/schemas/Me" }
         "401": { $ref: "#/components/responses/Unauthorized" }
 
-  /api/business:
+  # ───────────────────────────── company ─────────────────────────────
+  /api/company/lookup:
     get:
-      tags: [business]
-      operationId: getBusiness
-      summary: Бизнес текущего пользователя
+      tags: [company]
+      operationId: lookupCompany
+      summary: Данные из ЕГРЮЛ/ЕГРИП по ИНН (симулятор) — для автозаполнения
+      parameters:
+        - name: inn
+          in: query
+          required: true
+          schema: { $ref: "#/components/schemas/Inn" }
       responses:
         "200":
-          description: Бизнес
+          description: Найдено в реестре
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/Business" }
+              schema: { $ref: "#/components/schemas/RegistryRecord" }
+        "400": { $ref: "#/components/responses/ValidationError" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
-    patch:
-      tags: [business]
-      operationId: updateBusiness
-      summary: Изменить редактируемые поля бизнеса
+        "503": { $ref: "#/components/responses/SourceUnavailable" }
+
+  /api/company:
+    get:
+      tags: [company]
+      operationId: getCompany
+      summary: Компания текущего пользователя (404 — ещё не создана)
+      responses:
+        "200":
+          description: Компания
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Company" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      tags: [company]
+      operationId: createCompany
+      summary: Создать компанию по ИНН; реквизиты — из ЕГРЮЛ, создатель становится signatory
       requestBody:
         required: true
         content:
           application/json:
-            schema: { $ref: "#/components/schemas/BusinessUpdate" }
+            schema: { $ref: "#/components/schemas/CompanyCreate" }
       responses:
-        "200":
-          description: Обновлённый бизнес
+        "201":
+          description: Компания создана
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/Business" }
+              schema: { $ref: "#/components/schemas/Company" }
+        "400": { $ref: "#/components/responses/ValidationError" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "503": { $ref: "#/components/responses/SourceUnavailable" }
+    patch:
+      tags: [company]
+      operationId: updateCompany
+      summary: Изменить редактируемые поля (реквизиты из реестра не редактируются)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CompanyUpdate" }
+      responses:
+        "200":
+          description: Обновлённая компания
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Company" }
         "400": { $ref: "#/components/responses/ValidationError" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
 
-  /api/business/metrics:
+  /api/company/members:
     get:
-      tags: [business]
-      operationId: getBusinessMetrics
-      summary: Последний финансовый снимок и метрики с пояснениями
+      tags: [company]
+      operationId: listCompanyMembers
+      summary: Сотрудники компании и их роли
+      responses:
+        "200":
+          description: Сотрудники
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Member" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      tags: [company]
+      operationId: addCompanyMember
+      summary: Добавить сотрудника по логину (только signatory)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MemberCreate" }
+      responses:
+        "201":
+          description: Добавлен
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Member" }
+        "400": { $ref: "#/components/responses/ValidationError" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /api/company/members/{member_id}:
+    parameters:
+      - name: member_id
+        in: path
+        required: true
+        schema: { type: integer, minimum: 1 }
+    delete:
+      tags: [company]
+      operationId: removeCompanyMember
+      summary: Убрать сотрудника (только signatory; себя убрать нельзя)
+      responses:
+        "204": { description: Убран }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /api/company/metrics:
+    get:
+      tags: [company]
+      operationId: getCompanyMetrics
+      summary: Последний финансовый снимок и ключевые метрики с пояснениями
       responses:
         "200":
           description: Снимок (может отсутствовать) и метрики в формате Reason
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/BusinessMetrics" }
+              schema: { $ref: "#/components/schemas/CompanyMetrics" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
 
-  /api/integrations/{source}/connect:
+  /api/company/integrations/{source}/connect:
     post:
-      tags: [business]
+      tags: [company]
       operationId: connectIntegration
-      summary: Подключить источник данных (загружает демо-данные с пометкой)
+      summary: Подключить источник данных (симулятор; данные помечены «демо»)
       parameters:
         - name: source
           in: path
@@ -162,19 +304,22 @@ paths:
           schema: { $ref: "#/components/schemas/IntegrationSource" }
       responses:
         "200":
-          description: Источник подключён, создан снимок
+          description: Подключено, создан снимок
           content:
             application/json:
               schema: { $ref: "#/components/schemas/IntegrationConnectResult" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/SourceUnavailable" }
 
+  # ───────────────────────────── products ─────────────────────────────
   /api/products:
     get:
       tags: [products]
       operationId: listProducts
       summary: Каталог кредитных продуктов
+      security: []
       responses:
         "200":
           description: Продукты
@@ -183,13 +328,31 @@ paths:
               schema:
                 type: array
                 items: { $ref: "#/components/schemas/Product" }
-        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/products/{code}:
+    get:
+      tags: [products]
+      operationId: getProduct
+      summary: Продукт
+      security: []
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Продукт
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Product" }
+        "404": { $ref: "#/components/responses/NotFound" }
 
   /api/recommendations:
     post:
       tags: [products]
       operationId: createRecommendations
-      summary: Подбор продукта под потребность (с суммой, платежом и reasons)
+      summary: Подбор «Что вам нужно?» — продукт, сумма, платёж и причины по данным компании
       requestBody:
         required: true
         content:
@@ -204,12 +367,14 @@ paths:
         "400": { $ref: "#/components/responses/ValidationError" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
 
   /api/calculators/annuity:
     post:
       tags: [products]
       operationId: calculateAnnuity
       summary: Аннуитетный калькулятор с графиком платежей
+      security: []
       requestBody:
         required: true
         content:
@@ -222,14 +387,14 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/AnnuityResult" }
         "400": { $ref: "#/components/responses/ValidationError" }
-        "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
 
+  # ───────────────────────────── applications (client) ─────────────────────────────
   /api/applications:
     get:
       tags: [applications]
       operationId: listApplications
-      summary: Заявки текущего пользователя (новые сверху)
+      summary: Заявки компании текущего пользователя (новые сверху)
       responses:
         "200":
           description: Заявки
@@ -242,7 +407,7 @@ paths:
     post:
       tags: [applications]
       operationId: createApplication
-      summary: Создать черновик заявки
+      summary: Создать черновик (signatory или preparer)
       requestBody:
         required: true
         content:
@@ -257,6 +422,7 @@ paths:
         "400": { $ref: "#/components/responses/ValidationError" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
 
   /api/applications/{id}:
     parameters:
@@ -264,19 +430,19 @@ paths:
     get:
       tags: [applications]
       operationId: getApplication
-      summary: Заявка
+      summary: Заявка с офером, открытыми запросами банка и доступными действиями
       responses:
         "200":
           description: Заявка
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/Application" }
+              schema: { $ref: "#/components/schemas/ApplicationDetail" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
     patch:
       tags: [applications]
       operationId: updateApplication
-      summary: Изменить черновик (только status=draft, только редактируемые поля)
+      summary: Изменить черновик (только draft; version обязательна — автосохранение)
       requestBody:
         required: true
         content:
@@ -287,7 +453,7 @@ paths:
           description: Обновлённая заявка
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/Application" }
+              schema: { $ref: "#/components/schemas/ApplicationDetail" }
         "400": { $ref: "#/components/responses/ValidationError" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
@@ -300,13 +466,16 @@ paths:
     post:
       tags: [applications]
       operationId: submitApplication
-      summary: Отправить заявку (draft|info_requested → submitted), запускает предварительную оценку
+      summary: Отправить (draft → submitted). Идемпотентно по Idempotency-Key
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
       responses:
         "200":
-          description: Заявка отправлена
+          description: Отправлена (или повтор с тем же ключом — тот же ответ)
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/Application" }
+              schema: { $ref: "#/components/schemas/ApplicationDetail" }
+        "400": { $ref: "#/components/responses/ValidationError" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
@@ -318,17 +487,35 @@ paths:
     post:
       tags: [applications]
       operationId: cancelApplication
-      summary: Отозвать заявку (draft|submitted → cancelled)
+      summary: Отозвать заявку
       responses:
         "200":
-          description: Заявка отозвана
+          description: Отозвана
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/Application" }
+              schema: { $ref: "#/components/schemas/ApplicationDetail" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/Conflict" }
+
+  /api/applications/{id}/events:
+    parameters:
+      - $ref: "#/components/parameters/ApplicationId"
+    get:
+      tags: [applications]
+      operationId: listApplicationEvents
+      summary: Таймлайн заявки для клиента (без внутренних комментариев банка)
+      responses:
+        "200":
+          description: События по возрастанию времени
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/ApplicationEvent" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
 
   /api/applications/{id}/decision:
     parameters:
@@ -336,15 +523,121 @@ paths:
     get:
       tags: [applications]
       operationId: getApplicationDecision
-      summary: Предварительная оценка или решение сотрудника с причинами
+      summary: Последнее решение с причинами и «что улучшить» (404 — решения ещё нет)
       responses:
         "200":
-          description: Последнее решение по заявке
+          description: Решение
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Decision" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/applications/{id}/offer/accept:
+    parameters:
+      - $ref: "#/components/parameters/ApplicationId"
+    post:
+      tags: [applications]
+      operationId: acceptOffer
+      summary: Принять активный оффер или контроффер (offer → signing; signatory)
+      responses:
+        "200":
+          description: Оффер принят
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApplicationDetail" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /api/applications/{id}/offer/decline:
+    parameters:
+      - $ref: "#/components/parameters/ApplicationId"
+    post:
+      tags: [applications]
+      operationId: declineOffer
+      summary: Отказаться от оффера (offer → cancelled; signatory)
+      responses:
+        "200":
+          description: Оффер отклонён
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApplicationDetail" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /api/applications/{id}/signature:
+    parameters:
+      - $ref: "#/components/parameters/ApplicationId"
+    post:
+      tags: [applications]
+      operationId: startSignature
+      summary: Получить код подписания — показывается на экране (не SMS); повтор выдаёт новый код
+      responses:
+        "200":
+          description: Код выдан
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SignatureChallenge" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /api/applications/{id}/signature/confirm:
+    parameters:
+      - $ref: "#/components/parameters/ApplicationId"
+    post:
+      tags: [applications]
+      operationId: confirmSignature
+      summary: Подтвердить подписание кодом (signing → signed)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SignatureConfirm" }
+      responses:
+        "200":
+          description: Договор подписан
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApplicationDetail" }
+        "400": { $ref: "#/components/responses/ValidationError" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /api/applications/{id}/info-requests/{request_id}/respond:
+    parameters:
+      - $ref: "#/components/parameters/ApplicationId"
+      - name: request_id
+        in: path
+        required: true
+        schema: { type: integer, minimum: 1 }
+    post:
+      tags: [applications]
+      operationId: respondInfoRequest
+      summary: Ответить на запрос (info_requested → submitted, если запросила проверка полноты; → manual_review, если сотрудник); документы — заранее через /documents
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/InfoRequestResponse" }
+      responses:
+        "200":
+          description: Ответ отправлен
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApplicationDetail" }
+        "400": { $ref: "#/components/responses/ValidationError" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
 
   /api/applications/{id}/documents:
     parameters:
@@ -366,7 +659,7 @@ paths:
     post:
       tags: [applications]
       operationId: uploadApplicationDocument
-      summary: Загрузить документ (лимит размера, тип проверяется по содержимому)
+      summary: Загрузить документ (только draft и info_requested; PDF, JPEG, PNG по сигнатуре; лимит размера)
       requestBody:
         required: true
         content:
@@ -385,11 +678,346 @@ paths:
         "409": { $ref: "#/components/responses/Conflict" }
         "413": { $ref: "#/components/responses/PayloadTooLarge" }
 
+  /api/applications/{id}/documents/{document_id}:
+    parameters:
+      - $ref: "#/components/parameters/ApplicationId"
+      - $ref: "#/components/parameters/DocumentId"
+    get:
+      tags: [applications]
+      operationId: downloadApplicationDocument
+      summary: Скачать документ (всегда attachment, тип — определённый по сигнатуре)
+      responses:
+        "200":
+          description: Файл
+          headers:
+            Content-Disposition:
+              schema: { type: string }
+              description: attachment; filename="…"
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+            image/png:
+              schema: { type: string, format: binary }
+            image/jpeg:
+              schema: { type: string, format: binary }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  # ───────────────────────────── notifications ─────────────────────────────
+  /api/notifications:
+    get:
+      tags: [notifications]
+      operationId: listNotifications
+      summary: Уведомления (только в интерфейсе; фронт опрашивает раз в 15–30 с)
+      parameters:
+        - name: unread
+          in: query
+          schema: { type: boolean }
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+      responses:
+        "200":
+          description: Страница уведомлений
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/NotificationPage" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/notifications/{notification_id}/read:
+    parameters:
+      - name: notification_id
+        in: path
+        required: true
+        schema: { type: integer, minimum: 1 }
+    post:
+      tags: [notifications]
+      operationId: markNotificationRead
+      summary: Отметить прочитанным
+      responses:
+        "204": { description: Прочитано }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/notifications/read-all:
+    post:
+      tags: [notifications]
+      operationId: markAllNotificationsRead
+      summary: Отметить все прочитанными
+      responses:
+        "204": { description: Прочитано }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  # ───────────────────────────── bank ─────────────────────────────
+  /api/bank/applications:
+    get:
+      tags: [bank]
+      operationId: listBankApplications
+      summary: Очередь банка с фильтрами, сортировкой, пагинацией и счётчиками по статусам
+      parameters:
+        - name: status
+          in: query
+          style: form
+          explode: true
+          schema:
+            type: array
+            items: { $ref: "#/components/schemas/ApplicationStatus" }
+        - name: product_kind
+          in: query
+          schema: { $ref: "#/components/schemas/ProductKind" }
+        - name: grade
+          in: query
+          schema: { $ref: "#/components/schemas/Grade" }
+        - name: assignee
+          in: query
+          description: "me — мои, none — никому не назначены, или id сотрудника"
+          schema: { type: string, examples: [me] }
+        - name: min_hours_in_status
+          in: query
+          schema: { type: integer, minimum: 0 }
+        - name: search
+          in: query
+          description: ИНН или название компании
+          schema: { type: string, maxLength: 100 }
+        - name: ordering
+          in: query
+          schema:
+            type: string
+            enum: [status_changed_at, -status_changed_at, requested_amount, -requested_amount, created_at, -created_at]
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+      responses:
+        "200":
+          description: Страница очереди
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BankQueuePage" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/bank/applications/{id}:
+    parameters:
+      - $ref: "#/components/parameters/ApplicationId"
+    get:
+      tags: [bank]
+      operationId: getBankApplication
+      summary: Карточка заявки для сотрудника — заявка, клиент, проверки, скоринг, решения, документы, журнал
+      responses:
+        "200":
+          description: Карточка
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BankApplicationDetail" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/bank/applications/{id}/assign:
+    parameters:
+      - $ref: "#/components/parameters/ApplicationId"
+    post:
+      tags: [bank]
+      operationId: assignBankApplication
+      summary: Взять заявку себе (статус не меняется)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/VersionedAction" }
+      responses:
+        "200":
+          description: Назначена
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BankApplicationDetail" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /api/bank/applications/{id}/approve:
+    parameters:
+      - $ref: "#/components/parameters/ApplicationId"
+    post:
+      tags: [bank]
+      operationId: approveBankApplication
+      summary: Одобрить на запрошенных условиях (manual_review → offer)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/VersionedAction" }
+      responses:
+        "200":
+          description: Оффер выставлен
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BankApplicationDetail" }
+        "400": { $ref: "#/components/responses/ValidationError" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /api/bank/applications/{id}/counteroffer:
+    parameters:
+      - $ref: "#/components/parameters/ApplicationId"
+    post:
+      tags: [bank]
+      operationId: counterofferBankApplication
+      summary: Иные условия и/или другой продукт (manual_review → offer; is_counteroffer / product_changed)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CounterofferAction" }
+      responses:
+        "200":
+          description: Контроффер выставлен
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BankApplicationDetail" }
+        "400": { $ref: "#/components/responses/ValidationError" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /api/bank/applications/{id}/request-info:
+    parameters:
+      - $ref: "#/components/parameters/ApplicationId"
+    post:
+      tags: [bank]
+      operationId: requestInfoBankApplication
+      summary: Запросить информацию или документ (manual_review → info_requested)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RequestInfoAction" }
+      responses:
+        "200":
+          description: Запрос отправлен клиенту
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BankApplicationDetail" }
+        "400": { $ref: "#/components/responses/ValidationError" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /api/bank/applications/{id}/decline:
+    parameters:
+      - $ref: "#/components/parameters/ApplicationId"
+    post:
+      tags: [bank]
+      operationId: declineBankApplication
+      summary: Отказать с причинами и «что улучшить» (manual_review → declined)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DeclineAction" }
+      responses:
+        "200":
+          description: Отказ оформлен
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BankApplicationDetail" }
+        "400": { $ref: "#/components/responses/ValidationError" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /api/bank/applications/{id}/comments:
+    parameters:
+      - $ref: "#/components/parameters/ApplicationId"
+    post:
+      tags: [bank]
+      operationId: commentBankApplication
+      summary: Внутренний комментарий в журнал (клиенту не виден)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CommentCreate" }
+      responses:
+        "201":
+          description: Добавлен
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApplicationEvent" }
+        "400": { $ref: "#/components/responses/ValidationError" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/bank/applications/{id}/documents/{document_id}:
+    parameters:
+      - $ref: "#/components/parameters/ApplicationId"
+      - $ref: "#/components/parameters/DocumentId"
+    get:
+      tags: [bank]
+      operationId: downloadBankApplicationDocument
+      summary: Скачать документ заявки (сотрудник банка)
+      responses:
+        "200":
+          description: Файл (attachment)
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+            image/png:
+              schema: { type: string, format: binary }
+            image/jpeg:
+              schema: { type: string, format: binary }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/bank/dashboard:
+    get:
+      tags: [bank]
+      operationId: getBankDashboard
+      summary: Воронка, время в статусах, доля автоматических решений
+      parameters:
+        - name: days
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 90, default: 30 }
+      responses:
+        "200":
+          description: Метрики конвейера
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BankDashboard" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  # ───────────────────────────── assistant ─────────────────────────────
   /api/assistant/messages:
+    get:
+      tags: [assistant]
+      operationId: listAssistantMessages
+      summary: История диалога с ассистентом (журнал вызовов инструментов)
+      parameters:
+        - name: application_id
+          in: query
+          schema: { type: integer, minimum: 1 }
+      responses:
+        "200":
+          description: Сообщения
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/AssistantMessage" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
     post:
       tags: [assistant]
       operationId: sendAssistantMessage
-      summary: Сообщение ИИ-ассистенту; инструменты работают от имени пользователя
+      summary: Сообщение ассистенту; инструменты работают от имени пользователя
       requestBody:
         required: true
         content:
@@ -397,7 +1025,7 @@ paths:
             schema: { $ref: "#/components/schemas/AssistantMessageRequest" }
       responses:
         "200":
-          description: Ответ ассистента, вызванные инструменты и действие на подтверждение
+          description: Ответ, вызванные инструменты и действие на подтверждение
           content:
             application/json:
               schema: { $ref: "#/components/schemas/AssistantReply" }
@@ -407,9 +1035,9 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "429": { $ref: "#/components/responses/TooManyRequests" }
 
-  /api/assistant/actions/{id}/confirm:
+  /api/assistant/actions/{action_id}/confirm:
     parameters:
-      - name: id
+      - name: action_id
         in: path
         required: true
         schema: { type: string, format: uuid }
@@ -428,6 +1056,93 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/Conflict" }
 
+  # ───────────────────────────── demo (stand only) ─────────────────────────────
+  /api/demo/personas:
+    get:
+      tags: [demo]
+      operationId: listDemoPersonas
+      summary: Демо-персоны для быстрого входа
+      security: []
+      responses:
+        "200":
+          description: Персоны
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/DemoPersona" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/demo/login:
+    post:
+      tags: [demo]
+      operationId: demoLogin
+      summary: Быстрый вход за персону
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [persona]
+              additionalProperties: false
+              properties:
+                persona: { type: string, examples: [coffee_shop] }
+      responses:
+        "200":
+          description: Вошли
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Me" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/demo/failures:
+    get:
+      tags: [demo]
+      operationId: getDemoFailures
+      summary: Текущие флаги сбоев симуляторов
+      responses:
+        "200":
+          description: Флаги
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DemoFailures" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    put:
+      tags: [demo]
+      operationId: setDemoFailures
+      summary: Включить или выключить сбои симуляторов (сотрудник банка)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DemoFailures" }
+      responses:
+        "200":
+          description: Флаги применены
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DemoFailures" }
+        "400": { $ref: "#/components/responses/ValidationError" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/demo/reset:
+    post:
+      tags: [demo]
+      operationId: resetDemo
+      summary: Сбросить демо-данные к засеянному состоянию (сотрудник банка)
+      responses:
+        "204": { description: Сброшено }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
 components:
   securitySchemes:
     session:
@@ -441,6 +1156,25 @@ components:
       in: path
       required: true
       schema: { type: integer, minimum: 1 }
+    DocumentId:
+      name: document_id
+      in: path
+      required: true
+      schema: { type: integer, minimum: 1 }
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: UUID, новый на каждое намерение отправить; повтор с тем же ключом не создаёт второй переход
+      schema: { type: string, format: uuid }
+    Page:
+      name: page
+      in: query
+      schema: { type: integer, minimum: 1, default: 1 }
+    PageSize:
+      name: page_size
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
 
   responses:
     ValidationError:
@@ -460,7 +1194,7 @@ components:
           schema: { $ref: "#/components/schemas/Error" }
           example: { error: { code: not_authenticated, message: Учётные данные не были предоставлены. } }
     Forbidden:
-      description: Нет прав или не прошла проверка CSRF
+      description: Нет прав для этой роли или не прошла проверка CSRF
       content:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
@@ -472,24 +1206,32 @@ components:
           schema: { $ref: "#/components/schemas/Error" }
           example: { error: { code: not_found, message: Не найдено. } }
     Conflict:
-      description: Действие недопустимо в текущем статусе
+      description: invalid_transition — действие недопустимо в текущем статусе; version_conflict — заявку уже изменили
       content:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
-          example: { error: { code: invalid_transition, message: Заявку в этом статусе изменить нельзя. } }
+          example: { error: { code: version_conflict, message: Заявку уже изменили. Обновите страницу. } }
     PayloadTooLarge:
       description: Файл больше лимита
       content:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
+          example: { error: { code: payload_too_large, message: Файл больше допустимого размера. } }
     TooManyRequests:
       description: Слишком много запросов (троттлинг)
       content:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
           example: { error: { code: throttled, message: Слишком много запросов. Попробуйте позже. } }
+    SourceUnavailable:
+      description: Внешний источник (симулятор) недоступен
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example: { error: { code: source_unavailable, message: Реестр временно недоступен. Попробуйте позже. } }
 
   schemas:
+    # ── primitives ──
     Money:
       type: string
       description: Сумма в рублях, строка-десятичная с копейками
@@ -505,6 +1247,14 @@ components:
       description: Десятичное число строкой (коэффициенты — 4 знака)
       pattern: '^-?\d+(\.\d+)?$'
       examples: ["1.2500"]
+    Inn:
+      type: string
+      pattern: '^\d{10}(\d{2})?$'
+      examples: ["0012345678"]
+    Version:
+      type: integer
+      minimum: 0
+      description: Версия заявки для optimistic locking; несовпадение → 409 version_conflict
 
     Error:
       type: object
@@ -521,6 +1271,15 @@ components:
               description: Ошибки по полям
               additionalProperties: true
 
+    Page:
+      type: object
+      required: [count, page, page_size]
+      properties:
+        count: { type: integer, minimum: 0 }
+        page: { type: integer, minimum: 1 }
+        page_size: { type: integer, minimum: 1 }
+
+    # ── system ──
     Health:
       type: object
       required: [status, database]
@@ -528,6 +1287,17 @@ components:
         status: { type: string, enum: [ok, degraded] }
         database: { type: string, enum: [ok, unavailable] }
 
+    Readiness:
+      type: object
+      required: [status, components]
+      properties:
+        status: { type: string, enum: [ready, not_ready] }
+        components:
+          type: object
+          additionalProperties: { type: string, enum: [ok, unavailable] }
+          examples: [{ database: ok, queue: ok, simulators: ok }]
+
+    # ── auth ──
     CsrfToken:
       type: object
       required: [csrf_token]
@@ -537,58 +1307,130 @@ components:
     LoginRequest:
       type: object
       required: [username, password]
+      additionalProperties: false
       properties:
         username: { type: string, minLength: 1, maxLength: 150 }
         password: { type: string, minLength: 1, maxLength: 128, format: password }
 
-    UserRole:
-      type: string
-      enum: [client, officer]
-      description: client — предприниматель; officer — сотрудник банка (работает через Django admin)
-
-    User:
+    RegisterRequest:
       type: object
-      required: [id, username, role, full_name]
+      required: [username, password, full_name]
+      additionalProperties: false
+      properties:
+        username: { type: string, minLength: 3, maxLength: 150, pattern: '^[\w.@+-]+$' }
+        password: { type: string, minLength: 8, maxLength: 128, format: password }
+        full_name: { type: string, minLength: 1, maxLength: 200 }
+
+    UserKind:
+      type: string
+      enum: [client, bank]
+      description: client — предприниматель; bank — сотрудник банка (bank_manager)
+
+    MemberRole:
+      type: string
+      enum: [signatory, preparer]
+      description: |
+        Права в компании (кейс: собственник, директор, финдиректор, бухгалтер, иной уполномоченный).
+        signatory — отправляет заявку, принимает оффер, подписывает (собственник, директор, уполномоченный по доверенности);
+        preparer — готовит черновики, документы, отвечает на запросы банка (бухгалтер, финдиректор, сотрудник). Должность — в position.
+
+    Me:
+      type: object
+      required: [id, username, full_name, kind, company_id, company_role, is_demo]
       properties:
         id: { type: integer }
-        username: { type: string }
-        role: { $ref: "#/components/schemas/UserRole" }
-        full_name: { type: string }
+        username: { type: string, examples: [demo_coffee] }
+        full_name: { type: string, examples: ["Анна Демо"] }
+        kind: { $ref: "#/components/schemas/UserKind" }
+        company_id:
+          description: Компания клиента; null — ещё не создана или это сотрудник банка
+          oneOf: [{ type: integer }, { type: "null" }]
+        company_role:
+          oneOf: [{ $ref: "#/components/schemas/MemberRole" }, { type: "null" }]
+        is_demo: { type: boolean }
 
+    UserRef:
+      type: object
+      required: [id, full_name]
+      properties:
+        id: { type: integer }
+        full_name: { type: string, examples: ["Анна Демо"] }
+
+    # ── company ──
     LegalForm:
       type: string
       enum: [ip, ooo]
 
-    Business:
-      type: object
-      required: [id, legal_form, name, inn, ogrn, okved, registered_at, region, is_demo]
-      properties:
-        id: { type: integer }
-        legal_form: { $ref: "#/components/schemas/LegalForm" }
-        name: { type: string, examples: ["ИП Иванова (демо)"] }
-        inn: { type: string, pattern: '^\d{10}(\d{2})?$' }
-        ogrn: { type: string, pattern: '^\d{13}(\d{2})?$' }
-        okved: { type: string, examples: ["56.10"] }
-        registered_at: { type: string, format: date }
-        region: { type: string }
-        is_demo: { type: boolean, description: Синтетические данные (показываем пометку «демо») }
+    RegistryStatus:
+      type: string
+      enum: [active, liquidating, liquidated]
 
-    BusinessUpdate:
+    RegistryRecord:
+      type: object
+      description: Запись ЕГРЮЛ/ЕГРИП из симулятора
+      required: [inn, ogrn, legal_form, name, okved, okved_name, registered_at, region, address, registry_status, director_name]
+      properties:
+        inn: { $ref: "#/components/schemas/Inn" }
+        ogrn: { type: string, pattern: '^\d{13}(\d{2})?$' }
+        legal_form: { $ref: "#/components/schemas/LegalForm" }
+        name: { type: string, examples: ["ООО «Демо Мебель»"] }
+        okved: { type: string, examples: ["31.09"] }
+        okved_name: { type: string, examples: ["Производство прочей мебели"] }
+        registered_at: { type: string, format: date }
+        region: { type: string, examples: ["Демо-область"] }
+        address: { type: string, examples: ["г. Демо, ул. Примерная, 1"] }
+        registry_status: { $ref: "#/components/schemas/RegistryStatus" }
+        director_name: { type: string, examples: ["Иван Демо"] }
+
+    Company:
+      allOf:
+        - $ref: "#/components/schemas/RegistryRecord"
+        - type: object
+          required: [id, is_demo, my_role]
+          properties:
+            id: { type: integer }
+            is_demo: { type: boolean, description: Синтетические данные — показываем пометку «демо» }
+            my_role: { $ref: "#/components/schemas/MemberRole" }
+
+    CompanyCreate:
+      type: object
+      required: [inn]
+      additionalProperties: false
+      properties:
+        inn: { $ref: "#/components/schemas/Inn" }
+
+    CompanyUpdate:
       type: object
       minProperties: 1
       additionalProperties: false
       properties:
-        name: { type: string, minLength: 1, maxLength: 255 }
-        okved: { type: string, maxLength: 16 }
-        region: { type: string, maxLength: 128 }
+        name: { type: string, minLength: 1, maxLength: 300, description: Короткое название для интерфейса }
+
+    Member:
+      type: object
+      required: [id, user, role, position]
+      properties:
+        id: { type: integer }
+        user: { $ref: "#/components/schemas/UserRef" }
+        role: { $ref: "#/components/schemas/MemberRole" }
+        position: { type: string, examples: ["Главный бухгалтер"] }
+
+    MemberCreate:
+      type: object
+      required: [username, role, position]
+      additionalProperties: false
+      properties:
+        username: { type: string, minLength: 1, maxLength: 150 }
+        role: { $ref: "#/components/schemas/MemberRole" }
+        position: { type: string, minLength: 1, maxLength: 100 }
 
     SnapshotSource:
       type: string
-      enum: [case, demo, manual]
+      enum: [case, demo, simulator, manual]
 
     FinancialSnapshot:
       type: object
-      description: Финансовый снимок бизнеса за период. null — данных нет.
+      description: Финансовый снимок компании за период. null — данных нет.
       required:
         - id
         - period
@@ -608,7 +1450,7 @@ components:
         - revenue_trend
       properties:
         id: { type: integer }
-        period: { type: string, description: Период снимка, examples: ["2026-09"] }
+        period: { type: string, pattern: '^\d{4}-\d{2}$', examples: ["2026-09"] }
         source: { $ref: "#/components/schemas/SnapshotSource" }
         cleaned_credit_turnover:
           description: Среднемесячный очищенный кредитовый оборот
@@ -646,7 +1488,7 @@ components:
         passed: { type: boolean }
         message: { type: string, description: Текст для клиента }
 
-    BusinessMetrics:
+    CompanyMetrics:
       type: object
       required: [snapshot, metrics, is_demo]
       properties:
@@ -659,7 +1501,8 @@ components:
 
     IntegrationSource:
       type: string
-      enum: [bank_statement, edo]
+      enum: [bank_account, edo]
+      description: bank_account — выписка по счёту; edo — документы отгрузки (УПД)
 
     IntegrationConnectResult:
       type: object
@@ -667,9 +1510,10 @@ components:
       properties:
         source: { $ref: "#/components/schemas/IntegrationSource" }
         status: { type: string, enum: [connected] }
-        is_demo: { type: boolean, description: Всегда true, пока интеграции — мок }
+        is_demo: { type: boolean, description: true — данные из симулятора }
         snapshot: { $ref: "#/components/schemas/FinancialSnapshot" }
 
+    # ── products ──
     ProductKind:
       type: string
       enum: [overdraft, factoring, working_capital_loan, investment_loan, leasing]
@@ -677,29 +1521,34 @@ components:
     Product:
       type: object
       required:
-        - id
         - code
         - kind
         - name
+        - description
         - rate_min
         - rate_max
         - term_min_months
         - term_max_months
         - amount_min
         - amount_max
+        - is_revolving
+        - collateral_required
         - params
         - requirements
+        - required_documents
       properties:
-        id: { type: integer }
         code: { type: string, examples: [overdraft_basic] }
         kind: { $ref: "#/components/schemas/ProductKind" }
-        name: { type: string }
+        name: { type: string, examples: ["Овердрафт для бизнеса"] }
+        description: { type: string, examples: ["Закрывает кассовые разрывы до 60 дней"] }
         rate_min: { $ref: "#/components/schemas/Rate" }
         rate_max: { $ref: "#/components/schemas/Rate" }
         term_min_months: { type: integer, minimum: 1 }
         term_max_months: { type: integer, minimum: 1 }
         amount_min: { $ref: "#/components/schemas/Money" }
         amount_max: { $ref: "#/components/schemas/Money" }
+        is_revolving: { type: boolean }
+        collateral_required: { type: boolean }
         params:
           type: object
           description: Параметры продукта (alpha, beta, min_dscr, max_debt_to_ebitda, tranche_days…)
@@ -712,6 +1561,9 @@ components:
             legal_forms:
               type: array
               items: { $ref: "#/components/schemas/LegalForm" }
+        required_documents:
+          type: array
+          items: { $ref: "#/components/schemas/DocumentKind" }
 
     NeedType:
       type: string
@@ -728,8 +1580,45 @@ components:
         need_type: { $ref: "#/components/schemas/NeedType" }
         amount: { $ref: "#/components/schemas/Money" }
         term_months: { type: integer, minimum: 1, maximum: 360 }
+        invoice_amount:
+          description: Для receivable_delay — сумма отгрузки по УПД
+          allOf: [{ $ref: "#/components/schemas/Money" }]
 
     Offer:
+      type: object
+      required:
+        - id
+        - product
+        - amount
+        - requested_amount
+        - term_months
+        - rate
+        - monthly_payment
+        - is_counteroffer
+        - product_changed
+        - status
+        - expires_at
+        - reasons
+      properties:
+        id: { type: integer }
+        product: { $ref: "#/components/schemas/Product" }
+        amount: { $ref: "#/components/schemas/Money" }
+        requested_amount: { $ref: "#/components/schemas/Money" }
+        term_months: { type: integer, minimum: 1 }
+        rate: { $ref: "#/components/schemas/Rate" }
+        monthly_payment:
+          description: Для возобновляемых продуктов (овердрафт, факторинг) — null
+          oneOf: [{ $ref: "#/components/schemas/Money" }, { type: "null" }]
+        is_counteroffer: { type: boolean, description: Сумма или срок отличаются от запрошенных }
+        product_changed: { type: boolean, description: Предложен другой продукт, чем в заявке }
+        status: { type: string, enum: [active, accepted, declined, superseded] }
+        expires_at: { type: string, format: date-time }
+        reasons:
+          type: array
+          description: Почему именно эти условия (для контроффера — почему сумма меньше)
+          items: { $ref: "#/components/schemas/Reason" }
+
+    RecommendedOffer:
       type: object
       required: [rank, product, amount, term_months, rate, monthly_payment, fits, reasons]
       properties:
@@ -739,7 +1628,6 @@ components:
         term_months: { type: integer, minimum: 1 }
         rate: { $ref: "#/components/schemas/Rate" }
         monthly_payment:
-          description: Для возобновляемых продуктов (овердрафт, факторинг) — null
           oneOf: [{ $ref: "#/components/schemas/Money" }, { type: "null" }]
         fits: { type: boolean, description: Все проверки пройдены }
         reasons:
@@ -753,7 +1641,7 @@ components:
         need_type: { $ref: "#/components/schemas/NeedType" }
         offers:
           type: array
-          items: { $ref: "#/components/schemas/Offer" }
+          items: { $ref: "#/components/schemas/RecommendedOffer" }
         stop_factors:
           type: array
           items: { $ref: "#/components/schemas/Reason" }
@@ -789,13 +1677,28 @@ components:
           type: array
           items: { $ref: "#/components/schemas/ScheduleRow" }
 
+    # ── applications ──
     ApplicationStatus:
       type: string
-      enum: [draft, submitted, in_review, approved, declined, info_requested, cancelled]
-      description: |
-        draft → submitted → in_review → approved | declined | info_requested;
-        info_requested → submitted; draft | submitted → cancelled.
-        Меняется только через действия (submit, cancel) и бэк-офис.
+      enum: [draft, submitted, processing, manual_review, info_requested, offer, signing, signed, issued, declined, cancelled]
+      description: Переходы — docs/state-machine.md
+
+    ApplicationAction:
+      type: string
+      enum:
+        - edit
+        - upload_document
+        - submit
+        - cancel
+        - respond_info
+        - accept_offer
+        - decline_offer
+        - sign
+        - assign
+        - approve
+        - counteroffer
+        - request_info
+        - decline
 
     PrefillSource:
       type: string
@@ -805,29 +1708,64 @@ components:
       type: object
       required:
         - id
+        - company_id
         - need_type
         - purpose
+        - product_code
         - requested_amount
         - term_months
-        - product_code
+        - invoice_amount
+        - collateral_description
         - status
+        - version
         - prefill_source
+        - available_actions
         - created_at
         - submitted_at
+        - status_changed_at
       properties:
         id: { type: integer }
+        company_id: { type: integer }
         need_type: { $ref: "#/components/schemas/NeedType" }
-        purpose: { type: string }
-        requested_amount: { $ref: "#/components/schemas/Money" }
-        term_months: { type: integer, minimum: 1 }
+        purpose: { type: string, examples: ["Выплатить зарплату до поступления оплаты от клиентов"] }
         product_code:
           description: Код выбранного продукта; null до выбора
           oneOf: [{ type: string }, { type: "null" }]
+        requested_amount: { $ref: "#/components/schemas/Money" }
+        term_months: { type: integer, minimum: 1 }
+        invoice_amount:
+          description: Для факторинга — сумма отгрузки
+          oneOf: [{ $ref: "#/components/schemas/Money" }, { type: "null" }]
+        collateral_description:
+          description: Залог или дополнительные условия (крупные проекты); null — без залога
+          oneOf: [{ type: string }, { type: "null" }]
         status: { $ref: "#/components/schemas/ApplicationStatus" }
+        version: { $ref: "#/components/schemas/Version" }
         prefill_source: { $ref: "#/components/schemas/PrefillSource" }
+        available_actions:
+          type: array
+          description: Что текущий пользователь может сделать сейчас (по статусу и роли) — фронт рисует кнопки только по этому списку
+          items: { $ref: "#/components/schemas/ApplicationAction" }
         created_at: { type: string, format: date-time }
         submitted_at:
           oneOf: [{ type: string, format: date-time }, { type: "null" }]
+        status_changed_at: { type: string, format: date-time }
+
+    ApplicationDetail:
+      allOf:
+        - $ref: "#/components/schemas/Application"
+        - type: object
+          required: [offer, open_info_requests, decision]
+          properties:
+            offer:
+              description: Активный или принятый оффер; null — нет
+              oneOf: [{ $ref: "#/components/schemas/Offer" }, { type: "null" }]
+            open_info_requests:
+              type: array
+              items: { $ref: "#/components/schemas/InfoRequest" }
+            decision:
+              description: Последнее решение; null — ещё нет
+              oneOf: [{ $ref: "#/components/schemas/Decision" }, { type: "null" }]
 
     ApplicationCreate:
       type: object
@@ -839,61 +1777,150 @@ components:
         requested_amount: { $ref: "#/components/schemas/Money" }
         term_months: { type: integer, minimum: 1, maximum: 360 }
         product_code: { type: string }
+        invoice_amount: { $ref: "#/components/schemas/Money" }
+        collateral_description: { type: string, maxLength: 1000 }
         prefill_source: { $ref: "#/components/schemas/PrefillSource" }
 
     ApplicationUpdate:
       type: object
-      minProperties: 1
+      required: [version]
+      minProperties: 2
       additionalProperties: false
       properties:
+        version: { $ref: "#/components/schemas/Version" }
         need_type: { $ref: "#/components/schemas/NeedType" }
         purpose: { type: string, minLength: 1, maxLength: 1000 }
         requested_amount: { $ref: "#/components/schemas/Money" }
         term_months: { type: integer, minimum: 1, maximum: 360 }
         product_code:
           oneOf: [{ type: string }, { type: "null" }]
+        invoice_amount:
+          oneOf: [{ $ref: "#/components/schemas/Money" }, { type: "null" }]
+        collateral_description:
+          oneOf: [{ type: string, maxLength: 1000 }, { type: "null" }]
+
+    ActorKind:
+      type: string
+      enum: [client, bank, system]
+
+    EventKind:
+      type: string
+      enum:
+        - status_changed
+        - document_uploaded
+        - info_requested
+        - info_responded
+        - assigned
+        - check_completed
+        - score_calculated
+        - decision
+        - comment
+        - signed
+        - issued
+
+    ApplicationEvent:
+      type: object
+      required: [id, kind, from_status, to_status, actor_kind, actor, message, is_internal, created_at]
+      properties:
+        id: { type: integer }
+        kind: { $ref: "#/components/schemas/EventKind" }
+        from_status:
+          oneOf: [{ $ref: "#/components/schemas/ApplicationStatus" }, { type: "null" }]
+        to_status:
+          oneOf: [{ $ref: "#/components/schemas/ApplicationStatus" }, { type: "null" }]
+        actor_kind: { $ref: "#/components/schemas/ActorKind" }
+        actor:
+          oneOf: [{ $ref: "#/components/schemas/UserRef" }, { type: "null" }]
+        message: { type: string }
+        is_internal: { type: boolean, description: true — только для банка }
+        created_at: { type: string, format: date-time }
 
     DecisionOutcome:
       type: string
-      enum: [approved, declined, info_requested]
+      enum: [offer, counteroffer, alternative_product, manual_review, info_requested, declined]
+      description: |
+        offer — одобрено на запрошенных условиях; counteroffer — иные сумма или срок;
+        alternative_product — другой продукт; manual_review — нужен сотрудник;
+        info_requested — нужны уточнения; declined — отказ (кейс: «итог не обязательно бинарный»).
 
     Decision:
       type: object
-      required:
-        - application_id
-        - outcome
-        - decided_by
-        - is_preliminary
-        - approved_amount
-        - rate
-        - term_months
-        - monthly_payment
-        - reasons
-        - created_at
+      required: [id, application_id, outcome, decided_by, is_preliminary, grade, policy_version, reasons, improvements, comment, created_at]
       properties:
+        id: { type: integer }
         application_id: { type: integer }
         outcome: { $ref: "#/components/schemas/DecisionOutcome" }
+        grade:
+          description: Грейд скоринга, на который опиралось решение (скоринг ≠ решение); null — до скоринга (стоп-фактор, неполные данные)
+          oneOf: [{ $ref: "#/components/schemas/Grade" }, { type: "null" }]
+        policy_version: { type: string, description: Версия правил кредитной логики (decision-model.md), examples: ["2026.10-v1"] }
         decided_by:
           type: string
           enum: [auto, officer]
           description: auto — предварительная оценка системы; officer — сотрудник банка
         is_preliminary: { type: boolean, description: true для decided_by=auto }
-        approved_amount:
-          oneOf: [{ $ref: "#/components/schemas/Money" }, { type: "null" }]
-        rate:
-          oneOf: [{ $ref: "#/components/schemas/Rate" }, { type: "null" }]
-        term_months:
-          oneOf: [{ type: integer, minimum: 1 }, { type: "null" }]
-        monthly_payment:
-          oneOf: [{ $ref: "#/components/schemas/Money" }, { type: "null" }]
         reasons:
           type: array
           items: { $ref: "#/components/schemas/Reason" }
+        improvements:
+          type: array
+          description: «Что улучшить» — для отказа и контроффера
+          items: { type: string }
+        comment:
+          description: Комментарий сотрудника для клиента
+          oneOf: [{ type: string }, { type: "null" }]
         created_at: { type: string, format: date-time }
 
+    InfoRequest:
+      type: object
+      required: [id, origin, message, fields, document_kinds, status, response_message, created_at, answered_at]
+      properties:
+        id: { type: integer }
+        origin:
+          type: string
+          enum: [validation, officer]
+          description: validation — автоматическая проверка полноты и корректности (F6); officer — сотрудник банка
+        message: { type: string, description: Что просит банк, простым языком }
+        fields:
+          type: array
+          description: Какие поля заявки или компании нужно уточнить (для origin=validation)
+          items: { type: string, examples: [purpose] }
+        document_kinds:
+          type: array
+          items: { $ref: "#/components/schemas/DocumentKind" }
+        status: { type: string, enum: [open, answered] }
+        response_message:
+          oneOf: [{ type: string }, { type: "null" }]
+        created_at: { type: string, format: date-time }
+        answered_at:
+          oneOf: [{ type: string, format: date-time }, { type: "null" }]
+
+    InfoRequestResponse:
+      type: object
+      required: [message]
+      additionalProperties: false
+      properties:
+        message: { type: string, minLength: 1, maxLength: 2000 }
+
+    SignatureChallenge:
+      type: object
+      required: [code, expires_at, attempts_left]
+      properties:
+        code: { type: string, pattern: '^\d{6}$', description: Показывается на экране — без SMS и почты, examples: ["482913"] }
+        expires_at: { type: string, format: date-time }
+        attempts_left: { type: integer, minimum: 0 }
+
+    SignatureConfirm:
+      type: object
+      required: [code]
+      additionalProperties: false
+      properties:
+        code: { type: string, pattern: '^\d{6}$', examples: ["482913"] }
+
+    # ── documents ──
     DocumentKind:
       type: string
-      enum: [bank_statement, financial_report, tax_return, contract, invoice, other]
+      enum: [bank_statement, financial_report, tax_return, contract, invoice, shipment_document, other]
 
     Document:
       type: object
@@ -902,7 +1929,7 @@ components:
         id: { type: integer }
         kind: { $ref: "#/components/schemas/DocumentKind" }
         filename: { type: string, description: Исходное имя (хранится под случайным именем) }
-        content_type: { type: string, examples: [application/pdf] }
+        content_type: { type: string, enum: [application/pdf, image/png, image/jpeg] }
         size: { type: integer, minimum: 1 }
         sha256: { type: string, pattern: '^[a-f0-9]{64}$' }
         uploaded_at: { type: string, format: date-time }
@@ -915,6 +1942,230 @@ components:
         kind: { $ref: "#/components/schemas/DocumentKind" }
         file: { type: string, format: binary }
 
+    # ── notifications ──
+    Notification:
+      type: object
+      required: [id, kind, title, message, application_id, created_at, read_at]
+      properties:
+        id: { type: integer }
+        kind: { $ref: "#/components/schemas/EventKind" }
+        title: { type: string, examples: ["Готово предложение"] }
+        message: { type: string, examples: ["Банк одобрил овердрафт на 900 000 ₽"] }
+        application_id:
+          oneOf: [{ type: integer }, { type: "null" }]
+        created_at: { type: string, format: date-time }
+        read_at:
+          oneOf: [{ type: string, format: date-time }, { type: "null" }]
+
+    NotificationPage:
+      allOf:
+        - $ref: "#/components/schemas/Page"
+        - type: object
+          required: [unread_count, results]
+          properties:
+            unread_count: { type: integer, minimum: 0 }
+            results:
+              type: array
+              items: { $ref: "#/components/schemas/Notification" }
+
+    # ── bank ──
+    Grade:
+      type: string
+      enum: [A, B, C, D, E]
+
+    CheckSource:
+      type: string
+      enum: [egrul, transparent_business, bki, bank_account]
+
+    Check:
+      type: object
+      required: [source, status, summary, data, checked_at]
+      properties:
+        source: { $ref: "#/components/schemas/CheckSource" }
+        status:
+          type: string
+          enum: [ok, warning, failed, unavailable]
+          description: unavailable — источник не ответил (сценарий 7)
+        summary: { type: string }
+        data: { type: object, additionalProperties: true }
+        checked_at: { type: string, format: date-time }
+
+    ScoreFactor:
+      type: object
+      required: [name, value, points, message]
+      properties:
+        name: { type: string, examples: [dscr] }
+        value:
+          oneOf: [{ $ref: "#/components/schemas/DecimalString" }, { type: string }, { type: "null" }]
+        points: { type: integer }
+        message: { type: string }
+
+    Score:
+      type: object
+      required: [grade, total, factors, model_version, created_at]
+      properties:
+        grade: { $ref: "#/components/schemas/Grade" }
+        total: { type: integer }
+        factors:
+          type: array
+          items: { $ref: "#/components/schemas/ScoreFactor" }
+        model_version: { type: string }
+        created_at: { type: string, format: date-time }
+
+    BankQueueItem:
+      type: object
+      required:
+        - id
+        - company_name
+        - company_inn
+        - product_kind
+        - requested_amount
+        - status
+        - grade
+        - assignee
+        - source_unavailable
+        - status_changed_at
+        - hours_in_status
+        - version
+      properties:
+        id: { type: integer }
+        company_name: { type: string, examples: ["ИП Демо Кофейня"] }
+        company_inn: { $ref: "#/components/schemas/Inn" }
+        product_kind:
+          oneOf: [{ $ref: "#/components/schemas/ProductKind" }, { type: "null" }]
+        requested_amount: { $ref: "#/components/schemas/Money" }
+        status: { $ref: "#/components/schemas/ApplicationStatus" }
+        grade:
+          oneOf: [{ $ref: "#/components/schemas/Grade" }, { type: "null" }]
+        assignee:
+          oneOf: [{ $ref: "#/components/schemas/UserRef" }, { type: "null" }]
+        source_unavailable: { type: boolean, description: Хотя бы один источник не ответил }
+        status_changed_at: { type: string, format: date-time }
+        hours_in_status: { type: integer, minimum: 0 }
+        version: { $ref: "#/components/schemas/Version" }
+
+    BankQueuePage:
+      allOf:
+        - $ref: "#/components/schemas/Page"
+        - type: object
+          required: [results, counters]
+          properties:
+            results:
+              type: array
+              items: { $ref: "#/components/schemas/BankQueueItem" }
+            counters:
+              type: object
+              description: Количество заявок по статусам (без учёта фильтра по статусу)
+              additionalProperties: { type: integer, minimum: 0 }
+              examples: [{ manual_review: 12, info_requested: 3, offer: 7 }]
+
+    BankApplicationDetail:
+      type: object
+      required: [application, company, members, snapshot, checks, score, decisions, offer, info_requests, documents, events, assignee]
+      properties:
+        application: { $ref: "#/components/schemas/Application" }
+        company: { $ref: "#/components/schemas/Company" }
+        members:
+          type: array
+          items: { $ref: "#/components/schemas/Member" }
+        snapshot:
+          oneOf: [{ $ref: "#/components/schemas/FinancialSnapshot" }, { type: "null" }]
+        checks:
+          type: array
+          items: { $ref: "#/components/schemas/Check" }
+        score:
+          oneOf: [{ $ref: "#/components/schemas/Score" }, { type: "null" }]
+        decisions:
+          type: array
+          items: { $ref: "#/components/schemas/Decision" }
+        offer:
+          oneOf: [{ $ref: "#/components/schemas/Offer" }, { type: "null" }]
+        info_requests:
+          type: array
+          items: { $ref: "#/components/schemas/InfoRequest" }
+        documents:
+          type: array
+          items: { $ref: "#/components/schemas/Document" }
+        events:
+          type: array
+          description: Полный журнал, включая внутренние комментарии
+          items: { $ref: "#/components/schemas/ApplicationEvent" }
+        assignee:
+          oneOf: [{ $ref: "#/components/schemas/UserRef" }, { type: "null" }]
+
+    VersionedAction:
+      type: object
+      required: [version]
+      additionalProperties: false
+      properties:
+        version: { $ref: "#/components/schemas/Version" }
+        comment: { type: string, maxLength: 2000, description: Комментарий для клиента }
+
+    CounterofferAction:
+      type: object
+      required: [version, amount, term_months, rate, comment]
+      additionalProperties: false
+      properties:
+        version: { $ref: "#/components/schemas/Version" }
+        product_code: { type: string, description: Другой продукт; не указан — текущий }
+        amount: { $ref: "#/components/schemas/Money" }
+        term_months: { type: integer, minimum: 1, maximum: 360 }
+        rate: { $ref: "#/components/schemas/Rate" }
+        comment: { type: string, minLength: 1, maxLength: 2000 }
+
+    RequestInfoAction:
+      type: object
+      required: [version, message]
+      additionalProperties: false
+      properties:
+        version: { $ref: "#/components/schemas/Version" }
+        message: { type: string, minLength: 1, maxLength: 2000 }
+        document_kinds:
+          type: array
+          items: { $ref: "#/components/schemas/DocumentKind" }
+
+    DeclineAction:
+      type: object
+      required: [version, reasons_text, improvements]
+      additionalProperties: false
+      properties:
+        version: { $ref: "#/components/schemas/Version" }
+        reasons_text: { type: string, minLength: 1, maxLength: 2000, description: Почему отказ — простым языком }
+        improvements:
+          type: array
+          minItems: 1
+          items: { type: string, minLength: 1, maxLength: 500 }
+
+    CommentCreate:
+      type: object
+      required: [message]
+      additionalProperties: false
+      properties:
+        message: { type: string, minLength: 1, maxLength: 2000 }
+
+    BankDashboard:
+      type: object
+      required: [period_days, funnel, avg_hours_in_status, auto_decision_share, total_applications]
+      properties:
+        period_days: { type: integer }
+        total_applications: { type: integer, minimum: 0 }
+        funnel:
+          type: array
+          description: Сколько заявок дошло до каждого этапа
+          items:
+            type: object
+            required: [stage, count]
+            properties:
+              stage: { $ref: "#/components/schemas/ApplicationStatus" }
+              count: { type: integer, minimum: 0 }
+        avg_hours_in_status:
+          type: object
+          additionalProperties: { $ref: "#/components/schemas/DecimalString" }
+        auto_decision_share:
+          description: Доля решений без участия сотрудника (0..1); null — решений ещё нет
+          oneOf: [{ $ref: "#/components/schemas/DecimalString" }, { type: "null" }]
+
+    # ── assistant ──
     AssistantMessageRequest:
       type: object
       required: [text]
@@ -944,6 +2195,18 @@ components:
         application_id:
           oneOf: [{ type: integer }, { type: "null" }]
 
+    AssistantMessage:
+      type: object
+      required: [id, role, content, tool_calls, created_at]
+      properties:
+        id: { type: integer }
+        role: { type: string, enum: [user, assistant] }
+        content: { type: string, description: Простой текст без HTML }
+        tool_calls:
+          type: array
+          items: { $ref: "#/components/schemas/AssistantToolCall" }
+        created_at: { type: string, format: date-time }
+
     AssistantReply:
       type: object
       required: [reply, tool_calls, pending_action]
@@ -961,4 +2224,26 @@ components:
       properties:
         action_id: { type: string, format: uuid }
         status: { type: string, enum: [done] }
-        application: { $ref: "#/components/schemas/Application" }
+        application: { $ref: "#/components/schemas/ApplicationDetail" }
+
+    # ── demo ──
+    DemoPersona:
+      type: object
+      required: [code, title, username, scenario, kind]
+      properties:
+        code: { type: string, examples: [coffee_shop] }
+        title: { type: string, examples: ["Кофейня, ИП (демо)"] }
+        username: { type: string }
+        scenario: { type: integer, minimum: 1, maximum: 7, description: Номер сценария из docs/plan.md }
+        kind: { $ref: "#/components/schemas/UserKind" }
+
+    DemoFailures:
+      type: object
+      required: [egrul, transparent_business, bki, bank_account]
+      additionalProperties: false
+      description: true — источник «падает» (симулятор отвечает ошибкой или таймаутом)
+      properties:
+        egrul: { type: boolean }
+        transparent_business: { type: boolean }
+        bki: { type: boolean }
+        bank_account: { type: boolean }
