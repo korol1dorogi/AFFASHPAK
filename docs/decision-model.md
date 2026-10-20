@@ -41,7 +41,7 @@
 | С2 | компания не найдена в ЕГРЮЛ/ЕГРИП | `Check(egrul).status = failed` | enrichment | — | «Проверьте ИНН компании» |
 | С3 | EBITDA ≤ 0 | `FinancialSnapshot.ebitda` (не `null`) | enrichment | `ebitda ≤ 0` — `debt_to_ebitda` возвращает None с пометкой «стоп-фактор» | «Подайте заявку, когда бизнес выйдет на операционную прибыль» |
 | С4 | текущая просрочка в БКИ больше 30 дней | `Check(bki).data.current_overdue_days` | enrichment | `stop_current_overdue_days` = 30 | «Погасите текущую просрочку и подайте заявку снова» |
-| С5 | бизнесу меньше 6 мес | `Company.registered_at` → `Application.submitted_at` | validation | `stop_min_business_age_months` = 6 (минимум `min_business_age_months` по каталогу) | «Вернитесь, когда бизнесу будет 6 месяцев: с даты регистрации прошло N мес» |
+| С5 | бизнесу меньше 6 мес | `Company.registered_at` → `Application.submitted_at` | validation | `stop_min_business_age_months` = 6 (минимум `min_business_age_months` по каталогу) | «Вернитесь, когда бизнесу будет 6 месяцев: с даты регистрации прошло N мес». Пустая `registered_at` — С5 не проверить: не отказ, а `manual_review` (П3) |
 
 `ebitda = null` (у ИП нет отчётности) — не стоп-фактор: метрика просто не считается (раздел 4). Требования конкретного продукта (возраст 12 мес у КПО, правовая форма, залог) — не стоп-факторы, а фильтр продукта (раздел 5, П6).
 
@@ -57,8 +57,8 @@
 | `term_months` пустой или вне `term_min_months`…`term_max_months` | `term_months` | — | «Срок по продукту — от {min} до {max} мес» |
 | факторинг без `invoice_amount` | `invoice_amount` | — | «Укажите сумму отгрузки по документу» |
 | нет документа из `Product.required_documents` | — | недостающие виды | «Загрузите: {список документов}» |
-| `Company.registered_at` пустая | `registered_at` | — | «Не удалось определить дату регистрации компании» |
 
+- Пустая `Company.registered_at` — не пробел для клиента: дата приходит из ЕГРЮЛ (автозаполнение C3), клиенту нечего уточнять. Конвейер идёт дальше, исход — `manual_review` (П3) с reason `business_age_months` = null.
 - `requested_amount` больше `amount_max` — не пробел: решение ограничит сумму (контрпредложение, раздел 5, П7).
 - Пустой `collateral_description` у продукта с `collateral_required` — не пробел, а повод предложить продукт без залога (раздел 5, П6).
 - Обязательные документы есть у факторинга (`contract`, `shipment_document`), КПО (`bank_statement`, `tax_return`), инвест-кредита и лизинга ([products.md](products.md)). Чтобы сценарии 2–5 не останавливались на проверке полноты, seed загружает обязательные документы заранее: персона 2 — `contract`, `shipment_document`; 3 и 5 — `bank_statement`, `tax_return`; 4 — `bank_statement`, `tax_return`, `contract`, `invoice` — **предложение для S2/seed_demo**. Персоне 1 (овердрафт) документы не нужны.
@@ -71,7 +71,7 @@
 
 | Фактор (`name`) | Источник | Функция | Шкала → баллы | Порог `passed` | Метрика не считается (None) | Макс. |
 |---|---|---|---|---|---|---|
-| `business_age_months` | `Company.registered_at`, `Application.submitted_at` | **для D5**: `business_age_months(registered_at, on_date) -> int` — полных месяцев между датами, в `apps/scoring` (не денежная формула) | ≥ 36 → 10 · [24; 36) → 7 · [12; 24) → 4 · [6; 12) → 1 · < 6 — стоп-фактор С5 | ≥ 12 | дата пустая — пробел полноты (раздел 3), до скоринга не доходит | 10 |
+| `business_age_months` | `Company.registered_at`, `Application.submitted_at` | **для D5**: `business_age_months(registered_at, on_date) -> int` — полных месяцев между датами, в `apps/scoring` (не денежная формула) | ≥ 36 → 10 · [24; 36) → 7 · [12; 24) → 4 · [6; 12) → 1 · < 6 — стоп-фактор С5 | ≥ 12 | `registered_at` пустая → **4**, «Дату регистрации не получили из ЕГРЮЛ»; в счёт ключевых метрик не входит, исход — П3 `manual_review` | 10 |
 | `dscr` | `FinancialSnapshot.cfads`, `.debt_service` | `dscr(cfads, debt_service)` — по **текущим** долгам, без нового кредита | ≥ 2.0 → 25 · [1.5; 2.0) → 18 · [1.25; 1.5) → 10 · [1.0; 1.25) → 4 · < 1.0 → 0 | ≥ `min_dscr` 1.25 | `debt_service = 0` и `cfads > 0` (долга нет) → **25**, «Долгов нет — нагрузки нет»; `cfads` или `debt_service` = `null` → **12**, ключевая метрика пропущена | 25 |
 | `debt_to_ebitda` | `.debt`, `.ebitda`, `.cash` | `debt_to_ebitda(debt, ebitda, cash)` | ≤ 2.0 → 15 · (2.0; 3.5] → 10 · (3.5; 5.0] → 4 · > 5.0 → 0 | ≤ `max_debt_to_ebitda` 3.5 | `ebitda` или `debt` = `null` (нет отчётности, обычно ИП) → **7**, «Отчётности нет — долговую нагрузку оценили по счёту»; `ebitda ≤ 0` — стоп-фактор С3 | 15 |
 | `revenue_trend` | `.revenue_trend` (считает S2/адаптер счёта функцией `revenue_trend`, год к году) | `revenue_trend` | ≥ 1.0 → 15 · [0.9; 1.0) → 10 · [0.8; 0.9) → 4 · < 0.8 → 0 | ≥ 0.9 | `null` → **7**, ключевая метрика пропущена | 15 |
@@ -103,7 +103,7 @@
 |---|---|---|---|---|
 | П1 | любой стоп-фактор С1–С5 | `declined` | `declined` (3) | `grade = null`; `improvements` из таблицы раздела 2 |
 | П2 | есть пробелы полноты (раздел 3) | `info_requested` | `info_requested` (4a) | `info_request {message, fields, document_kinds}`, `grade = null` |
-| П3 | хотя бы один `Check.status = unavailable` | `manual_review` | `manual_review` (5) | `source_unavailable = true`; при **любом** грейде, включая E: на неполных данных не отказываем (сценарий 7) |
+| П3 | хотя бы один `Check.status = unavailable`; **или** пустая `Company.registered_at` (возраст бизнеса и С5 не проверить) | `manual_review` | `manual_review` (5) | при **любом** грейде, включая E: на неполных данных не отказываем (сценарий 7); `source_unavailable = true` — только при `unavailable`-источнике |
 | П4 | грейд E | `declined` | `declined` (6) | `improvements` — все факторы с `passed = false`, по убыванию потерянных баллов |
 | П5 | грейд C или D; **или** пропущены ≥ 2 ключевые метрики (раздел 4); **или** невозобновляемый продукт и `debt_to_ebitda` > `max_debt_to_ebitda` | `manual_review` | `manual_review` (5) | в `reasons` — допустимая сумма по П7, ставка по грейду: заготовка решения для сотрудника |
 | П6 | продукт заявки не проходит своё требование: `requirements.legal_forms`, `requirements.min_business_age_months`, или `collateral_required` при пустом `collateral_description` | `alternative_product`, если подходит продукт из `alternatives`; иначе `declined` | `offer` (4) / `declined` (6) | альтернатива должна пройти свои требования и П7 с суммой ≥ её `amount_min`; срок — `term_months`, прижатый к её диапазону; сумма — min(запрошенная, допустимая для альтернативы) |
@@ -162,7 +162,7 @@
 | `egrul_found` | null | null | «Компания найдена в реестре» / «Компанию не нашли в ЕГРЮЛ/ЕГРИП» | «Проверьте ИНН компании» |
 | `ebitda` | EBITDA | 0 | — / «Операционная прибыль за год ≤ 0: бизнесу нечем обслуживать долг» | «Подайте заявку, когда бизнес выйдет на прибыль» |
 | `bki_current_overdue_days` | дни | 30 | — / «Сейчас есть просрочка по кредиту больше 30 дней» | «Погасите текущую просрочку» |
-| `business_age_months` | мес | 12 (или `min_business_age_months` продукта) | «Бизнесу N мес — достаточно» / «Бизнесу N мес, а продукт требует от M» | «Вернитесь через {M − N} мес или выберите {альтернативу}» |
+| `business_age_months` | мес | 12 (или `min_business_age_months` продукта) | «Бизнесу N мес — достаточно» / «Бизнесу N мес, а продукт требует от M» · null — «Дату регистрации не получили из ЕГРЮЛ — возраст бизнеса проверит сотрудник» | «Вернитесь через {M − N} мес или выберите {альтернативу}» |
 | `score_total` | сумма баллов | 75 (нижняя граница B: от 75 возможен автоматический оффер) | «Предварительная оценка риска: грейд B (87 из 100)»; `passed` = грейд A–B | — |
 | `dscr` | DSCR | 1.25 | «На каждый рубль платежей по долгам приходится {x} ₽ свободных денег» / «Свободных денег на платежи по долгам мало: {x} ₽ на рубль при норме 1,25» | «Снизьте текущие платежи по долгам или увеличьте свободный денежный поток» |
 | `debt_to_ebitda` | x | 3.5 | «Долги — {x} годовых прибыли, норма до 3,5» / «Долги — {x} годовых прибыли, это больше нормы 3,5» | «Снизьте долг до 3,5 годовой прибыли (EBITDA)» |
@@ -234,6 +234,7 @@
 | Г7 | Другой продукт и меньшая сумма сразу | персона 4, БКИ чисто, тренд 1.00 (10+18+7+15+7+20+5 = 82 → B), `collateral_description` пусто, 12 000 000 | П6: инвест-кредит требует залог → `leasing_basic`, ставка B 24%, 36 мес; `max_loan_by_dscr(1 800 000, 1 000 000, 0.24, 36)` = 11 215 090 → `alternative_product`, **11 215 090 ₽**, платёж 439 999.97, `dscr_after` 1.2500; `product_changed` и `is_counteroffer` — оба `true` |
 | Г8 | EBITDA = 0 | персона 2, `ebitda` 0 | `debt_to_ebitda` = None с пометкой стоп-фактора → С3 → `declined`, `grade = null` |
 | Г9 | Тренд ровно 0.8 | персона 5 | 0.80 ∈ [0.8; 0.9) → 4 балла (не 0), `passed = false` (порог 0.9) |
+| Г10 | Пустая дата регистрации | персона 1, `Company.registered_at` null | С5 не проверить — не отказ; `business_age_months` → 4: 4+25+7+15+10+20+5 = 86 → B; П3 → `manual_review`, `source_unavailable = false`, reason `business_age_months` null → ✗; клиенту `InfoRequest` не создаётся |
 
 ## 9. Целевое распределение грейдов и проверка на синтетике (D9)
 Цель из [plan.md](plan.md#синтетические-данные): A ~15% · B ~30% · C ~25% · D ~15% · E ~10% · стоп-факторы ~5% заявок.
