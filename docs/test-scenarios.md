@@ -1,6 +1,6 @@
 # Тестовые сценарии (S5)
 
-> Закрывает T7 «тестовые сценарии» ([case.md](case.md)). Здесь связаны персоны, шаги, ожидаемый исход и автотесты для семи сценариев из [plan.md](plan.md#ключевые-сценарии-каждый--e2e-тест-и-шаг-демо).
+> Закрывает T7 «тестовые сценарии» ([case.md](case.md)). Здесь связаны персоны, шаги, ожидаемый исход и автотесты для восьми сценариев из [plan.md](plan.md#ключевые-сценарии-каждый--e2e-тест-и-шаг-демо).
 > Источники: статусы, переходы, роли и `available_actions` — [state-machine.md](state-machine.md); операции — [openapi.yaml](openapi.yaml); продукты — [products.md](products.md) (D3); грейды, исходы, суммы и граничные случаи — [decision-model.md](decision-model.md) (D4, раздел 8); учётки, данные персон и края — [data-spec.md](data-spec.md) (D7, разделы 8–11); сюжет демо — [demo.md](demo.md). Если числа здесь расходятся с decision-model.md, верен decision-model.md, а этот файл нужно исправить.
 > Клиенту любой автоматический исход показываем как «предварительную оценку», не как «решение банка» ([domain.md](domain.md#правила-языка-в-интерфейсе)).
 
@@ -43,6 +43,7 @@
 | 5 | `dependent_supplier` | ООО «Опора Снаб», ИНН 0001000050 | `demo_dependent_supplier` | `signatory` | да |
 | 6 | `liquidating_company` | ООО «Вектор Сервис», ИНН 0001000067, `registry_status = liquidating` | `demo_liquidating_company` | `signatory` | да |
 | 7 | `bki_outage` | ИП, кофейня «Северный ветер», ИНН 000100000702 | `demo_bki_outage` | `signatory` | да |
+| 8 | `equipment_no_collateral` | ООО «Ковка и Фреза», ИНН 0001000081 | `demo_equipment_no_collateral` | `signatory` (генеральный директор) | да |
 | 4, 7, все | — | — | `demo_bank` | `bank_manager` | да |
 | очередь | — | — | `demo_bank_2`, `demo_bank_3` | `bank_manager` (нужны, чтобы фильтр очереди по исполнителю что-то показывал) | да |
 
@@ -53,19 +54,20 @@
 |---|---|---|
 | Компании, люди, выписки, снимки `FinancialSnapshot`, ответы симуляторов, заявки популяции | генератор `generate(seed=2026, n_companies=240)` по [data-spec.md](data-spec.md) → JSON → `seed_demo` | S2 (генератор), L5 (init-контейнер) |
 | Каталог продуктов (`overdraft_basic`, `factoring_basic`, `working_capital_loan_basic`, `investment_loan_basic`, `leasing_basic`) | фикстура D3: `docker compose run --rm backend python manage.py loaddata products` | D3 |
-| Черновики заявок персон 2–6 и их обязательные документы | `seed_demo` по data-spec 9.3. Заявки персон 1 и 7 не засеваются (`_seed: false`): в сценарии их создают подбор или ассистент | S2 |
-| Граничные случаи `edge_cases[]` (Г1–Г10 и края) | тот же JSON. `seed_demo` их **не** засевает, их читают тесты D5 и L4 | S2 → D5, L4 |
+| Черновики заявок персон 2–6 и 8 и их обязательные документы | `seed_demo` по data-spec 9.3. Заявки персон 1 и 7 не засеваются (`_seed: false`): в сценарии их создают подбор или ассистент | S2 |
+| Граничные случаи `edge_cases[]` (Г1–Г10 и края) | тот же JSON. `seed_demo` их **не** засевает, их читают тесты D5 и L4. Г7 = персона 8 (D15): край остаётся входом тестов, персона засевается | S2 → D5, L4 |
 | Сбой источника (сценарий 7) | `DemoState(source).failing`. `seed_demo` выставляет всем `false`; включается в `/bank/demo` → `PUT /api/demo/failures` (`setDemoFailures`). Пока флаг стоит, симулятор отвечает `unavailable` на любой ИНН | S1 (симулятор), L5/B7 (панель) |
 | Сброс демо | `POST /api/demo/reset` (`resetDemo`), только при `DEMO_MODE=1` | L5/B7 |
 
 Тесты API в main на эти данные не опираются. Каждый тест строит свой мир: фикстура `world` в `backend/apps/applications/tests/conftest.py` и фабрики `apps/core/factories.py`. В этом мире пользователи `director` (signatory), `accountant` (preparer), `outsider` (signatory чужой компании) и `manager` (банк), продукты фабрики `overdraft_demo` и `working_capital_demo`, заявка по умолчанию на 100 000.00 ₽ и 12 мес. Поэтому числа персон в них не проверяются (см. «есть частично»).
 
 ## 3. Сценарии 1–7
+Сценарий 8 («другой продукт», D15) — в разделе 5.
 
 Путь по переходам каждого сценария — [state-machine.md](state-machine.md#сценарии-плана--переходы). Номера переходов ниже взяты из таблицы «Переходы» того же файла.
 
 ### Общий блок «Подписание и выдача» (переходы 11 → 13 → 14)
-Сценарии 1–4 заканчиваются этим блоком. Заявка стоит в `offer`, активный оффер `status = active`, действует подписант персоны.
+Сценарии 1–4 и 8 заканчиваются этим блоком. Заявка стоит в `offer`, активный оффер `status = active`, действует подписант персоны.
 
 | № | Кто | Действие | Ожидаемый результат |
 |---|---|---|---|
@@ -330,26 +332,40 @@
 | Внутренний комментарий банка не виден клиенту | банк: `POST /api/bank/applications/{id}/comments` → клиент: `GET /api/applications/{id}/events` | 201, `is_internal = true`; в клиентском таймлайне комментария нет | `test_internal_comment_is_hidden_from_the_client` | API | есть | — |
 | Ответы по контракту | ответы эндпоинтов против [openapi.yaml](openapi.yaml) | совпадают | `assert_matches_contract` внутри тестов API; `test_contract_violation_is_detected` (`core/tests/test_health.py`) | API | есть частично | покрыты только эндпоинты, которые вызывают тесты |
 
-## 5. Сценарий-кандидат «Другой продукт» (F9) — ждёт решения лида: персона 4 или новая персона 8
-Исход `alternative_product` («другой продукт» в кейсе) ни одна из персон 1–7 не показывает. Есть только граничный случай Г7 ([decision-model.md](decision-model.md), разделы 8 и 11; data-spec `g7`). Пока лид не решит, это кандидат, а не восьмой сценарий: в [plan.md](plan.md), [demo.md](demo.md) и state-machine.md его нет. Если взять персону 4, сломается сценарий 4 (грейд C → ручное рассмотрение). Поэтому возможны два варианта: отдельная персона 8 или вариант персоны 4 только для тестов.
+## 5. Сценарий 8. Оборудование без залога: другой продукт — лизинг
+Решение лида D15 ([decisions.md](decisions.md)): исход `alternative_product` («другой продукт», F9) показывает персона 8 `equipment_no_collateral` на данных граничного случая Г7; персона 4 остаётся сценарием 4. Сценарий описан здесь, а не в разделе 3, чтобы не сдвигать номера разделов; формат и общий блок «Подписание и выдача» — как у сценариев 1–7.
 
-- **Вход (Г7):** персона 4, но БКИ 0/0 и тренд 1.00 → 10+18+7+15+7+20+5 = **82, грейд B**; `investment_loan_basic`, `requested_amount = "12000000.00"`, `term_months = 36`, `collateral_description` пуст.
+- **Цель:** клиент просит инвест-кредит на оборудование без залога; система не отказывает, а предлагает продукт, которому залог не нужен, — лизинг — на посильную сумму и объясняет почему.
+- **Доказывает:** F9 (исход «другой продукт»), F8 (грейд B, но продукт меняет правило П6, а сумму — П7: скоринг ≠ решение), F3, F10, F11 (объяснение замены продукта и суммы), F12 (заявка не создаётся заново: оффер на лизинг приходит в той же заявке).
+- **Персона:** 8 `equipment_no_collateral`, вход `demo_equipment_no_collateral`. ООО «Ковка и Фреза» (демо), 108 мес; `cfads` 1 800 000, `debt_service` 1 000 000 (кредит 600 000 + лизинг 400 000), `debt` и `ebitda` null, тренд 1.00, концентрация 0.40; БКИ 0/0, ФНС без флагов. Это данные Г7: персона 4, но БКИ чистое, тренд 1.00 и залога нет.
+- **Предусловия:** `seed_demo` засеял черновик `capex`, `investment_loan_basic`, `requested_amount = "12000000.00"`, `term_months = 36`, `collateral_description = null`; документы `bank_statement`, `tax_return`, `contract`, `invoice` загружены (они же покрывают обязательные документы лизинга); все флаги `DemoState.failing = false`.
 - **Переходы:** 1 → 2 → 4 (`auto_alternative_product`) → 11 → 13 → 14.
 
 | № | Кто | Действие | Ожидаемый результат |
 |---|---|---|---|
-| 1 | signatory | `POST …/submit` | `submitted` |
-| 2 | система | конвейер | `processing`; **82, B** |
-| 3 | система | П6: инвест-кредит требует залог → альтернатива `leasing_basic` | `offer`; `Decision.outcome = alternative_product`; оффер `product.code = leasing_basic`, **`amount = "11443551.00"`**, `rate` = 0.225 (22.5 %), `term_months = 36`, `monthly_payment = "440000.00"`, `product_changed = true`, `is_counteroffer = true`. Reasons: `product_requirements` → ✗ «… требует залог; подходит лизинг»; `max_loan_by_dscr` 11 443 551 / 12 000 000 → ✗ (`max_loan_by_dscr(1 800 000, 1 000 000, 0.225, 36)`); `dscr_after` 1.2500 / 1.25 → ✓. Уведомление «Готово предложение» |
-| 4–8 | signatory, система | блок «Подписание и выдача» | `issued` |
+| 1 | signatory | вход (как в сценарии 1, шаг 1) → `/app/applications` · `GET /api/applications` (`listApplications`) → `/app/applications/:id` · `GET /api/applications/{id}` (`getApplication`), `GET /api/applications/{id}/documents` (`listApplicationDocuments`) | черновик с полями из предусловий, залог не описан; четыре документа; `available_actions = [edit, upload_document, submit, cancel]` |
+| 2 | signatory | (необязательно) `/app/match` · `POST /api/recommendations` (`createRecommendations`), `need_type = capex`, `amount = "12000000.00"`, `term_months = 36` | `is_preliminary = true`; `investment_loan_basic` (`rank = 1`) — `amount = "11639118.00"`, `rate` 0.2125, reason `product_requirements` «нужен залог»; `leasing_basic` (`rank = 2`) — `amount = "11443551.00"`, `rate` 0.225, `monthly_payment = "440000.00"`; у обоих `max_loan_by_dscr` / 12 000 000 → ✗, `fits = false` |
+| 3 | signatory | «Отправить» · `POST /api/applications/{id}/submit` с `Idempotency-Key` | `submitted` (переход 1); уведомление «Заявка отправлена» |
+| 4 | система | конвейер | `processing` (переход 2); проверки все `ok`; **82, грейд B**: 10 + 18 + 7 + 15 + 7 + 20 + 5 |
+| 5 | система | П6: инвест-кредит требует залог, `collateral_description` пуст → альтернатива `leasing_basic` (`alternatives`); сумма по П7 | `offer` (переход 4, `auto_alternative_product`); `Decision.outcome = alternative_product`, `grade = B`, `is_preliminary = true`, `policy_version = "2026.10-v1"`; оффер **`product.code = leasing_basic`, `amount = "11443551.00"`, `requested_amount = "12000000.00"`, `rate` = 0.225 (22.5 %), `term_months = 36`, `monthly_payment = "440000.00"`, `product_changed = true`, `is_counteroffer = true`**. Reasons: `score_total` 82 / 75 → ✓; `product_requirements` → ✗ «Инвестиционный кредит требует залог; подходит лизинг»; `max_loan_by_dscr` 11 443 551 / 12 000 000 → ✗ (`max_loan_by_dscr(1 800 000, 1 000 000, 0.225, 36, 1.25)`); `dscr_after` 1.2500 / 1.25 → ✓. `improvements`: «При сроке 60 мес допустимо 15 768 379 ₽»; «Снизьте текущие платежи по долгам». Событие `decision`, уведомление «Готово предложение». `available_actions = [accept_offer, decline_offer, cancel]`. В интерфейсе — «предварительная оценка» |
+| 6–10 | signatory, система | блок «Подписание и выдача» П-1…П-5 | `issued`; `Disbursement.amount = Offer.amount` = 11 443 551.00 |
+| 11 | bank_manager | `/bank` · `GET /api/bank/applications` → `GET /api/bank/applications/{id}` | заявка в очереди банка; в карточке проверки, скоринг 82/B, решение `alternative_product` с reasons; действий у банка нет |
+
+**Итог:** `issued`, лизинг 11 443 551 ₽ под 22.5 % на 36 мес (платёж 440 000.00 ₽, переплата 4 396 448.78 ₽) вместо инвест-кредита 12 000 000 ₽; грейд B (82), решение автоматическое (П6 + П7).
 
 | Тест | Уровень | Статус | Что не проверяет |
 |---|---|---|---|
-| `test_counteroffer_with_another_product_is_alternative_product` (`test_api_bank.py`) | API | есть частично | другой продукт предлагает **сотрудник** (`manual_review → offer`, переход 7, продукт `overdraft_demo`, суммы задаёт тест). Авто-исход П6 (переход 4) и числа Г7 не проверяет |
-| Г7: баллы 82, П6 → `leasing_basic` 11 443 551 ₽ | unit, API | план: D5, L4 | — |
-| e2e | e2e | нет заготовки | появится, когда лид решит про персону (раздел 9) |
+| `test_persona_8_is_g7` (`backend/apps/scoring/tests/test_personas.py`) | unit | есть частично | баллы 10 · 18 · 7 · 15 · 7 · 20 · 5 = 82 → B, но на краю `g7`: персоны 8 в генераторе ещё нет (S2, data-spec 12.3) |
+| `test_capex_persona_8_asks_more_than_dscr_allows` (`backend/apps/recommendations/tests/test_service.py`) | unit | есть частично | шаг 2 на краю `g7`: лизинг 11 443 551 ₽ при 22.5 %, инвест-кредит 11 639 118 ₽, у обоих `max_loan_by_dscr` ✗. Через HTTP (`createRecommendations`) не проверяет |
+| `test_g7_alternative_product_amount` (`backend/apps/demo_data/tests/test_edge_cases.py`) | unit | есть | входы края `g7` (тренд 1.0000, БКИ 0/0, залога нет, 12 000 000.00) и `max_loan_by_dscr` = 11 443 551.00 |
+| `test_rate_by_grade_matches_decision_model` (`backend/apps/applications/tests/test_offers.py`) | unit | есть | `rate_for` лизинга при B = 0.2250 |
+| `test_counteroffer_with_another_product_is_alternative_product` (`test_api_bank.py`) | API | есть частично | другой продукт предлагает **сотрудник** (переход 7, `overdraft_demo`, суммы задаёт тест); авто-исход П6 (переход 4) и числа персоны 8 не проверяет |
+| персона 8 в генераторе: снимок и `M`/`O`/`K` = data-spec 9.2 | unit | план: S2 | — |
+| персона 8 через конвейер до `offer`: П6 → `leasing_basic` 11 443 551 ₽, `product_changed` и `is_counteroffer` = true | API | план: L4 | — |
+| шаги 1–11 в браузере | e2e | план: S6 (D18: S6 — сценарии 2–8) | — |
+| шаги 1–11 через HTTP | коллекция | план: S4 | — |
 
-Похожий край без новой персоны — `e_young_wcl` (раздел 6): КПО при возрасте 8 мес → альтернатива `overdraft_basic`.
+Похожий край без отдельной персоны — `e_young_wcl` (раздел 6): КПО при возрасте 8 мес → альтернатива `overdraft_basic`.
 
 ## 6. Граничные случаи
 Входы описаны как «персона + отличия»: [decision-model.md](decision-model.md), раздел 8, «Граничные случаи», и [data-spec.md](data-spec.md), раздел 10 (`edge_cases[]` в JSON генератора; `seed_demo` их не засевает). Кто пишет тест: баллы и грейд — D5 (`apps/scoring`), исход правил П1–П8 и конвейер — L4. Если тест D5 даёт другое число, прав D4, а data-spec и эта таблица исправляются.
@@ -363,7 +379,7 @@
 | Г4 | `g4` | Две ключевые метрики None | персона 1, `revenue_trend` и `counterparty_concentration` = null (только вход теста: из выписки так не получить) | 79 → B, но П5 → `manual_review`; `missing_key_metrics` 2 / 1 → ✗; `debt_service = 0` пропуском не считается | план: D5, L4 |
 | Г5 | `g5` | Стоп-фактор и сбой сразу | персона 6 + БКИ `unavailable` | П1 раньше П3 → `declined`, `source_unavailable` не ставится | план: L4 |
 | Г6 | `g6` | Грейд E и сбой сразу | персона 5 + БКИ `unavailable` | 47 − 20 + 10 = 37 → E, но П3 раньше П4 → `manual_review`, `source_unavailable = true` | план: D5, L4 |
-| Г7 | `g7` | Другой продукт и меньшая сумма | персона 4: БКИ 0/0, тренд 1.00, без залога, 12 000 000 | `alternative_product`, `leasing_basic`, 11 443 551 ₽, платёж 440 000.00; `product_changed` и `is_counteroffer` = true (раздел 5) | план: D5, L4 |
+| Г7 | `g7` | Другой продукт и меньшая сумма; **= персона 8 (D15)** | персона 4: БКИ 0/0, тренд 1.00, без залога, 12 000 000 | `alternative_product`, `leasing_basic`, 11 443 551 ₽, платёж 440 000.00; `product_changed` и `is_counteroffer` = true (сценарий 8, раздел 5) | есть: `test_persona_8_is_g7` (82, B), `test_g7_alternative_product_amount`, `test_capex_persona_8_asks_more_than_dscr_allows`; исход П6 — план: L4 |
 | Г8 | `g8` | EBITDA = 0 | персона 2, `ebitda` 0.00 | `debt_to_ebitda` = None со стоп-фактором → С3 → `declined`, `grade = null` | план: L4. Есть частично: `test_non_positive_ebitda_is_none_and_fails_check` (`test_metrics.py`) — метрика None и проверка не пройдена; исход С3 не проверяет |
 | Г9 | `g9` | Тренд ровно 0.8 | персона 5 | 0.80 ∈ [0.8; 0.9) → 4 балла, `passed = false` | план: D5 |
 | Г10 | `g10` | Пустая дата регистрации | персона 1, `registered_at` null | С5 не проверить, но это не отказ; возраст → 4 балла, 86 → B; П3 → `manual_review`, `source_unavailable = false`; reason `business_age_months` null → ✗; `InfoRequest` не создаётся | план: D5, L4. **Засеять нельзя**: `Company.registered_at` NOT NULL, поэтому это только вход теста (раздел 9) |
@@ -395,20 +411,20 @@
 |---|---|---|---|---|---|
 | F1 | Исследование потребностей | — | автотестов не бывает: доказательство — документ [research.md](research.md) | нет (не тестируется) | — |
 | F2 | Модель процесса | все | `test_table_matches_the_documented_state_machine` (переходы = state-machine.md) | есть частично | process.md и mvp.md (D2) — документы, не тесты |
-| F3 | Кабинет: выбор продукта, путь до результата | 1, 2, 3 | `test_scenario_1_offer_signing_and_disbursement`, `test_scenario_3_counteroffer_by_dscr`, `test_create_list_and_get_match_contract`; e2e — заготовки сценариев 1–3 | есть частично | подбор → D6; e2e → C2 (вход), C10 (1, 3), S6 (3); исполнителя e2e сценария 2 нет (раздел 9) |
+| F3 | Кабинет: выбор продукта, путь до результата | 1, 2, 3, 8 | `test_scenario_1_offer_signing_and_disbursement`, `test_scenario_3_counteroffer_by_dscr`, `test_create_list_and_get_match_contract`; e2e — заготовки сценариев 1–3 | есть частично | подбор → D6; e2e → C2 (вход), C10 (1, 3), S6 (3); исполнителя e2e сценария 2 нет (раздел 9) |
 | F4 | Обработка банком, модель решения | 4, 7 | `test_scenario_4_info_request_document_and_approval`, `test_card_matches_contract`, `test_assign_and_stale_version`, `test_approve_creates_offer_on_requested_terms`, `test_decline_requires_improvements_and_reaches_the_client`; e2e — заготовки 4, 7 | есть частично | модель решения (П1–П8) → L4; очередь и фильтры → L3; e2e → S6 |
-| F5 | Данные сохраняются, статус меняется последовательно | 1–7 | `test_transition_moves_status_bumps_version_writes_event_and_notifies`, таймлайн в `test_scenario_1_offer_signing_and_disbursement`, `test_autosave_with_version_and_conflict`, `test_list_pagination_and_unread_count` | есть частично | «смена статуса видна без перезагрузки» (e2e) → C8 |
+| F5 | Данные сохраняются, статус меняется последовательно | 1–8 | `test_transition_moves_status_bumps_version_writes_event_and_notifies`, таймлайн в `test_scenario_1_offer_signing_and_disbursement`, `test_autosave_with_version_and_conflict`, `test_list_pagination_and_unread_count` | есть частично | «смена статуса видна без перезагрузки» (e2e) → C8 |
 | F6 | Проверка полноты, запрос уточнений | 4 (+ край `e_no_invoice`) | `test_completeness_check_asks_and_reruns_the_pipeline`, `test_scenario_4_info_request_document_and_approval`, `test_upload_is_allowed_when_the_bank_asked_for_documents` | есть частично | правила полноты D4 §3 в конвейере → L4 |
 | F7 | Обогащение: БКИ, ЕГРЮЛ, «Прозрачный бизнес» | 4, 6, 7 | — | нет | симуляторы → S1; адаптеры и `Check` → L4; e2e → S6 |
-| F8 | Скоринг отдельно от решения | 2, 3, 4, 5, 7 | формулы: `test_card_example_max_loan_by_dscr`, `test_card_example_overdraft_limit`, `test_card_example_factoring_advance`, `test_dscr_without_debt_is_none_with_reason`, `test_non_positive_ebitda_is_none_and_fails_check` | есть частично | балльная карта и грейды персон (A 92, B 88, B 87, C 65, E 47, B 82) → D5; правила поверх грейда → L4 |
-| F9 | Небинарные исходы | 1 (оффер), 3 (иные условия), 4 (запрос, одобрение сотрудником), 5 и 6 (отказ), 7 (ручное рассмотрение), кандидат Г7 (другой продукт) | `test_scenario_1_offer_signing_and_disbursement`, `test_scenario_3_counteroffer_by_dscr`, `test_scenario_4_info_request_document_and_approval`, `test_counteroffer_with_another_product_is_alternative_product`, `test_decline_requires_improvements_and_reaches_the_client`, `test_completeness_check_asks_and_reruns_the_pipeline` | есть частично | все пять исходов проходят через API, но решения подставляет сам тест; автоматические исходы → L4; «другой продукт» в демо → решение лида (раздел 5) |
-| F10 | Оформление и выдача (симуляция) | 1–4 | `test_scenario_1_offer_signing_and_disbursement` (подписание кодом, неверный код, `issued`) | есть частично | выдача через симулятор, а не `services.mark_issued` → S1, L4; e2e → C10 |
-| F11 | Понятно без банковской экспертизы | 1–7 | — | заготовка | тексты «что это значит / что дальше» → D8; e2e-проверки экранов → C10, S6; пустые и ошибочные состояния → C9 |
+| F8 | Скоринг отдельно от решения | 2, 3, 4, 5, 7, 8 | формулы: `test_card_example_max_loan_by_dscr`, `test_card_example_overdraft_limit`, `test_card_example_factoring_advance`, `test_dscr_without_debt_is_none_with_reason`, `test_non_positive_ebitda_is_none_and_fails_check` | есть частично | балльная карта и грейды персон (A 92, B 88, B 87, C 65, E 47, B 82) → D5; правила поверх грейда → L4 |
+| F9 | Небинарные исходы | 1 (оффер), 3 (иные условия), 4 (запрос, одобрение сотрудником), 5 и 6 (отказ), 7 (ручное рассмотрение), 8 (другой продукт) | `test_scenario_1_offer_signing_and_disbursement`, `test_scenario_3_counteroffer_by_dscr`, `test_scenario_4_info_request_document_and_approval`, `test_counteroffer_with_another_product_is_alternative_product`, `test_decline_requires_improvements_and_reaches_the_client`, `test_completeness_check_asks_and_reruns_the_pipeline`; «другой продукт» на данных персоны 8: `test_persona_8_is_g7`, `test_capex_persona_8_asks_more_than_dscr_allows` | есть частично | все пять исходов проходят через API, но решения подставляет сам тест; автоматические исходы, в том числе П6 персоны 8 → L4; персона 8 в генераторе → S2; e2e сценария 8 → S6 |
+| F10 | Оформление и выдача (симуляция) | 1–4, 8 | `test_scenario_1_offer_signing_and_disbursement` (подписание кодом, неверный код, `issued`) | есть частично | выдача через симулятор, а не `services.mark_issued` → S1, L4; e2e → C10 |
+| F11 | Понятно без банковской экспертизы | 1–8 | — | заготовка | тексты «что это значит / что дальше» → D8; e2e-проверки экранов → C10, S6; пустые и ошибочные состояния → C9 |
 | F12 | Контекст сохраняется, без повторного ввода | 1, 4 | `test_autosave_with_version_and_conflict`, `test_create_list_and_get_match_contract` (`prefill_source`) | есть частично | ИНН → ЕГРЮЛ (`lookupCompany`) → L3, C3; «черновик переживает перезагрузку» (e2e) → C5 |
 | T5 | Синтетика и тестовые учётки для e2e | все | — | нет | генератор и его проверки (data-spec §11) → S2; `seed_demo` и init-контейнер → S2, L5 |
 | T7 | Тест-сценарии, коллекция | все | этот документ | есть частично | коллекция Postman + newman в CI → S4 |
 | O4 | Внешние источники — симуляторы | 6, 7 | — | заготовка | симуляторы и флаг сбоя → S1; демо-панель → B7 |
-| O5 | Без email и SMS | 1–4 (код на экране), уведомления во всех | `test_scenario_1_offer_signing_and_disbursement` (код приходит в ответе API, а не по SMS), `test_list_pagination_and_unread_count`, `test_read_one_read_all_and_unread_filter` (уведомления только в интерфейсе) | есть частично | регистрация без почты → L3, C2; код на экране в e2e → C10 |
+| O5 | Без email и SMS | 1–4, 8 (код на экране), уведомления во всех | `test_scenario_1_offer_signing_and_disbursement` (код приходит в ответе API, а не по SMS), `test_list_pagination_and_unread_count`, `test_read_one_read_all_and_unread_filter` (уведомления только в интерфейсе) | есть частично | регистрация без почты → L3, C2; код на экране в e2e → C10 |
 
 ## 8. Как запускать
 Команды из [AGENTS.md](../AGENTS.md). Из корня репозитория:
@@ -422,15 +438,15 @@
 | Один файл или сценарий | `docker compose run --rm backend pytest apps/applications/tests/test_api_client.py -k scenario` | то же |
 | Линт бэка | `docker compose run --rm backend sh -c "ruff check --fix . && ruff format ."` | — |
 | e2e | в `e2e/`: `npm ci && npx playwright install chromium && npx playwright test` | бэкенд уже запущен (`docker compose up -d --build`); `npm ci` в `frontend/` — dev-сервер фронта Playwright поднимает сам (`e2e/playwright.config.ts`). Для стенда: `E2E_BASE_URL=<адрес>`. Заготовки `test.fixme` попадают в отчёт как skipped |
-| e2e по сценариям 1–7 на живых данных | то же, плюс `seed_demo` и `DEMO_MODE=1` (быстрый вход, флаги сбоев) | появится в S2/L5 и B7 — сейчас в main этого нет |
+| e2e по сценариям 1–8 на живых данных | то же, плюс `seed_demo` и `DEMO_MODE=1` (быстрый вход, флаги сбоев) | появится в S2/L5 и B7 — сейчас в main этого нет |
 
 ## 9. Пробелы и предложения лиду
 Ничего из этого в этом PR не сделано: задача S5 меняет только этот файл.
 
 | # | Что | У кого (по [tasks.md](tasks.md)) | Почему |
 |---|---|---|---|
-| 1 | Тесты балльной карты по персонам 1–7 и краям раздела 6: баллы, грейд, `improvements` | D5 («тесты по персонам зелёные») | `apps/scoring` в main нет; F8 закрыт только формулами `credit_math` |
-| 2 | Конвейер: персоны 1–7 от `submit` до исхода с числами D4 §8; правила полноты D4 §3; Г1–Г10 по исходу | L4 («персоны 1 и 6 и сценарий сбоя проходят») | сейчас все сценарные API-тесты сами вызывают `record_auto_decision` со своими числами («есть частично») |
+| 1 | Тесты балльной карты по персонам 1–8 и краям раздела 6: баллы, грейд, `improvements` | D5 («тесты по персонам зелёные») | `apps/scoring` в main нет; F8 закрыт только формулами `credit_math` |
+| 2 | Конвейер: персоны 1–8 от `submit` до исхода с числами D4 §8; правила полноты D4 §3; Г1–Г10 по исходу | L4 («персоны 1 и 6 и сценарий сбоя проходят») | сейчас все сценарные API-тесты сами вызывают `record_auto_decision` со своими числами («есть частично») |
 | 3 | e2e сценария 2 (факторинг) без исполнителя | лиду: назначить C10 или S6 | C10 — «e2e для персон 1 и 3», S6 — «e2e для сценариев 3–7»; заготовка сценария 2 есть, исполнителя нет |
 | 4 | e2e сценария 3 записан в двух задачах | лиду: C10 или S6 | чтобы не написать его дважды |
 | 5 | API-тест: preparer → 403 на `/offer/accept`, `/offer/decline`, `/signature`, `/signature/confirm`, `/cancel` | L3 (роли и доступ) | сейчас это проверено только на уровне сервиса (`test_only_the_right_role_may_act`) |
@@ -440,8 +456,8 @@
 | 9 | Выдача через симулятор (`signed → issued`) | S1, L4 | тесты вызывают `services.mark_issued` напрямую |
 | 10 | `/api/demo/*` (`demoLogin`, `getDemoFailures`, `setDemoFailures`, `resetDemo`) и `seed_demo` | L5/B7 (демо-панель), S2 (засев) | без них e2e не может войти за персону и не может провести сценарий 7 |
 | 11 | Функция `factoring_commission` и обёртка `working_capital_need` с None | D5 | нужны для reasons сценариев 2 и 3 (D4 §5, «для D5») |
-| 12 | «Другой продукт» (F9) в демо: персона 4 или новая персона 8 | лид (D4 §11) | раздел 5; от решения зависят demo.md, plan.md, state-machine.md, генератор и e2e |
+| 12 | ~~«Другой продукт» (F9) в демо: персона 4 или новая персона 8~~ — **закрыт**: решение лида D15, персона 8 `equipment_no_collateral`, сценарий 8 (раздел 5) | — | осталось: персона 8 в генераторе (S2, data-spec 12.3), конвейер (L4), e2e (S6) |
 | 13 | В demo.md у персоны 4 «инвест-кредит или лизинг», в D4 и D7 — `investment_loan_basic`; логинов и грейдов персон в demo.md нет | лиду и владельцу demo.md (B10) | здесь взяты D4 и D7; demo.md стоит выровнять (то же предлагают D4 §11 и D7 §12) |
 | 14 | Г10 нельзя засеять: `Company.registered_at` NOT NULL | лид (модели и миграции) | D7 §12 предлагает `null=True`; пока Г10 — только вход теста |
-| 15 | Коллекция Postman по шагам сценариев 1–7 из раздела 3 | S4 | T7 требует коллекцию; таблицы шагов можно перенести в неё один к одному |
+| 15 | Коллекция Postman по шагам сценариев 1–8 из разделов 3 и 5 | S4 | T7 требует коллекцию; таблицы шагов можно перенести в неё один к одному |
 | 16 | e2e «смена статуса без перезагрузки» и «черновик переживает перезагрузку» | C8, C5 | F5 и F12 в e2e пока не проверяются |
