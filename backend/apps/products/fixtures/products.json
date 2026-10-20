@@ -1,0 +1,142 @@
+[
+  {
+    "model": "products.product",
+    "pk": 1,
+    "fields": {
+      "code": "overdraft_basic",
+      "kind": "overdraft",
+      "name": "Овердрафт для бизнеса",
+      "description": "Демо-условия. Закрывает кассовые разрывы до 60 дней: лимит на счёте, считается от очищенного оборота, возобновляется после погашения.",
+      "rate_min": "0.2000",
+      "rate_max": "0.3200",
+      "term_min_months": 1,
+      "term_max_months": 12,
+      "amount_min": "100000.00",
+      "amount_max": "10000000.00",
+      "is_revolving": true,
+      "collateral_required": false,
+      "params": {
+        "alpha": "0.3",
+        "tranche_days": "60"
+      },
+      "requirements": {
+        "min_business_age_months": 6,
+        "legal_forms": ["ip", "ooo"]
+      },
+      "required_documents": [],
+      "is_active": true
+    }
+  },
+  {
+    "model": "products.product",
+    "pk": 2,
+    "fields": {
+      "code": "factoring_basic",
+      "kind": "factoring",
+      "name": "Факторинг под отгрузку",
+      "description": "Демо-условия. Деньги сразу после отгрузки, не дожидаясь оплаты покупателя: финансирование под документ отгрузки в ЭДО.",
+      "rate_min": "0.2000",
+      "rate_max": "0.3000",
+      "term_min_months": 1,
+      "term_max_months": 4,
+      "amount_min": "500000.00",
+      "amount_max": "50000000.00",
+      "is_revolving": true,
+      "collateral_required": false,
+      "params": {
+        "beta": "0.9",
+        "commission": "0.005"
+      },
+      "requirements": {
+        "min_business_age_months": 6,
+        "legal_forms": ["ip", "ooo"]
+      },
+      "required_documents": ["contract", "shipment_document"],
+      "is_active": true
+    }
+  },
+  {
+    "model": "products.product",
+    "pk": 3,
+    "fields": {
+      "code": "working_capital_loan_basic",
+      "kind": "working_capital_loan",
+      "name": "Кредит на пополнение оборотных средств",
+      "description": "Демо-условия. На закупку товара и подготовку к сезону: сумма не больше потребности в оборотных средствах и посильного платежа.",
+      "rate_min": "0.2200",
+      "rate_max": "0.3000",
+      "term_min_months": 3,
+      "term_max_months": 24,
+      "amount_min": "300000.00",
+      "amount_max": "30000000.00",
+      "is_revolving": false,
+      "collateral_required": false,
+      "params": {
+        "min_dscr": "1.25",
+        "max_debt_to_ebitda": "3.5"
+      },
+      "requirements": {
+        "min_business_age_months": 12,
+        "legal_forms": ["ip", "ooo"]
+      },
+      "required_documents": ["bank_statement", "tax_return"],
+      "is_active": true
+    }
+  },
+  {
+    "model": "products.product",
+    "pk": 4,
+    "fields": {
+      "code": "investment_loan_basic",
+      "kind": "investment_loan",
+      "name": "Инвестиционный кредит",
+      "description": "Демо-условия. На оборудование, транспорт и недвижимость: длинный срок, равные платежи, нужен залог.",
+      "rate_min": "0.1900",
+      "rate_max": "0.2800",
+      "term_min_months": 12,
+      "term_max_months": 84,
+      "amount_min": "1000000.00",
+      "amount_max": "100000000.00",
+      "is_revolving": false,
+      "collateral_required": true,
+      "params": {
+        "min_dscr": "1.25",
+        "max_debt_to_ebitda": "3.5"
+      },
+      "requirements": {
+        "min_business_age_months": 12,
+        "legal_forms": ["ip", "ooo"]
+      },
+      "required_documents": ["bank_statement", "tax_return", "contract", "invoice"],
+      "is_active": true
+    }
+  },
+  {
+    "model": "products.product",
+    "pk": 5,
+    "fields": {
+      "code": "leasing_basic",
+      "kind": "leasing",
+      "name": "Лизинг оборудования и транспорта",
+      "description": "Демо-условия. Оборудование или транспорт в пользование с выкупом: отдельный залог не нужен, предмет лизинга остаётся у лизингодателя до выкупа.",
+      "rate_min": "0.2000",
+      "rate_max": "0.3000",
+      "term_min_months": 12,
+      "term_max_months": 60,
+      "amount_min": "500000.00",
+      "amount_max": "50000000.00",
+      "is_revolving": false,
+      "collateral_required": false,
+      "params": {
+        "min_dscr": "1.25",
+        "max_debt_to_ebitda": "3.5"
+      },
+      "requirements": {
+        "min_business_age_months": 12,
+        "legal_forms": ["ip", "ooo"]
+      },
+      "required_documents": ["bank_statement", "tax_return", "invoice"],
+      "is_active": true
+    }
+  }
+]
