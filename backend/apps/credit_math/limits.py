@@ -72,3 +72,14 @@ def factoring_advance(invoice_amount: Number, beta: Number) -> Decimal:
     if not 0 < share <= 1:
         raise ValueError("beta must be in (0, 1]")
     return round_money(amount * share)
+
+
+def factoring_commission(invoice_amount: Number, commission: Number) -> Decimal:
+    """One-off factoring fee = commission × shipment amount (decision-model.md §5, flat fee)."""
+    amount = to_decimal(invoice_amount, "invoice_amount")
+    share = to_decimal(commission, "commission")
+    if amount < 0:
+        raise ValueError("invoice_amount must be >= 0")
+    if not 0 <= share < 1:
+        raise ValueError("commission must be in [0, 1)")
+    return round_money(amount * share)

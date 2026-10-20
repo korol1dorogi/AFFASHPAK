@@ -6,6 +6,7 @@ from apps.credit_math import (
     annuity_payment,
     dscr,
     factoring_advance,
+    factoring_commission,
     max_loan_by_dscr,
     max_payment_by_dscr,
     overdraft_limit,
@@ -77,3 +78,26 @@ def test_shares_must_be_in_range(share):
         overdraft_limit(D("1000"), D(share))
     with pytest.raises(ValueError):
         factoring_advance(D("1000"), D(share))
+
+
+# --- Factoring commission (decision-model.md §5, persona 2) ---
+
+
+def test_persona_2_factoring_commission():
+    assert factoring_commission(D("5000000"), D("0.005")) == D("25000.00")
+
+
+def test_factoring_commission_rounds_half_up_to_kopecks():
+    assert factoring_commission(D("1001"), D("0.005")) == D("5.01")  # 5.005 → 5.01
+    assert factoring_commission(D("0"), D("0.005")) == D("0.00")
+
+
+@pytest.mark.parametrize(("amount", "commission"), [("-1", "0.005"), ("100", "-0.1"), ("100", "1")])
+def test_factoring_commission_rejects_bad_inputs(amount, commission):
+    with pytest.raises(ValueError):
+        factoring_commission(D(amount), D(commission))
+
+
+def test_factoring_commission_rejects_float():
+    with pytest.raises(TypeError):
+        factoring_commission(D("5000000"), 0.005)

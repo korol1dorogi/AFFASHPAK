@@ -13,6 +13,7 @@ from apps.credit_math import (
     exposure_at_default,
     revenue_trend,
     working_capital_need,
+    working_capital_need_metric,
 )
 
 D = Decimal
@@ -99,6 +100,21 @@ def test_working_capital_need_identity_through_days():
     trap = cycle.ccc.value * REVENUE / 365
     assert trap == D("5500000")
     assert trap != need
+
+
+def test_working_capital_need_metric_matches_the_plain_function():
+    result = working_capital_need_metric(RECEIVABLES, INVENTORY, PAYABLES)
+    assert result.value == D("5300000.00")
+    assert result.note is None
+
+
+@pytest.mark.parametrize("missing", [0, 1, 2])
+def test_working_capital_need_metric_with_null_balance_is_none_with_reason(missing):
+    balances = [RECEIVABLES, INVENTORY, PAYABLES]
+    balances[missing] = None
+    result = working_capital_need_metric(*balances)
+    assert result.value is None
+    assert "DSCR" in result.note
 
 
 # --- Concentration, trend, expected loss ---
