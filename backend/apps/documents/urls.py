@@ -13,4 +13,9 @@ urlpatterns = [
         views.ApplicationDocumentDownloadView.as_view(),
         name="application-document-download",
     ),
+    path(
+        "bank/applications/<int:application_id>/documents/<int:document_id>",
+        views.BankApplicationDocumentDownloadView.as_view(),
+        name="bank-application-document-download",
+    ),
 ]

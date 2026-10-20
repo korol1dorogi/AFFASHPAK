@@ -1026,7 +1026,8 @@ export interface components {
             id: number;
             /** @description Синтетические данные — показываем пометку «демо» */
             is_demo: boolean;
-            my_role: components["schemas"]["MemberRole"];
+            /** @description Роль текущего пользователя в компании; null — смотрит сотрудник банка */
+            my_role: components["schemas"]["MemberRole"] | null;
         };
         CompanyCreate: {
             inn: components["schemas"]["Inn"];

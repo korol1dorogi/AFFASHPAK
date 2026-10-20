@@ -1390,7 +1390,9 @@ components:
           properties:
             id: { type: integer }
             is_demo: { type: boolean, description: Синтетические данные — показываем пометку «демо» }
-            my_role: { $ref: "#/components/schemas/MemberRole" }
+            my_role:
+              description: Роль текущего пользователя в компании; null — смотрит сотрудник банка
+              oneOf: [{ $ref: "#/components/schemas/MemberRole" }, { type: "null" }]
 
     CompanyCreate:
       type: object
