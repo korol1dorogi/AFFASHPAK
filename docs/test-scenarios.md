@@ -302,3 +302,88 @@
 | конвейер: `unavailable` → П3 `manual_review`, `source_unavailable = true` | API | план: L4 (критерий: «сценарий сбоя») | — |
 | `/api/demo/failures` и демо-панель | API, e2e | план: L5/B7 (критерий B7: «сценарий 7 показывается в два клика») | — |
 | баллы персоны 7 (82, B; БКИ `unavailable` → 10) | unit | план: D5 | — |
+
+## 4. Сквозные проверки
+Эти правила действуют во всех сценариях ([AGENTS.md](../AGENTS.md), «Безопасность»; [state-machine.md](state-machine.md); [decisions.md](decisions.md) D13). Тесты из `backend/apps/applications/tests/`, если не указано другое.
+
+| Проверка | Вход | Ожидание | Тест | Уровень | Статус | Что не проверяет |
+|---|---|---|---|---|---|---|
+| Чужой клиент и банк на клиентских маршрутах → 404 | клиент другой компании или `bank_manager` вызывает `GET/PATCH /api/applications/{id}`, `/submit`, `/cancel`, `/events`, `/decision`, `/offer/accept`, `/offer/decline`, `/signature`, `/signature/confirm`, `/info-requests/{request_id}/respond` | 404, `error.code = not_found` | `test_foreign_user_gets_404` | API | есть | — |
+| Чужой id в банке → 404 | `GET /api/bank/applications/999999` | 404 | `test_unknown_application_is_404_for_the_bank` | API | есть | — |
+| Документы: аноним → 401, чужой → 404 | загрузка, список и скачивание документов чужой заявки | 401 / 404 | `test_anonymous_and_foreign_user_get_401_and_404` (`documents/tests/test_security.py`), `test_list_is_empty_for_a_new_application_and_hides_other_owners` | API | есть | — |
+| Клиент не скачивает через банковский маршрут | клиент: `GET /api/bank/applications/{id}/documents/{document_id}` | 404 | `test_clients_cannot_download_through_the_bank_route` | API | есть | — |
+| Чужое уведомление → 404 | `POST /api/notifications/{notification_id}/read` от другого пользователя | 404 | `test_someone_elses_notification_is_404` (`notifications/tests/test_api.py`) | API | есть | — |
+| Чужая заявка в браузере | второй клиент открывает `/app/applications/:id` персоны | страница «не найдено» | `access › another client cannot open this application (404) (L3)` | e2e | заготовка | — |
+| Preparer не отправляет | preparer: `POST …/submit` | 403, статус `draft` | `test_preparer_cannot_submit` | API | есть | — |
+| Preparer не принимает, не отклоняет оффер, не подписывает, не отзывает | preparer: `accept_offer`, `decline_offer`, `confirm_signature`, `cancel` | `PermissionDenied`; у preparer в `offer` `available_actions = []` | `test_only_the_right_role_may_act`, `test_available_actions` (`test_transitions.py`) | unit | есть частично | на уровне сервиса стейт-машины; HTTP-кода 403 на `/offer/accept`, `/offer/decline`, `/signature`, `/signature/confirm`, `/cancel` от preparer API-тест не проверяет (раздел 9) |
+| Клиент → 403 на `/api/bank/*` | signatory: `GET /api/bank/applications/{id}`, `POST …/assign`, `/approve`, `/counteroffer`, `/request-info`, `/decline`, `/comments` | 403 | `test_clients_get_403_on_bank_endpoints` (`test_api_bank.py`) | API | есть частично | очередь `GET /api/bank/applications` (L3) и `GET /api/bank/dashboard` (L7) не проверяет |
+| Аноним → 401 | без сессии: `GET /api/applications` | 401 по контракту | `test_anonymous_gets_401` | API | есть частично | проверен только список заявок (плюс документы — строкой выше); остальные эндпоинты не перебирает |
+| Без CSRF → 403 | `POST` без `X-CSRFToken` | 403 | `test_post_without_csrf_is_forbidden` (`documents/tests/test_security.py`) | API | есть частично | только загрузка документа |
+| Идемпотентный submit | два `POST …/submit` с одним `Idempotency-Key` | один и тот же ответ 200, одно событие; новый ключ после отправки → 409 `invalid_transition` | `test_submit_is_idempotent_by_key` | API | есть | — |
+| Submit без ключа | `POST …/submit` без `Idempotency-Key` | 400 | `test_submit_requires_idempotency_key` | API | есть | — |
+| Устаревшая `version` → 409 | `PATCH` черновика или действие банка со старой `version` | 409 `version_conflict`; ничего не меняется | `test_autosave_with_version_and_conflict`, `test_assign_and_stale_version`, `test_stale_version_is_409_and_changes_nothing` | API, unit | есть | — |
+| Недопустимый переход → 409 | любое действие × любой статус вне таблицы переходов; правка не-черновика | 409 `invalid_transition` | `test_action_is_allowed_only_from_its_source_statuses`, `test_edit_is_only_for_drafts`, `test_upload_outside_draft_and_info_requested_is_409` | unit, API | есть | — |
+| Таблица переходов = документ | `TRANSITIONS` против [state-machine.md](state-machine.md) | совпадает | `test_table_matches_the_documented_state_machine`, `test_every_ui_action_has_a_rule` | unit | есть | — |
+| Переход пишет журнал и уведомляет | любой переход | статус, `version + 1`, событие с `from_status`/`to_status`/`actor`, уведомление всем участникам, кроме действовавшего | `test_transition_moves_status_bumps_version_writes_event_and_notifies` | unit | есть | — |
+| Статус и `version` нельзя записать | `PATCH` с `status = issued` | 200, статус не изменился | `test_status_and_version_cannot_be_written` | API | есть | — |
+| Проверка полноты → `info_requested` и перезапуск (F6, переходы 4a и 10a) | решение `info_requested` с `fields = [purpose]` → preparer отвечает | `InfoRequest.origin = validation`; ответ → `submitted` (конвейер заново); повторный ответ → 404 | `test_completeness_check_asks_and_reruns_the_pipeline` | API | есть частично | пробелы задаёт сам тест через `record_auto_decision`; правила полноты D4 §3 (например, факторинг без `invoice_amount` → `fields = ["invoice_amount"]`, край `e_no_invoice`) — план: L4 |
+| Внутренний комментарий банка не виден клиенту | банк: `POST /api/bank/applications/{id}/comments` → клиент: `GET /api/applications/{id}/events` | 201, `is_internal = true`; в клиентском таймлайне комментария нет | `test_internal_comment_is_hidden_from_the_client` | API | есть | — |
+| Ответы по контракту | ответы эндпоинтов против [openapi.yaml](openapi.yaml) | совпадают | `assert_matches_contract` внутри тестов API; `test_contract_violation_is_detected` (`core/tests/test_health.py`) | API | есть частично | покрыты только эндпоинты, которые вызывают тесты |
+
+## 5. Сценарий-кандидат «Другой продукт» (F9) — ждёт решения лида: персона 4 или новая персона 8
+Исход `alternative_product` («другой продукт» в кейсе) ни одна из персон 1–7 не показывает. Есть только граничный случай Г7 ([decision-model.md](decision-model.md), разделы 8 и 11; data-spec `g7`). Пока лид не решит, это кандидат, а не восьмой сценарий: в [plan.md](plan.md), [demo.md](demo.md) и state-machine.md его нет. Если взять персону 4, сломается сценарий 4 (грейд C → ручное рассмотрение). Поэтому возможны два варианта: отдельная персона 8 или вариант персоны 4 только для тестов.
+
+- **Вход (Г7):** персона 4, но БКИ 0/0 и тренд 1.00 → 10+18+7+15+7+20+5 = **82, грейд B**; `investment_loan_basic`, `requested_amount = "12000000.00"`, `term_months = 36`, `collateral_description` пуст.
+- **Переходы:** 1 → 2 → 4 (`auto_alternative_product`) → 11 → 13 → 14.
+
+| № | Кто | Действие | Ожидаемый результат |
+|---|---|---|---|
+| 1 | signatory | `POST …/submit` | `submitted` |
+| 2 | система | конвейер | `processing`; **82, B** |
+| 3 | система | П6: инвест-кредит требует залог → альтернатива `leasing_basic` | `offer`; `Decision.outcome = alternative_product`; оффер `product.code = leasing_basic`, **`amount = "11443551.00"`**, `rate` = 0.225 (22.5 %), `term_months = 36`, `monthly_payment = "440000.00"`, `product_changed = true`, `is_counteroffer = true`. Reasons: `product_requirements` → ✗ «… требует залог; подходит лизинг»; `max_loan_by_dscr` 11 443 551 / 12 000 000 → ✗ (`max_loan_by_dscr(1 800 000, 1 000 000, 0.225, 36)`); `dscr_after` 1.2500 / 1.25 → ✓. Уведомление «Готово предложение» |
+| 4–8 | signatory, система | блок «Подписание и выдача» | `issued` |
+
+| Тест | Уровень | Статус | Что не проверяет |
+|---|---|---|---|
+| `test_counteroffer_with_another_product_is_alternative_product` (`test_api_bank.py`) | API | есть частично | другой продукт предлагает **сотрудник** (`manual_review → offer`, переход 7, продукт `overdraft_demo`, суммы задаёт тест). Авто-исход П6 (переход 4) и числа Г7 не проверяет |
+| Г7: баллы 82, П6 → `leasing_basic` 11 443 551 ₽ | unit, API | план: D5, L4 | — |
+| e2e | e2e | нет заготовки | появится, когда лид решит про персону (раздел 9) |
+
+Похожий край без новой персоны — `e_young_wcl` (раздел 6): КПО при возрасте 8 мес → альтернатива `overdraft_basic`.
+
+## 6. Граничные случаи
+Входы описаны как «персона + отличия»: [decision-model.md](decision-model.md), раздел 8, «Граничные случаи», и [data-spec.md](data-spec.md), раздел 10 (`edge_cases[]` в JSON генератора; `seed_demo` их не засевает). Кто пишет тест: баллы и грейд — D5 (`apps/scoring`), исход правил П1–П8 и конвейер — L4. Если тест D5 даёт другое число, прав D4, а data-spec и эта таблица исправляются.
+
+### Г1–Г10 (D4)
+| # | Код D7 | Случай | Вход (отличия от базы) | Ожидание | Тест |
+|---|---|---|---|---|---|
+| Г1 | `g1` | DSCR ровно на пороге | персона 3, `debt_service` 240 000 | `dscr` 1.2500 → 10 баллов, `passed = true`; `max_loan_by_dscr(300 000, 240 000, 0.24, 12)` = None → П7 → `manual_review`, не оффер на 0 ₽ | план: D5 (баллы), L4 (исход). Есть частично: `test_no_free_cash_flow_means_no_loan` — None при нулевом свободном потоке, но на других числах (100 000 / 80 000) |
+| Г2 | `g2` | Запрошено ровно по DSCR | персона 3, `requested_amount` 2 009 314.00 | П8 `offer`, `is_counteroffer = false`, платёж 189 999.92, `dscr_after` 1.2500 | план: L4. Есть частично: `test_max_loan_is_maximal_for_card_example` (+1 ₽ уже нарушает DSCR) |
+| Г3 | `g3` | Сумма баллов ровно 75 | персона 3, БКИ `past_overdue_max_days` 10 | 87 − 12 = 75 → B (граница включительно) → контроффер 24 %; при 74 было бы C → `manual_review` | план: D5, L4 |
+| Г4 | `g4` | Две ключевые метрики None | персона 1, `revenue_trend` и `counterparty_concentration` = null (только вход теста: из выписки так не получить) | 79 → B, но П5 → `manual_review`; `missing_key_metrics` 2 / 1 → ✗; `debt_service = 0` пропуском не считается | план: D5, L4 |
+| Г5 | `g5` | Стоп-фактор и сбой сразу | персона 6 + БКИ `unavailable` | П1 раньше П3 → `declined`, `source_unavailable` не ставится | план: L4 |
+| Г6 | `g6` | Грейд E и сбой сразу | персона 5 + БКИ `unavailable` | 47 − 20 + 10 = 37 → E, но П3 раньше П4 → `manual_review`, `source_unavailable = true` | план: D5, L4 |
+| Г7 | `g7` | Другой продукт и меньшая сумма | персона 4: БКИ 0/0, тренд 1.00, без залога, 12 000 000 | `alternative_product`, `leasing_basic`, 11 443 551 ₽, платёж 440 000.00; `product_changed` и `is_counteroffer` = true (раздел 5) | план: D5, L4 |
+| Г8 | `g8` | EBITDA = 0 | персона 2, `ebitda` 0.00 | `debt_to_ebitda` = None со стоп-фактором → С3 → `declined`, `grade = null` | план: L4. Есть частично: `test_non_positive_ebitda_is_none_and_fails_check` (`test_metrics.py`) — метрика None и проверка не пройдена; исход С3 не проверяет |
+| Г9 | `g9` | Тренд ровно 0.8 | персона 5 | 0.80 ∈ [0.8; 0.9) → 4 балла, `passed = false` | план: D5 |
+| Г10 | `g10` | Пустая дата регистрации | персона 1, `registered_at` null | С5 не проверить, но это не отказ; возраст → 4 балла, 86 → B; П3 → `manual_review`, `source_unavailable = false`; reason `business_age_months` null → ✗; `InfoRequest` не создаётся | план: D5, L4. **Засеять нельзя**: `Company.registered_at` NOT NULL, поэтому это только вход теста (раздел 9) |
+
+### Края data-spec (раздел 10)
+| Код | Случай | Вход | Ожидание | Тест |
+|---|---|---|---|---|
+| `e_no_debt` | Долга нет | персона 1 | `dscr` None → 25 баллов, reason `passed = true` | есть частично: `test_dscr_without_debt_is_none_with_reason` (None с причиной); 25 баллов — план: D5 |
+| `e_ebitda_negative` | EBITDA < 0 | персона 2, `ebitda` −500 000.00 | С3 → `declined` | есть частично: `test_non_positive_ebitda_is_none_and_fails_check` (случай −1 000 000: метрика); исход — план: L4 |
+| `e_de_35` | Debt/EBITDA ровно 3.5 | персона 2, `debt` 25 100 000.00 | 3.5000 → 10 баллов, `passed`; итог 88 | план: D5 |
+| `e_conc_edges` | Концентрация 0.30 / 0.50 / 0.70 | персона 4 с этими долями | 10 / 7 / 3 балла; `passed` при ≤ 0.5 | план: D5 |
+| `e_trend_090` | Тренд ровно 0.90 | персона 3, тренд 0.90 | 10 баллов, `passed`; итог 87 | план: D5 |
+| `e_age_edges` | Возраст 6 / 12 / 24 / 36 и 5 мес | персона 1 с нужным `registered_at` | 1 / 4 / 7 / 10 баллов; 5 мес → С5 `declined`; 6 мес — не стоп-фактор | план: D5 (баллы), L4 (С5) |
+| `e_overdue_30` | Текущая просрочка 30 / 31 дн. | персона 1, БКИ `current_overdue_days` 30 / 31 | 30 → 0 баллов, `Check.status = warning`, итог 72 → C → П5 `manual_review`; 31 → С4 `declined` | план: D5, L4 |
+| `e_past_30` | Прошлая просрочка 30 / 31 дн. | персона 1, `past_overdue_max_days` 30 / 31 | 8 баллов, `passed`, 80 → B / 3 балла, не `passed`, 75 → B | план: D5 |
+| `e_score_90_60_50` | Сумма баллов ровно 90 / 60 / 50 | наборы из data-spec 10 | A / C / D | план: D5 |
+| `e_all_unavailable` | Все 4 источника `unavailable` | персона 1 | снимка нет: 53 → D; П3 `manual_review`, `source_unavailable = true` | план: D5, L4 |
+| `e_short_history` | Выписка 9 мес | персона 1, возраст 10 мес | тренд — последние 3 мес к предыдущим 3, пометка «сезонность не учтена»; возраст 1 балл | есть частично: `test_revenue_trend_short_history_has_note` (пометка); баллы — план: D5 |
+| `e_over_amount_max` | Сумма больше `amount_max` | персона 1, `requested_amount` 12 000 000.00 | пробелом полноты не считается; П7 → `counteroffer` на 900 000 ₽ | план: L4 |
+| `e_no_invoice` | Факторинг без `invoice_amount` | персона 2, `invoice_amount` null | П2 → `info_requested`, `fields = ["invoice_amount"]` | план: L4 (механику ответа и перезапуска уже проверяет `test_completeness_check_asks_and_reruns_the_pipeline`) |
+| `e_young_wcl` | КПО, бизнесу 8 мес | персона 3, возраст 8 мес | 83 → B; П6 → `alternative_product`, `overdraft_basic`, сумма = min(5 300 000, `overdraft_limit(cleaned_credit_turnover, 0.3)`) | план: D5, L4 |
+
+Проверки самого генератора (детерминизм, персоны до копейки, коридор грейдов, Gini, метка «демо», типы; data-spec, раздел 11) — план: S2, `backend/apps/demo_data/tests/`.
