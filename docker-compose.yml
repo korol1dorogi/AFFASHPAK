@@ -27,7 +27,12 @@ services:
     env_file: .env
     environment:
       CASE_DATA_DIR: /case-data
-    command: sh -c "python manage.py migrate --noinput && python manage.py runserver 0.0.0.0:8000"
+      # Demo stand: personas and /api/demo/* (docs/openapi.yaml). 0 in .env turns them off.
+      DEMO_MODE: ${DEMO_MODE:-1}
+      # e2e signs in many times from one IP; the stand keeps the strict defaults (settings.py).
+      THROTTLE_LOGIN: ${THROTTLE_LOGIN:-300/min}
+      THROTTLE_ANON: ${THROTTLE_ANON:-1200/min}
+    command: sh -c "python manage.py migrate --noinput && python manage.py seed_demo && python manage.py runserver 0.0.0.0:8000"
     volumes:
       - ./backend:/app
       - ./docs:/docs:ro
