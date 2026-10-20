@@ -161,6 +161,9 @@ def opex_months(plan: StatementPlan, revenue: list[Decimal]) -> list[Decimal]:
     return opex
 
 
+MIN_PAYER_AMOUNT = Decimal(1000)  # r1000's unit
+
+
 def payer_months(plan: StatementPlan, revenue: list[Decimal]) -> MonthlyTotals:
     """Steps 6–7: the largest payer exactly at kappa; others below it; retail takes the rest."""
     window, _, _ = statement_window(len(revenue))
@@ -175,7 +178,10 @@ def payer_months(plan: StatementPlan, revenue: list[Decimal]) -> MonthlyTotals:
         for j, payer in enumerate(plan.other_payers):
             if payer.share is None:
                 continue
-            amount = r1000(payer.share * v)
+            # A tiny share in a dead seasonal month rounds to 0: the payer still pays the
+            # smallest unit, taken from retail (only this case changes; seeds that already
+            # generate stay byte-identical).
+            amount = max(r1000(payer.share * v), MIN_PAYER_AMOUNT)
             others[j].append(amount)
             left -= amount
         if plan.has_retail:
