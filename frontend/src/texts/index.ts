@@ -1,0 +1,228 @@
+/**
+ * All interface texts (docs/frontend.md §5, task D8 owns the wording).
+ * Keyed by enum values from the contract: a new status or action in docs/openapi.yaml fails
+ * the type check here until it gets its text.
+ */
+import type { Schemas } from "@/api/client";
+
+export const PRODUCT_NAME = "Оборот";
+
+export type StatusGroup = "action" | "progress" | "success" | "danger" | "neutral";
+
+export interface StatusText {
+  label: string;
+  group: StatusGroup;
+  /** «Что это значит» — для клиента. */
+  meaning: string;
+  /** «Что дальше» — для клиента. */
+  next: string;
+}
+
+export const STATUS: Record<Schemas["ApplicationStatus"], StatusText> = {
+  draft: {
+    label: "Черновик",
+    group: "action",
+    meaning: "Заявка ещё не отправлена в банк.",
+    next: "Проверьте данные и отправьте заявку — черновик сохраняется сам.",
+  },
+  submitted: {
+    label: "Отправлена",
+    group: "progress",
+    meaning: "Заявка в банке, скоро начнётся проверка.",
+    next: "Ничего делать не нужно — обновим статус сами.",
+  },
+  processing: {
+    label: "Проверяем",
+    group: "progress",
+    meaning: "Проверяем данные в реестрах, кредитной истории и по счёту.",
+    next: "Обычно это занимает до минуты.",
+  },
+  manual_review: {
+    label: "У сотрудника банка",
+    group: "progress",
+    meaning: "Заявку смотрит сотрудник банка.",
+    next: "Обычно это занимает до одного дня. Если понадобятся документы, пришлём уведомление.",
+  },
+  info_requested: {
+    label: "Нужны уточнения",
+    group: "action",
+    meaning: "Банку не хватает данных или документа.",
+    next: "Ответьте на запрос ниже — без этого проверка не продолжится.",
+  },
+  offer: {
+    label: "Есть предложение",
+    group: "action",
+    meaning: "Банк готов дать деньги на условиях ниже.",
+    next: "Примите предложение, чтобы перейти к подписанию, или откажитесь.",
+  },
+  signing: {
+    label: "Подписание",
+    group: "action",
+    meaning: "Предложение принято, осталось подписать договор.",
+    next: "Подпишите договор кодом, который покажем на экране.",
+  },
+  signed: {
+    label: "Договор подписан",
+    group: "success",
+    meaning: "Договор подписан, деньги отправляем на счёт.",
+    next: "Обычно деньги приходят в течение нескольких минут.",
+  },
+  issued: {
+    label: "Деньги выданы",
+    group: "success",
+    meaning: "Деньги поступили на счёт.",
+    next: "Готово. График платежей — в разделе заявки.",
+  },
+  declined: {
+    label: "Отказ",
+    group: "danger",
+    meaning: "Сейчас банк не может дать деньги.",
+    next: "Посмотрите причины и что можно улучшить — затем подайте заявку снова.",
+  },
+  cancelled: {
+    label: "Отозвана",
+    group: "neutral",
+    meaning: "Заявка отозвана.",
+    next: "Чтобы получить деньги, подберите финансирование заново.",
+  },
+};
+
+export const ACTION: Record<Schemas["ApplicationAction"], string> = {
+  edit: "Изменить заявку",
+  upload_document: "Загрузить документ",
+  submit: "Отправить в банк",
+  cancel: "Отозвать заявку",
+  respond_info: "Ответить банку",
+  accept_offer: "Принять и подписать",
+  decline_offer: "Отказаться",
+  sign: "Подписать договор",
+  assign: "Взять в работу",
+  approve: "Одобрить",
+  counteroffer: "Иные условия",
+  request_info: "Запросить информацию",
+  decline: "Отказать",
+};
+
+export interface NeedText {
+  title: string;
+  hint: string;
+}
+
+export const NEED: Record<Schemas["NeedType"], NeedText> = {
+  cash_gap: {
+    title: "Не хватает денег до поступлений",
+    hint: "Зарплата 5-го, а клиенты платят позже",
+  },
+  receivable_delay: {
+    title: "Отгрузили, а покупатель платит позже",
+    hint: "Есть УПД, оплата через 30–90 дней",
+  },
+  working_capital: { title: "Нужно закупиться к сезону", hint: "Товар, сырьё, запасы" },
+  capex: { title: "Покупаю оборудование или транспорт", hint: "Станок, машина, помещение" },
+};
+
+export const PRODUCT_KIND: Record<Schemas["ProductKind"], string> = {
+  overdraft: "Овердрафт",
+  factoring: "Факторинг",
+  working_capital_loan: "Кредит на пополнение оборотных средств",
+  investment_loan: "Инвестиционный кредит",
+  leasing: "Лизинг",
+};
+
+export const DOCUMENT_KIND: Record<Schemas["DocumentKind"], string> = {
+  bank_statement: "Выписка по счёту",
+  financial_report: "Бухгалтерская отчётность",
+  tax_return: "Налоговая декларация",
+  contract: "Договор",
+  invoice: "Счёт",
+  shipment_document: "Документ отгрузки (УПД)",
+  other: "Другой документ",
+};
+
+export const DECISION_OUTCOME: Record<Schemas["DecisionOutcome"], string> = {
+  offer: "Одобрено",
+  counteroffer: "Иные условия",
+  alternative_product: "Другой продукт",
+  manual_review: "Нужен сотрудник банка",
+  info_requested: "Нужны уточнения",
+  declined: "Отказ",
+};
+
+export interface MetricText {
+  /** Понятное название для клиента. */
+  title: string;
+  /** Пояснение «что это» — без терминов. */
+  hint: string;
+  /** Как показывать значение. */
+  format: "money" | "decimal" | "percent" | "months" | "points" | "text";
+}
+
+/** Reason.metric → text. Unknown metrics fall back to the API's own `message`. */
+export const METRIC: Record<string, MetricText> = {
+  overdraft_limit: {
+    title: "Лимит от оборота",
+    hint: "Доля от среднего месячного поступления на счёт без своих переводов и возвратов.",
+    format: "money",
+  },
+  factoring_advance: {
+    title: "Финансирование под отгрузку",
+    hint: "Доля от суммы отгрузки по документу ЭДО.",
+    format: "money",
+  },
+  factoring_commission: {
+    title: "Комиссия за факторинг",
+    hint: "Сколько стоит получить деньги раньше покупателя.",
+    format: "money",
+  },
+  working_capital_need: {
+    title: "Потребность в оборотных средствах",
+    hint: "Запасы и долги покупателей минус долги поставщикам — столько денег сейчас в обороте.",
+    format: "money",
+  },
+  max_loan_by_dscr: {
+    title: "Сумма, которую выдержит денежный поток",
+    hint: "Больше этой суммы платёж не потянуть: поток должен покрывать платежи хотя бы в 1,25 раза.",
+    format: "money",
+  },
+  dscr: {
+    title: "Покрытие платежей потоком (DSCR)",
+    hint: "Во сколько раз денежный поток больше платежей по долгам.",
+    format: "decimal",
+  },
+  dscr_after: {
+    title: "Покрытие платежей с новым кредитом",
+    hint: "Во сколько раз денежный поток больше всех платежей — уже с новым кредитом.",
+    format: "decimal",
+  },
+  debt_to_ebitda: {
+    title: "Долговая нагрузка (Долг / EBITDA)",
+    hint: "Сколько лет операционной прибыли нужно, чтобы отдать долги.",
+    format: "decimal",
+  },
+  revenue_trend: {
+    title: "Выручка год к году",
+    hint: "Последние три месяца против тех же месяцев прошлого года.",
+    format: "percent",
+  },
+  counterparty_concentration: {
+    title: "Доля крупнейшего покупателя",
+    hint: "Какая часть поступлений приходит от одного плательщика.",
+    format: "percent",
+  },
+  business_age_months: {
+    title: "Возраст бизнеса",
+    hint: "Сколько месяцев прошло с регистрации.",
+    format: "months",
+  },
+  bki_history: {
+    title: "Кредитная история",
+    hint: "Были ли просрочки по кредитам.",
+    format: "text",
+  },
+  transparent_business: {
+    title: "Проверка ФНС",
+    hint: "Массовый адрес или руководитель, долги по налогам.",
+    format: "text",
+  },
+  score_total: { title: "Оценка риска", hint: "Сумма баллов балльной карты.", format: "points" },
+};

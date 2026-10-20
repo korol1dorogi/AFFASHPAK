@@ -1,58 +1,188 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-@custom-variant dark (&:is(.dark *));
+/*
+ * Design system «Оборот» (docs/design.md, Claude Design artifact «Оборот»).
+ * Tokens only here; components use Tailwind utilities generated from them:
+ * bg-paper, bg-surface, text-ink, text-ink-muted, border-line, bg-primary, text-on-primary,
+ * bg-status-action-soft text-status-action, font-display, rounded-md, shadow-pop …
+ */
+
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
 :root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.577 0.245 27.325);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --success: oklch(0.6 0.15 150);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --paper: #f6f7f5;
+  --surface: #ffffff;
+  --sunken: #eef1ef;
+  --ink: #14242a;
+  --ink-muted: #55676c;
+  --line: #d6dddb;
+  --line-strong: #7f8f8d;
+  --primary: #0b5563;
+  --primary-hover: #08434e;
+  --on-primary: #ffffff;
+  --primary-soft: #dcecee;
+  --primary-ink: #0b5563;
+  --brass: #76591a;
+  --brass-soft: #f3ead2;
+  --status-action: #a24d06;
+  --status-action-soft: #fcebdc;
+  --status-progress: #2a5ab3;
+  --status-progress-soft: #e3ebfa;
+  --status-success: #25704a;
+  --status-success-soft: #dff0e6;
+  --status-danger: #b02a2a;
+  --status-danger-soft: #f8e1df;
+  --status-neutral: #5d686c;
+  --status-neutral-soft: #e9eceb;
+  --focus: #0b5563;
+  --shadow-pop-value: 0 12px 32px rgba(20, 36, 42, 0.16);
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0f181b;
+    --surface: #16232a;
+    --sunken: #0b1316;
+    --ink: #e4ecec;
+    --ink-muted: #9fb1b4;
+    --line: #2a3a40;
+    --line-strong: #6b8086;
+    --primary: #5cc0cf;
+    --primary-hover: #7fd0dc;
+    --on-primary: #062228;
+    --primary-soft: #13343b;
+    --primary-ink: #7fd0dc;
+    --brass: #d8b766;
+    --brass-soft: #33290f;
+    --status-action: #f2a35c;
+    --status-action-soft: #3a2410;
+    --status-progress: #8fb2f2;
+    --status-progress-soft: #16253f;
+    --status-success: #6cc795;
+    --status-success-soft: #12301f;
+    --status-danger: #f28b84;
+    --status-danger-soft: #3d1716;
+    --status-neutral: #a7b3b6;
+    --status-neutral-soft: #243034;
+    --focus: #7fd0dc;
+    --shadow-pop-value: 0 12px 32px rgba(0, 0, 0, 0.55);
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --paper: #0f181b;
+  --surface: #16232a;
+  --sunken: #0b1316;
+  --ink: #e4ecec;
+  --ink-muted: #9fb1b4;
+  --line: #2a3a40;
+  --line-strong: #6b8086;
+  --primary: #5cc0cf;
+  --primary-hover: #7fd0dc;
+  --on-primary: #062228;
+  --primary-soft: #13343b;
+  --primary-ink: #7fd0dc;
+  --brass: #d8b766;
+  --brass-soft: #33290f;
+  --status-action: #f2a35c;
+  --status-action-soft: #3a2410;
+  --status-progress: #8fb2f2;
+  --status-progress-soft: #16253f;
+  --status-success: #6cc795;
+  --status-success-soft: #12301f;
+  --status-danger: #f28b84;
+  --status-danger-soft: #3d1716;
+  --status-neutral: #a7b3b6;
+  --status-neutral-soft: #243034;
+  --focus: #7fd0dc;
+  --shadow-pop-value: 0 12px 32px rgba(0, 0, 0, 0.55);
+  color-scheme: dark;
 }
 
 @theme inline {
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
+  /* design-system names */
+  --color-paper: var(--paper);
+  --color-surface: var(--surface);
+  --color-sunken: var(--sunken);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
   --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-success: var(--success);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
+  --color-primary-hover: var(--primary-hover);
+  --color-on-primary: var(--on-primary);
+  --color-primary-soft: var(--primary-soft);
+  --color-primary-ink: var(--primary-ink);
+  --color-brass: var(--brass);
+  --color-brass-soft: var(--brass-soft);
+  --color-status-action: var(--status-action);
+  --color-status-action-soft: var(--status-action-soft);
+  --color-status-progress: var(--status-progress);
+  --color-status-progress-soft: var(--status-progress-soft);
+  --color-status-success: var(--status-success);
+  --color-status-success-soft: var(--status-success-soft);
+  --color-status-danger: var(--status-danger);
+  --color-status-danger-soft: var(--status-danger-soft);
+  --color-status-neutral: var(--status-neutral);
+  --color-status-neutral-soft: var(--status-neutral-soft);
+  --color-focus: var(--focus);
+
+  /* shadcn primitives read these names */
+  --color-background: var(--paper);
+  --color-foreground: var(--ink);
+  --color-card: var(--surface);
+  --color-card-foreground: var(--ink);
+  --color-popover: var(--surface);
+  --color-popover-foreground: var(--ink);
+  --color-primary-foreground: var(--on-primary);
+  --color-secondary: var(--sunken);
+  --color-secondary-foreground: var(--ink);
+  --color-muted: var(--sunken);
+  --color-muted-foreground: var(--ink-muted);
+  --color-accent: var(--sunken);
+  --color-accent-foreground: var(--ink);
+  --color-destructive: var(--status-danger);
+  --color-border: var(--line);
+  --color-input: var(--line-strong);
+  --color-ring: var(--focus);
+
+  --font-sans: "Golos Text", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "Manrope Variable", "Golos Text", system-ui, sans-serif;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+
+  --shadow-pop: var(--shadow-pop-value);
 }
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply border-line;
   }
+  html,
   body {
-    @apply bg-background text-foreground antialiased;
+    @apply bg-paper text-ink font-sans antialiased;
+    font-size: 16px;
+    line-height: 24px;
+  }
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+}
+
+@layer utilities {
+  .tabular {
+    font-variant-numeric: tabular-nums;
   }
 }

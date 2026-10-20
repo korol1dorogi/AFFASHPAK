@@ -1338,13 +1338,13 @@ components:
       type: object
       required: [id, username, full_name, kind, company_id, company_role, is_demo]
       properties:
-        id: { type: integer }
+        id: { type: integer, examples: [1] }
         username: { type: string, examples: [demo_coffee] }
         full_name: { type: string, examples: ["Анна Демо"] }
         kind: { $ref: "#/components/schemas/UserKind" }
         company_id:
           description: Компания клиента; null — ещё не создана или это сотрудник банка
-          oneOf: [{ type: integer }, { type: "null" }]
+          oneOf: [{ type: integer, examples: [1] }, { type: "null" }]
         company_role:
           oneOf: [{ $ref: "#/components/schemas/MemberRole" }, { type: "null" }]
         is_demo: { type: boolean }
@@ -1353,7 +1353,7 @@ components:
       type: object
       required: [id, full_name]
       properties:
-        id: { type: integer }
+        id: { type: integer, examples: [1] }
         full_name: { type: string, examples: ["Анна Демо"] }
 
     # ── company ──
@@ -1371,7 +1371,7 @@ components:
       required: [inn, ogrn, legal_form, name, okved, okved_name, registered_at, region, address, registry_status, director_name]
       properties:
         inn: { $ref: "#/components/schemas/Inn" }
-        ogrn: { type: string, pattern: '^\d{13}(\d{2})?$' }
+        ogrn: { type: string, pattern: '^\d{13}(\d{2})?$', examples: ["1267700000017"] }
         legal_form: { $ref: "#/components/schemas/LegalForm" }
         name: { type: string, examples: ["ООО «Демо Мебель»"] }
         okved: { type: string, examples: ["31.09"] }
@@ -1388,7 +1388,7 @@ components:
         - type: object
           required: [id, is_demo, my_role]
           properties:
-            id: { type: integer }
+            id: { type: integer, examples: [1] }
             is_demo: { type: boolean, description: Синтетические данные — показываем пометку «демо» }
             my_role:
               description: Роль текущего пользователя в компании; null — смотрит сотрудник банка
@@ -1412,7 +1412,7 @@ components:
       type: object
       required: [id, user, role, position]
       properties:
-        id: { type: integer }
+        id: { type: integer, examples: [1] }
         user: { $ref: "#/components/schemas/UserRef" }
         role: { $ref: "#/components/schemas/MemberRole" }
         position: { type: string, examples: ["Главный бухгалтер"] }
@@ -1451,7 +1451,7 @@ components:
         - counterparty_concentration
         - revenue_trend
       properties:
-        id: { type: integer }
+        id: { type: integer, examples: [1] }
         period: { type: string, pattern: '^\d{4}-\d{2}$', examples: ["2026-09"] }
         source: { $ref: "#/components/schemas/SnapshotSource" }
         cleaned_credit_turnover:
@@ -1488,7 +1488,7 @@ components:
         threshold:
           oneOf: [{ $ref: "#/components/schemas/DecimalString" }, { type: "null" }]
         passed: { type: boolean }
-        message: { type: string, description: Текст для клиента }
+        message: { type: string, description: Текст для клиента, examples: ["Платежи по кредиту покрываются денежным потоком с запасом"] }
 
     CompanyMetrics:
       type: object
@@ -1602,7 +1602,7 @@ components:
         - expires_at
         - reasons
       properties:
-        id: { type: integer }
+        id: { type: integer, examples: [1] }
         product: { $ref: "#/components/schemas/Product" }
         amount: { $ref: "#/components/schemas/Money" }
         requested_amount: { $ref: "#/components/schemas/Money" }
@@ -1726,8 +1726,8 @@ components:
         - submitted_at
         - status_changed_at
       properties:
-        id: { type: integer }
-        company_id: { type: integer }
+        id: { type: integer, examples: [1] }
+        company_id: { type: integer, examples: [1] }
         need_type: { $ref: "#/components/schemas/NeedType" }
         purpose: { type: string, examples: ["Выплатить зарплату до поступления оплаты от клиентов"] }
         product_code:
@@ -1824,7 +1824,7 @@ components:
       type: object
       required: [id, kind, from_status, to_status, actor_kind, actor, message, is_internal, created_at]
       properties:
-        id: { type: integer }
+        id: { type: integer, examples: [1] }
         kind: { $ref: "#/components/schemas/EventKind" }
         from_status:
           oneOf: [{ $ref: "#/components/schemas/ApplicationStatus" }, { type: "null" }]
@@ -1849,8 +1849,8 @@ components:
       type: object
       required: [id, application_id, outcome, decided_by, is_preliminary, grade, policy_version, reasons, improvements, comment, created_at]
       properties:
-        id: { type: integer }
-        application_id: { type: integer }
+        id: { type: integer, examples: [1] }
+        application_id: { type: integer, examples: [1] }
         outcome: { $ref: "#/components/schemas/DecisionOutcome" }
         grade:
           description: Грейд скоринга, на который опиралось решение (скоринг ≠ решение); null — до скоринга (стоп-фактор, неполные данные)
@@ -1867,22 +1867,22 @@ components:
         improvements:
           type: array
           description: «Что улучшить» — для отказа и контроффера
-          items: { type: string }
+          items: { type: string, examples: ["Подключите выписку по расчётному счёту — оценка станет точнее"] }
         comment:
           description: Комментарий сотрудника для клиента
-          oneOf: [{ type: string }, { type: "null" }]
+          oneOf: [{ type: string, examples: ["Одобрили сумму, которую выдерживает ваш денежный поток"] }, { type: "null" }]
         created_at: { type: string, format: date-time }
 
     InfoRequest:
       type: object
       required: [id, origin, message, fields, document_kinds, status, response_message, created_at, answered_at]
       properties:
-        id: { type: integer }
+        id: { type: integer, examples: [1] }
         origin:
           type: string
           enum: [validation, officer]
           description: validation — автоматическая проверка полноты и корректности (F6); officer — сотрудник банка
-        message: { type: string, description: Что просит банк, простым языком }
+        message: { type: string, description: "Что просит банк, простым языком", examples: ["Приложите выписку по счёту за последние 6 месяцев"] }
         fields:
           type: array
           description: Какие поля заявки или компании нужно уточнить (для origin=validation)
@@ -1928,14 +1928,14 @@ components:
       type: object
       required: [id, kind, filename, content_type, size, sha256, uploaded_at, download_url]
       properties:
-        id: { type: integer }
+        id: { type: integer, examples: [1] }
         kind: { $ref: "#/components/schemas/DocumentKind" }
-        filename: { type: string, description: Исходное имя (хранится под случайным именем) }
+        filename: { type: string, description: Исходное имя (хранится под случайным именем), examples: ["vypiska-demo.pdf"] }
         content_type: { type: string, enum: [application/pdf, image/png, image/jpeg] }
         size: { type: integer, minimum: 1 }
-        sha256: { type: string, pattern: '^[a-f0-9]{64}$' }
+        sha256: { type: string, pattern: '^[a-f0-9]{64}$', examples: [e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855] }
         uploaded_at: { type: string, format: date-time }
-        download_url: { type: string, description: Отдаётся как attachment }
+        download_url: { type: string, description: Отдаётся как attachment, examples: ["/api/applications/1/documents/1"] }
 
     DocumentUpload:
       type: object
@@ -1949,12 +1949,12 @@ components:
       type: object
       required: [id, kind, title, message, application_id, created_at, read_at]
       properties:
-        id: { type: integer }
+        id: { type: integer, examples: [1] }
         kind: { $ref: "#/components/schemas/EventKind" }
         title: { type: string, examples: ["Готово предложение"] }
         message: { type: string, examples: ["Банк одобрил овердрафт на 900 000 ₽"] }
         application_id:
-          oneOf: [{ type: integer }, { type: "null" }]
+          oneOf: [{ type: integer, examples: [1] }, { type: "null" }]
         created_at: { type: string, format: date-time }
         read_at:
           oneOf: [{ type: string, format: date-time }, { type: "null" }]
@@ -2030,7 +2030,7 @@ components:
         - hours_in_status
         - version
       properties:
-        id: { type: integer }
+        id: { type: integer, examples: [1] }
         company_name: { type: string, examples: ["ИП Демо Кофейня"] }
         company_inn: { $ref: "#/components/schemas/Inn" }
         product_kind:
@@ -2195,13 +2195,13 @@ components:
         kind: { type: string, enum: [create_application, submit_application] }
         summary: { type: string, description: Что произойдёт — текстом для клиента }
         application_id:
-          oneOf: [{ type: integer }, { type: "null" }]
+          oneOf: [{ type: integer, examples: [1] }, { type: "null" }]
 
     AssistantMessage:
       type: object
       required: [id, role, content, tool_calls, created_at]
       properties:
-        id: { type: integer }
+        id: { type: integer, examples: [1] }
         role: { type: string, enum: [user, assistant] }
         content: { type: string, description: Простой текст без HTML }
         tool_calls:
