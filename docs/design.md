@@ -3,19 +3,20 @@
 Владелец — B1 (дизайн-система), остальные берут всё отсюда и из `/dev/ui`. Маршруты и экраны — [frontend.md](frontend.md).
 
 ## 1. Бренд
-- **Своё название и своя палитра.** Логотипы, фирменные шрифты и цвета Альфа-Банка не используем: правила хакатона разрешают чужие материалы только как иллюстрации с указанием источника. Основной цвет — **не красный**: нынешний `--primary` в `index.css` — шаблон shadcn, его B1 заменяет первым делом.
-- Название — B1 предлагает 2–3 варианта, выбирает лид. Требования: по-русски, коротко, без слов «Альфа» и «банк», про опору для бизнеса, а не про «быстрые деньги» (pitch.md, «Не говорить»).
+- **Своё название и своя палитра.** Логотипы, фирменные шрифты и цвета Альфа-Банка не используем: правила хакатона разрешают чужие материалы только как иллюстрации с указанием источника. Основной цвет — **не красный**.
+- Название — **«Оборот»** (выбрал лид; константа `PRODUCT_NAME` в `src/texts/`). Требования, по которым выбирали: по-русски, коротко, без слов «Альфа» и «банк», про опору для бизнеса, а не про «быстрые деньги» (pitch.md, «Не говорить»).
+- Палитра «Оборот»: основной — петроль `#0b5563` (в тёмной теме `#5cc0cf`), акцент — латунь только для главной суммы оффера. Значения — в `src/index.css`, светлая и тёмная тема (`prefers-color-scheme` и `data-theme`).
 - Тон: спокойный и деловой. Никаких «Поздравляем!!!» и «Деньги за секунды».
 
 ## 2. Токены (`src/index.css`, CSS-переменные + Tailwind `@theme`)
 | Группа | Что задать |
 |---|---|
 | Цвет — основа | `background`, `foreground`, `card`, `muted`, `border`, `input`, `ring`, `primary` (+ `-foreground`) |
-| Цвет — смысл | `success`, `warning`, `danger`, `info`, `neutral` — каждый с `-foreground` и светлым фоном `-subtle` для плашек |
+| Цвет — смысл | группы статусов `status-action`, `status-progress`, `status-success`, `status-danger`, `status-neutral` — каждая со светлым фоном `-soft` для плашек; плюс `paper`, `surface`, `sunken`, `ink`, `ink-muted`, `line`, `primary-soft`, `brass` (имена shadcn — `background`, `card`, `muted`… — оставлены как синонимы) |
 | Цвет — статусы | группы, не отдельные статусы (таблица ниже) |
-| Типографика | шрифт Inter (OFL, свой файл, без внешних CDN) — `@fontsource-variable/inter`, одобряется лидом вместе с этим документом; шкала 12 / 14 / 16 / 20 / 24 / 32; веса 400 / 500 / 600; цифры в таблицах и суммах — `tabular-nums` |
+| Типографика | текст — Golos Text (`@fontsource/golos-text`), заголовки и крупные суммы — Manrope (`@fontsource-variable/manrope`); оба OFL, свои файлы, без внешних CDN; шкала 12 / 14 / 16 / 20 / 24 / 32; веса 400 / 500 / 600; цифры в таблицах и суммах — `tabular-nums` |
 | Отступы | сетка 4 px; внутри карточки 16–24, между блоками 24–32 |
-| Радиусы, тени | `--radius` 8–10 px; тени только у всплывающих элементов (диалог, панель ассистента, меню) |
+| Радиусы, тени | радиусы 6 / 10 / 16 px (`sm` / `md` / `lg`); тени только у всплывающих элементов (диалог, панель ассистента, меню) |
 | Иконки | Lucide (уже в проекте), 16 и 20 px, всегда с текстом или `aria-label` |
 
 Контраст текста и фона — не ниже 4,5:1 (WCAG AA), у крупного текста — 3:1. Проверить для всех пар токенов и показать в `/dev/ui`.
@@ -23,11 +24,11 @@
 ### Статусы → цветовые группы
 | Группа | Статусы | Цвет | Иконка |
 |---|---|---|---|
-| Нужно действие клиента | `draft`, `info_requested`, `offer`, `signing` | `warning` | `CircleAlert` / `PenLine` |
-| В работе у банка | `submitted`, `processing`, `manual_review` | `info` | `Clock` |
-| Успех | `signed`, `issued` | `success` | `CircleCheck` |
-| Отказ | `declined` | `danger` | `CircleX` |
-| Закрыта клиентом | `cancelled` | `neutral` | `CircleSlash` |
+| Нужно действие клиента | `draft`, `info_requested`, `offer`, `signing` | `status-action` | `CircleAlert` / `PenLine` |
+| В работе у банка | `submitted`, `processing`, `manual_review` | `status-progress` | `Clock` |
+| Успех | `signed`, `issued` | `status-success` | `CircleCheck` |
+| Отказ | `declined` | `status-danger` | `CircleX` |
+| Закрыта клиентом | `cancelled` | `status-neutral` | `CircleSlash` |
 
 Статус никогда не передаётся только цветом: всегда иконка + текст.
 
@@ -51,7 +52,7 @@
 | `DemoBadge` | — | плашка «демо» для данных симуляторов и `is_demo` |
 | `ConfirmDialog` | `title`, `text`, `confirmLabel`, `danger?` | подтверждение необратимых действий |
 
-Примитивы shadcn, которые добавляет B1: `dialog`, `sheet`, `tabs`, `table`, `select`, `input`, `textarea`, `label`, `form`, `checkbox`, `radio-group`, `tooltip`, `skeleton`, `sonner` (тосты), `dropdown-menu`, `separator`, `progress`. Каждый тянет `@radix-ui/*` — это одобренные зависимости из списка лида (раздел 6), устанавливает B1.
+Примитивы shadcn, которые добавляет B1: `dialog`, `sheet`, `tabs`, `table`, `select`, `input`, `textarea`, `label`, `form`, `checkbox`, `radio-group`, `tooltip`, `skeleton`, `sonner` (тосты), `dropdown-menu`, `separator`, `progress`. Каждый тянет `@radix-ui/*` — это одобренные зависимости из списка лида (раздел 6), они уже установлены в F0. Уже есть: `button`, `card`, `badge`, `input` (+ `Textarea`, `NativeSelect`), `dialog`. Выпадающие списки в F0 — нативный `<select>` в стиле системы (`NativeSelect`): он доступен с клавиатуры без доработок; переходить ли на Radix Select — решает B1.
 
 ## 4. Раскладка
 - **Desktop first:** макет под 1280 px, работает от 1024 px; мобильная вёрстка не нужна (кейс: только веб, мобильное приложение не допускается).
@@ -67,7 +68,7 @@
 - Тексты — простым языком: «Не хватает денег до поступлений», а не «Кассовый разрыв (cash_gap)»; термины — с подсказкой (`tooltip`) «что это».
 
 ## 6. Зависимости, нужные фронту (одобряет лид вместе с документом)
-`react-router` (есть), `@fontsource-variable/inter`, `sonner`, `@radix-ui/react-dialog`, `@radix-ui/react-tabs`, `@radix-ui/react-select`, `@radix-ui/react-label`, `@radix-ui/react-checkbox`, `@radix-ui/react-radio-group`, `@radix-ui/react-tooltip`, `@radix-ui/react-dropdown-menu`, `@radix-ui/react-separator`, `@radix-ui/react-progress`. Точные версии — последние стабильные на момент установки, `save-exact`; всё вносится в THIRD_PARTY_NOTICES (L10). Всё остальное — только через лида.
+Установлены в F0: `react-router` (был), `@fontsource/golos-text`, `@fontsource-variable/manrope`, `sonner`, `@radix-ui/react-dialog`, `@radix-ui/react-tabs`, `@radix-ui/react-select`, `@radix-ui/react-label`, `@radix-ui/react-checkbox`, `@radix-ui/react-radio-group`, `@radix-ui/react-tooltip`, `@radix-ui/react-dropdown-menu`, `@radix-ui/react-separator`, `@radix-ui/react-progress`. Точные версии — последние стабильные на момент установки, `save-exact`; всё вносится в THIRD_PARTY_NOTICES (L10). Всё остальное — только через лида.
 
 ## 7. Приёмка B1
 - `/dev/ui` показывает токены (цвета с контрастом), типографику, все компоненты раздела 3 во всех состояниях и все статусы.
