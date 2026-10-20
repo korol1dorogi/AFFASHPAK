@@ -3,6 +3,8 @@
 ## 1. Подготовка (один раз)
 1. Нужны: Git, Docker Desktop, Node из .nvmrc, GitHub с 2FA. На Windows — WSL2: клонируй репозиторий внутрь WSL и запускай агента там же.
 2. Склонируй репозиторий и выполни быстрый старт из README.
+   - **Node — строго из .nvmrc (24.22.0), до любого `npm ci`.** В package.json стоит `engines >=24.22.0 <25`, а в .npmrc — `engine-strict`, поэтому на Node 22 `npm ci` сразу падает. В корне репозитория: `nvm install && nvm use` (nvm сам читает .nvmrc; в frontend/ и e2e/ тоже срабатывает — он ищет файл вверх по папкам). nvm-windows .nvmrc не читает: `nvm install 24.22.0 && nvm use 24.22.0`. Проверка: `node -v` → `v24.22.0`.
+   - e2e в среде с уже установленным Chromium другой версии (корпоративный образ, CI без доступа к загрузке): `PLAYWRIGHT_CHROMIUM_EXECUTABLE=/путь/к/chromium npx playwright test` — тогда `npx playwright install` не нужен.
 3. Запускай своего агента в корне репозитория:
    - Codex (ChatGPT) — читает AGENTS.md сам.
    - Gemini CLI — AGENTS.md подключён через .gemini/settings.json. На бесплатном тарифе Google собирает промты и код — включи отказ от сбора (opt-out) по FAQ о приватности Gemini CLI.

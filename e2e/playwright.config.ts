@@ -3,6 +3,9 @@ import { defineConfig, devices } from "@playwright/test";
 // Backend must already run: `docker compose up -d --build` in the repo root.
 // The frontend dev server is started here (needs `npm ci` in frontend/).
 const BASE_URL = process.env.E2E_BASE_URL ?? "http://127.0.0.1:5173";
+// A preinstalled Chromium of another version (corporate image, offline CI) instead of the one
+// `npx playwright install` downloads.
+const CHROMIUM = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE;
 
 export default defineConfig({
   testDir: ".",
@@ -18,7 +21,15 @@ export default defineConfig({
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
   },
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  projects: [
+    {
+      name: "chromium",
+      use: {
+        ...devices["Desktop Chrome"],
+        ...(CHROMIUM ? { launchOptions: { executablePath: CHROMIUM } } : {}),
+      },
+    },
+  ],
   webServer: process.env.E2E_BASE_URL
     ? undefined
     : {
