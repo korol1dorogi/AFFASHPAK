@@ -231,7 +231,7 @@ def test_scenario_1_offer_signing_and_disbursement(world):
 
     bad = client.post(f"/api/applications/{pk}/signature/confirm", {"code": wrong}, format="json")
     assert bad.status_code == 400
-    assert Signature.objects.get(application_id=pk).attempts_left == 4  # the attempt is spent
+    assert Signature.objects.get(application_id=pk).attempts_left == 2  # the attempt is spent
 
     signed = client.post(f"/api/applications/{pk}/signature/confirm", {"code": code}, format="json")
     assert signed.status_code == 200

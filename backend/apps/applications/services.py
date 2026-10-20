@@ -44,7 +44,7 @@ from apps.products.models import Product
 S = ApplicationStatus
 OFFICER_POLICY = "officer"
 SIGNATURE_TTL = timedelta(minutes=10)
-SIGNATURE_ATTEMPTS = 5
+SIGNATURE_ATTEMPTS = 3  # D17
 
 EDITABLE_FIELDS = (
     "need_type",
