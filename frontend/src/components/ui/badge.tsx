@@ -4,34 +4,42 @@ import type * as React from "react";
 
 import { cn } from "@/lib/utils";
 
+// Tones are the design system's status groups; colour never travels without a word or icon.
 const badgeVariants = cva(
-  "inline-flex items-center justify-center rounded-md border px-2 py-0.5 text-xs font-medium w-fit whitespace-nowrap shrink-0 [&>svg]:size-3 gap-1 [&>svg]:pointer-events-none transition-[color,box-shadow] overflow-hidden",
+  "inline-flex w-fit shrink-0 items-center gap-1 whitespace-nowrap rounded-sm px-2 py-0.5 text-xs font-medium tracking-[0.02em] [&>svg]:size-3.5 [&>svg]:pointer-events-none",
   {
     variants: {
       variant: {
-        default: "border-transparent bg-primary text-primary-foreground",
-        secondary: "border-transparent bg-secondary text-secondary-foreground",
-        destructive: "border-transparent bg-destructive text-white",
-        success: "border-transparent bg-success text-white",
-        outline: "text-foreground",
+        action: "bg-status-action-soft text-status-action",
+        progress: "bg-status-progress-soft text-status-progress",
+        success: "bg-status-success-soft text-status-success",
+        danger: "bg-status-danger-soft text-status-danger",
+        neutral: "bg-status-neutral-soft text-status-neutral",
+        brand: "bg-primary-soft text-primary-ink",
+      },
+      size: {
+        sm: "",
+        md: "px-3 py-1 text-sm [&>svg]:size-4",
       },
     },
-    defaultVariants: {
-      variant: "default",
-    },
+    defaultVariants: { variant: "neutral", size: "sm" },
   },
 );
 
 function Badge({
   className,
   variant,
+  size,
   asChild = false,
   ...props
 }: React.ComponentProps<"span"> & VariantProps<typeof badgeVariants> & { asChild?: boolean }) {
   const Comp = asChild ? Slot : "span";
-
   return (
-    <Comp data-slot="badge" className={cn(badgeVariants({ variant }), className)} {...props} />
+    <Comp
+      data-slot="badge"
+      className={cn(badgeVariants({ variant, size }), className)}
+      {...props}
+    />
   );
 }
 
