@@ -14,6 +14,7 @@ from apps.credit_math.annuity import (
 from apps.credit_math.limits import (
     DEFAULT_MIN_DSCR,
     factoring_advance,
+    factoring_commission,
     max_loan_by_dscr,
     max_payment_by_dscr,
     overdraft_limit,
@@ -28,6 +29,7 @@ from apps.credit_math.metrics import (
     exposure_at_default,
     revenue_trend,
     working_capital_need,
+    working_capital_need_metric,
 )
 from apps.credit_math.money import Metric, round_money, round_ratio, to_decimal
 from apps.credit_math.reasons import Reason, check_at_least, check_at_most
@@ -52,6 +54,7 @@ __all__ = [
     "expected_loss",
     "exposure_at_default",
     "factoring_advance",
+    "factoring_commission",
     "max_loan_by_dscr",
     "max_payment_by_dscr",
     "overdraft_limit",
@@ -60,4 +63,5 @@ __all__ = [
     "round_ratio",
     "to_decimal",
     "working_capital_need",
+    "working_capital_need_metric",
 ]

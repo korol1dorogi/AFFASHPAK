@@ -105,6 +105,21 @@ def working_capital_need(receivables: Number, inventory: Number, payables: Numbe
     return round_money(ar + inv - ap)
 
 
+def working_capital_need_metric(
+    receivables: Number | None, inventory: Number | None, payables: Number | None
+) -> Metric:
+    """working_capital_need() for snapshot balances that may be null (decision-model.md §5).
+
+    Any balance missing → None with a reason: then only DSCR limits a working capital loan.
+    """
+    if receivables is None or inventory is None or payables is None:
+        return Metric.unavailable(
+            "Нет остатков дебиторки, запасов или кредиторки: потребность в оборотных средствах "
+            "не посчитать, сумму ограничивает только DSCR."
+        )
+    return Metric(working_capital_need(receivables, inventory, payables))
+
+
 def counterparty_concentration(top_inflow: Number, total_inflow: Number) -> Metric:
     """Share of the largest payer in inflows (0..1)."""
     top = to_decimal(top_inflow, "top_inflow")
