@@ -1,6 +1,7 @@
 import { expect, type Page, test } from "@playwright/test";
 
 import {
+  acceptAndSign,
   createDraft,
   csrfHeaders,
   demoPdf,
@@ -41,8 +42,116 @@ test.describe("scenario 3: seasonal store — counteroffer by DSCR", () => {
 });
 
 test.describe("scenario 4: manufacturer — manual review and info request", () => {
-  test.fixme("grade C → manual review; bank requests a document (B4, B5)", async () => {});
-  test.fixme("client uploads the document and responds; bank approves (C6, B5)", async () => {});
+  // One test: both halves need the same application, and tests must not depend on each other.
+  test("grade C → manual review → bank requests a document → client uploads and responds → bank approves → issued (B4, B5, C6, C7)", async ({
+    browser,
+  }) => {
+    const accountant = await personaPage(browser, "Главный бухгалтер: ООО «Дубрава Мебель»", /\/app$/);
+    const director = await personaPage(browser, /^ООО «Дубрава Мебель»/, /\/app$/);
+    const bank = await personaPage(browser, "Сотрудник банка", /\/bank/);
+    let id = 0;
+
+    await test.step("the accountant prepares the draft but cannot send it", async () => {
+      id = await createDraft(
+        accountant,
+        {
+          need_type: "capex",
+          product_code: "investment_loan_basic",
+          purpose: "Покупка фрезерного станка с ЧПУ (демо)",
+          requested_amount: "8000000.00",
+          term_months: 36,
+          collateral_description: "Фрезерный станок с ЧПУ по договору поставки (демо)",
+        },
+        ["bank_statement", "tax_return", "contract", "invoice"],
+      );
+      await accountant.goto(`/app/applications/${id}/edit/review`);
+      await expect(accountant.getByText("Отправить заявку может подписант")).toBeVisible();
+      await expect(accountant.getByRole("button", { name: "Отправить в банк" })).toHaveCount(0);
+    });
+
+    await test.step("the director sends it; grade C goes to an officer", async () => {
+      await submitFromWizard(director, id);
+      await expect(statusBadge(director)).toHaveText("У сотрудника банка");
+      await expect(director.getByRole("list", { name: "Причины" })).toContainText(
+        "Грейд C (65 из 100)",
+      );
+    });
+
+    await test.step("the officer finds it in the queue, takes it and asks for a document", async () => {
+      await bank.goto(
+        "/bank?status=manual_review&grade=C&search=0001000042&ordering=-status_changed_at",
+      );
+      await bank.getByRole("link", { name: `Заявка №${id}`, exact: true }).click();
+      await expect(bank).toHaveURL(new RegExp(`/bank/applications/${id}`));
+      await bank.getByRole("tab", { name: "Скоринг" }).click();
+      await expect(bank.getByRole("tabpanel")).toContainText("65");
+
+      const actions = bank.getByRole("complementary", { name: "Действия сотрудника" });
+      await actions.getByRole("button", { name: "Взять в работу" }).click();
+      await expect(bank.getByText("Заявка у вас в работе")).toBeVisible();
+      const assignee = bank.locator("dt", { hasText: "Исполнитель" }).locator("xpath=../dd");
+      await expect(assignee).not.toHaveText("Не назначен");
+
+      await actions.getByRole("button", { name: "Запросить информацию" }).click();
+      const dialog = bank.getByRole("dialog");
+      await dialog
+        .getByLabel("Что нужно от клиента")
+        .fill(
+          "Загрузите бухгалтерскую отчётность за последний год — по ней оценим долговую нагрузку",
+        );
+      await dialog.getByRole("button", { name: "Отправить запрос" }).click();
+      await expect(dialog).toHaveCount(0);
+      await expect(statusBadge(bank)).toHaveText("Нужны уточнения");
+    });
+
+    await test.step("the accountant uploads the report and answers", async () => {
+      await accountant.goto(`/app/applications/${id}`);
+      await expect(statusBadge(accountant)).toHaveText("Нужны уточнения");
+      const request = accountant
+        .locator('[data-slot="card"]')
+        .filter({ has: accountant.getByRole("heading", { name: "Банк просит уточнить" }) });
+      await expect(request).toContainText(
+        "Загрузите бухгалтерскую отчётность за последний год — по ней оценим долговую нагрузку",
+      );
+      await request.getByLabel("Тип документа").selectOption({ label: "Бухгалтерская отчётность" });
+      await request.locator('input[type="file"]').setInputFiles(demoPdf("financial_report"));
+      await expect(accountant.getByText("Загружено: financial_report_demo.pdf")).toBeVisible();
+      await request.getByLabel("Ответ банку").fill("Загрузили отчётность за последний год");
+      await request.getByRole("button", { name: "Ответить банку" }).click();
+      await expect(statusBadge(accountant)).toHaveText("У сотрудника банка");
+    });
+
+    await test.step("the officer sees the report and approves", async () => {
+      await bank.reload();
+      await expect(statusBadge(bank)).toHaveText("У сотрудника банка");
+      await bank.getByRole("tab", { name: "Документы" }).click();
+      await expect(bank.getByRole("tabpanel")).toContainText("Бухгалтерская отчётность");
+
+      await bank
+        .getByRole("complementary", { name: "Действия сотрудника" })
+        .getByRole("button", { name: "Одобрить", exact: true })
+        .click();
+      const dialog = bank.getByRole("dialog");
+      await expect(dialog).toContainText(`${rub("8 000 000")} на 36 мес`);
+      await dialog.getByRole("button", { name: "Одобрить", exact: true }).click();
+      await expect(dialog).toHaveCount(0);
+      await expect(statusBadge(bank)).toHaveText("Есть предложение");
+    });
+
+    await test.step("only the director can accept: 8 000 000 ₽ at 23,5 % for 36 months", async () => {
+      await accountant.reload();
+      await expect(statusBadge(accountant)).toHaveText("Есть предложение");
+      await expect(accountant.getByRole("button", { name: "Принять и подписать" })).toHaveCount(0);
+
+      await director.goto(`/app/applications/${id}`);
+      const offer = director.getByRole("article", { name: "Предложение банка" });
+      await expect(offer).toContainText(rub("8 000 000"));
+      await expect(offer).toContainText("23,5 %");
+      await expect(offer).toContainText("36 мес");
+      await expect(offer).toContainText(rub("311 766,44"));
+      await acceptAndSign(director, id);
+    });
+  });
 });
 
 test.describe("scenario 5: dependent supplier — decline with improvements", () => {

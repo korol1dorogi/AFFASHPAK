@@ -66,6 +66,22 @@ export async function createDraft(page: Page, draft: Draft, documents: DocumentK
   return id;
 }
 
+/**
+ * «Подписание и выдача» (docs/test-scenarios.md, П-1…П-5): accept the offer, sign with the code
+ * shown on screen (O5) and wait for the simulated disbursement.
+ */
+export async function acceptAndSign(page: Page, id: number) {
+  await page.getByRole("button", { name: "Принять и подписать" }).click();
+  await expect(page).toHaveURL(new RegExp(`/app/applications/${id}/sign$`));
+  await page.getByRole("button", { name: "Показать код" }).click();
+  const shown = await page.getByRole("img", { name: /^Код \d( \d){5}$/ }).getAttribute("aria-label");
+  const code = (shown ?? "").replace(/\D/g, "");
+  await page.getByLabel("Введите код").fill(code);
+  await page.getByRole("button", { name: "Подписать", exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`/app/applications/${id}$`));
+  await expect(page.locator("[data-status]").first()).toHaveText("Деньги выданы");
+}
+
 /** The client sends the draft from the wizard's last step, as a person does. */
 export async function submitFromWizard(page: Page, id: number) {
   await page.goto(`/app/applications/${id}/edit/review`);
