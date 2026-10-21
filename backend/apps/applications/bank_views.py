@@ -137,7 +137,9 @@ def _queue_filters(request: Request, params: dict) -> QuerySet[Application]:
 
 def _queue_item(application: Application, now: datetime) -> dict:
     score = getattr(application, "score", None)  # reverse one-to-one: missing → None
-    product = application.product
+    offer = current_offer(application)
+    # The product on the table now: an alternative offer (leasing) replaces the requested one.
+    product = offer.product if offer else application.product
     in_status = now - application.status_changed_at
     return {
         "id": application.pk,
