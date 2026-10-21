@@ -227,6 +227,17 @@ def respond_info(
         info.answered_by = actor.user
         info.answered_at = timezone.now()
         info.save(update_fields=["status", "response_message", "answered_by", "answered_at"])
+        if target == S.SUBMITTED:
+            # state-machine.md 10a: the completeness check asked, the client answered —
+            # the pipeline runs again (was: the application stayed «submitted» for good).
+            application_id = app.pk
+
+            def _rerun() -> None:
+                from apps.pipeline.tasks import enqueue
+
+                enqueue(application_id)
+
+            transaction.on_commit(_rerun)
         return app
 
 
