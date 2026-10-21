@@ -116,7 +116,7 @@ jobs:
       - name: start db + backend
         run: |
           cp .env.example .env
-          docker compose up -d --build --wait
+          docker compose up -d --build --wait db backend
       - run: npm ci
         working-directory: frontend
       - run: npm ci
@@ -151,7 +151,7 @@ jobs:
       - name: start db + backend
         run: |
           cp .env.example .env
-          docker compose up -d --build --wait
+          docker compose up -d --build --wait db backend
       - run: npm ci
         working-directory: postman
       - name: newman
