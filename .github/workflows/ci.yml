@@ -136,6 +136,31 @@ jobs:
           path: e2e/playwright-report
           retention-days: 7
 
+  collection:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: postman/package-lock.json
+      - name: start db + backend
+        run: |
+          cp .env.example .env
+          docker compose up -d --build --wait
+      - run: npm ci
+        working-directory: postman
+      - name: newman
+        run: npm test
+        working-directory: postman
+      - name: backend logs on failure
+        if: failure()
+        run: docker compose logs backend
+
   gitleaks:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -158,7 +183,7 @@ jobs:
   # it can only deploy the latest origin/main, nothing else (no shell, no forwarding).
   deploy:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [backend, frontend, e2e, gitleaks]
+    needs: [backend, frontend, e2e, collection, gitleaks]
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     concurrency:

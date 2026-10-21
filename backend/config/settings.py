@@ -53,6 +53,8 @@ INSTALLED_APPS = [
     "apps.documents",
     "apps.notifications",
     "apps.assistant",
+    "apps.integrations",
+    "apps.pipeline",
 ]
 
 MIDDLEWARE = [
@@ -190,6 +192,13 @@ LLM_TIMEOUT_SECONDS = env_int("LLM_TIMEOUT_SECONDS", 30)
 
 # --- Demo stand: /api/demo/* and the seed of personas exist only with DEMO_MODE=1 ---
 DEMO_MODE = env_bool("DEMO_MODE", default=False)
+
+# --- Pipeline. No broker: the task runs in-process (compose has no worker yet). ---
+PIPELINE_ENABLED = env_bool("PIPELINE_ENABLED", default=True)
+CELERY_BROKER_URL = env("CELERY_BROKER_URL", "")
+CELERY_RESULT_BACKEND = env("CELERY_RESULT_BACKEND", "")
+CELERY_TASK_ALWAYS_EAGER = not CELERY_BROKER_URL
+CELERY_TASK_EAGER_PROPAGATES = True
 
 # --- Case data: read-only mount, never inside the repo ---
 CASE_DATA_DIR = Path(env("CASE_DATA_DIR", "/case-data"))

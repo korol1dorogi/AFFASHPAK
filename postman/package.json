@@ -1,0 +1,10 @@
+{
+  "name": "alfa-postman",
+  "private": true,
+  "scripts": {
+    "test": "newman run collection.json -e environment.json --env-var baseUrl=http://127.0.0.1:8000 --working-dir . --color off"
+  },
+  "devDependencies": {
+    "newman": "6.2.1"
+  }
+}

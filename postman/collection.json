@@ -1,0 +1,1783 @@
+{
+  "info": {
+    "name": "Client and bank path",
+    "description": "Client path of scenario 1 through disbursement, then the bank card. The pipeline runs on submit.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/health"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('health', function () {",
+              "    pm.response.to.have.status(200);",
+              "    pm.expect(pm.response.json().status).to.eql('ok');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Anonymous list is 401",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/applications"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('anonymous', function () {",
+              "    pm.response.to.have.status(401);",
+              "    pm.expect(pm.response.json().error.code).to.eql('not_authenticated');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Client CSRF",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/auth/csrf"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('csrf', () => pm.response.to.have.status(200));",
+              "pm.environment.set('csrf', pm.response.json().csrf_token);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Client login",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "X-CSRFToken",
+            "value": "{{csrf}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"persona\": \"coffee_shop\"\n}"
+        },
+        "url": "{{baseUrl}}/api/demo/login"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('coffee shop session', function () {",
+              "    pm.response.to.have.status(200);",
+              "    const me = pm.response.json();",
+              "    pm.expect(me.kind).to.eql('client');",
+              "    pm.expect(me.company_role).to.eql('signatory');",
+              "    pm.expect(me.is_demo).to.eql(true);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Current user",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/auth/me"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('me', function () {",
+              "    pm.response.to.have.status(200);",
+              "    pm.expect(pm.response.json().username).to.eql('demo_coffee_shop');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Company and catalog",
+      "item": [
+        {
+          "name": "Company",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/company"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('company', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().is_demo).to.eql(true);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Metrics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/company/metrics"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('metrics', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Products",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/products"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('catalog contains the overdraft', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    const codes = pm.response.json().map((product) => product.code);",
+                  "    pm.expect(codes).to.include('overdraft_basic');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Match",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "X-CSRFToken",
+            "value": "{{csrf}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"need_type\": \"cash_gap\"\n}"
+        },
+        "url": "{{baseUrl}}/api/recommendations"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('preliminary overdraft', function () {",
+              "    pm.response.to.have.status(200);",
+              "    const body = pm.response.json();",
+              "    pm.expect(body.is_preliminary).to.eql(true);",
+              "    pm.expect(body.offers[0].product.kind).to.eql('overdraft');",
+              "    pm.environment.set('amount', body.offers[0].amount);",
+              "    pm.environment.set('termMonths', String(body.offers[0].term_months));",
+              "    pm.environment.set('productCode', body.offers[0].product.code);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Create draft",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "X-CSRFToken",
+            "value": "{{csrf}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"need_type\": \"cash_gap\",\n  \"purpose\": \"Демо: закрыть кассовый разрыв до выручки выходных\",\n  \"requested_amount\": \"{{amount}}\",\n  \"term_months\": {{termMonths}},\n  \"product_code\": \"{{productCode}}\",\n  \"prefill_source\": \"recommendation\"\n}"
+        },
+        "url": "{{baseUrl}}/api/applications"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('draft', function () {",
+              "    pm.response.to.have.status(201);",
+              "    const application = pm.response.json();",
+              "    pm.expect(application.status).to.eql('draft');",
+              "    pm.expect(application.prefill_source).to.eql('recommendation');",
+              "    pm.environment.set('applicationId', String(application.id));",
+              "    pm.environment.set('version', String(application.version));",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Autosave",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "X-CSRFToken",
+            "value": "{{csrf}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"version\": {{version}},\n  \"purpose\": \"Демо: кассовый разрыв, сумма из подбора\"\n}"
+        },
+        "url": "{{baseUrl}}/api/applications/{{applicationId}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('version bumped', function () {",
+              "    pm.response.to.have.status(200);",
+              "    const application = pm.response.json();",
+              "    pm.expect(application.version).to.eql(Number(pm.environment.get('version')) + 1);",
+              "    pm.environment.set('version', String(application.version));",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Upload statement",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "X-CSRFToken",
+            "value": "{{csrf}}"
+          }
+        ],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "kind",
+              "value": "bank_statement",
+              "type": "text"
+            },
+            {
+              "key": "file",
+              "src": "fixtures/statement.pdf",
+              "type": "file"
+            }
+          ]
+        },
+        "url": "{{baseUrl}}/api/applications/{{applicationId}}/documents"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('document stored', function () {",
+              "    pm.response.to.have.status(201);",
+              "    const document = pm.response.json();",
+              "    pm.expect(document.content_type).to.eql('application/pdf');",
+              "    pm.expect(document.kind).to.eql('bank_statement');",
+              "    pm.environment.set('documentId', String(document.id));",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Download statement",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/applications/{{applicationId}}/documents/{{documentId}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('attachment', function () {",
+              "    pm.response.to.have.status(200);",
+              "    pm.expect(pm.response.headers.get('Content-Disposition')).to.include('attachment');",
+              "    pm.expect(pm.response.headers.get('Content-Type')).to.include('application/pdf');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Client cannot use the bank download",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/bank/applications/{{applicationId}}/documents/{{documentId}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('not the bank route', () => pm.response.to.have.status(404));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Submit",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.environment.set('idempotencyKey', pm.variables.replaceIn('{{$guid}}'));"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('submitted', function () {",
+              "    pm.response.to.have.status(200);",
+              "    const application = pm.response.json();",
+              "    pm.expect(application.status).to.eql('submitted');",
+              "    pm.environment.set('version', String(application.version));",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "X-CSRFToken",
+            "value": "{{csrf}}"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "{{idempotencyKey}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/applications/{{applicationId}}/submit"
+      }
+    },
+    {
+      "name": "Submit again with the same key",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "X-CSRFToken",
+            "value": "{{csrf}}"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "{{idempotencyKey}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/applications/{{applicationId}}/submit"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('same response, still submitted', function () {",
+              "    pm.response.to.have.status(200);",
+              "    pm.expect(pm.response.json().status).to.eql('submitted');",
+              "    pm.expect(String(pm.response.json().version)).to.eql(pm.environment.get('version'));",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Automatic offer",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/applications/{{applicationId}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('offer after the pipeline', function () {",
+              "    pm.response.to.have.status(200);",
+              "    const application = pm.response.json();",
+              "    pm.expect(application.status).to.eql('offer');",
+              "    pm.expect(application.decision.outcome).to.eql('offer');",
+              "    pm.expect(application.decision.is_preliminary).to.eql(true);",
+              "    pm.expect(application.decision.grade).to.eql('A');",
+              "    pm.expect(application.offer.amount).to.eql('900000.00');",
+              "    pm.expect(application.offer.monthly_payment).to.eql(null);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Accept offer",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "X-CSRFToken",
+            "value": "{{csrf}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/applications/{{applicationId}}/offer/accept"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('signing', function () {",
+              "    pm.response.to.have.status(200);",
+              "    pm.expect(pm.response.json().status).to.eql('signing');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Signature code on screen",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "X-CSRFToken",
+            "value": "{{csrf}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/applications/{{applicationId}}/signature"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('code is on screen', function () {",
+              "    pm.response.to.have.status(200);",
+              "    const challenge = pm.response.json();",
+              "    pm.expect(challenge.code).to.match(/^\\d{6}$/);",
+              "    pm.environment.set('signCode', challenge.code);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Confirm signature",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "X-CSRFToken",
+            "value": "{{csrf}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"code\": \"{{signCode}}\"\n}"
+        },
+        "url": "{{baseUrl}}/api/applications/{{applicationId}}/signature/confirm"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('signed', function () {",
+              "    pm.response.to.have.status(200);",
+              "    pm.expect(pm.response.json().status).to.eql('signed');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Issued",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/applications/{{applicationId}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('money issued', function () {",
+              "    pm.response.to.have.status(200);",
+              "    pm.expect(pm.response.json().status).to.eql('issued');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Notifications",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/notifications"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('notification page', function () {",
+              "    pm.response.to.have.status(200);",
+              "    pm.expect(pm.response.json().results).to.be.an('array');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Client cannot open the bank queue",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/bank/applications"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('client is forbidden', () => pm.response.to.have.status(403));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Client logout",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "X-CSRFToken",
+            "value": "{{csrf}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/auth/logout"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('logged out', () => pm.response.to.have.status(204));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Preparer cannot submit",
+      "item": [
+        {
+          "name": "CSRF",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/auth/csrf"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('csrf', () => pm.response.to.have.status(200));",
+                  "pm.environment.set('csrf', pm.response.json().csrf_token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login accountant",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-CSRFToken",
+                "value": "{{csrf}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"persona\": \"accountant\"\n}"
+            },
+            "url": "{{baseUrl}}/api/demo/login"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('preparer', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().company_role).to.eql('preparer');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create draft",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-CSRFToken",
+                "value": "{{csrf}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"need_type\": \"capex\",\n  \"purpose\": \"Демо: бухгалтер готовит, не отправляет\",\n  \"requested_amount\": \"100000.00\",\n  \"term_months\": 12,\n  \"product_code\": \"investment_loan_basic\",\n  \"prefill_source\": \"manual\"\n}"
+            },
+            "url": "{{baseUrl}}/api/applications"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('preparer draft', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "    pm.environment.set('preparerApplicationId', String(pm.response.json().id));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Submit is forbidden",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.environment.set('preparerKey', pm.variables.replaceIn('{{$guid}}'));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('preparer cannot submit', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-CSRFToken",
+                "value": "{{csrf}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{preparerKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/applications/{{preparerApplicationId}}/submit"
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-CSRFToken",
+                "value": "{{csrf}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/auth/logout"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('logged out', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Bank",
+      "item": [
+        {
+          "name": "CSRF",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/auth/csrf"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('csrf', () => pm.response.to.have.status(200));",
+                  "pm.environment.set('csrf', pm.response.json().csrf_token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-CSRFToken",
+                "value": "{{csrf}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"persona\": \"bank\"\n}"
+            },
+            "url": "{{baseUrl}}/api/demo/login"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('bank session', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().kind).to.eql('bank');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Queue",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/bank/applications"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('issued application is in the queue', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    const page = pm.response.json();",
+                  "    const item = page.results.find((row) => String(row.id) === pm.environment.get('applicationId'));",
+                  "    pm.expect(item, 'queue item').to.be.an('object');",
+                  "    pm.expect(item.status).to.eql('issued');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Card",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/bank/applications/{{applicationId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('card has the score and the statement', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    const card = pm.response.json();",
+                  "    pm.expect(card.application.status).to.eql('issued');",
+                  "    pm.expect(card.score.grade).to.eql('A');",
+                  "    pm.expect(card.score.total).to.eql(92);",
+                  "    pm.expect(card.documents.length).to.be.at.least(1);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Internal comment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-CSRFToken",
+                "value": "{{csrf}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"Демо: внутренний комментарий, клиент его не видит\"\n}"
+            },
+            "url": "{{baseUrl}}/api/bank/applications/{{applicationId}}/comments"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('internal comment', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "    pm.expect(pm.response.json().is_internal).to.eql(true);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-CSRFToken",
+                "value": "{{csrf}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/auth/logout"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('logged out', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Client does not see the internal comment",
+      "item": [
+        {
+          "name": "CSRF",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/auth/csrf"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('csrf', () => pm.response.to.have.status(200));",
+                  "pm.environment.set('csrf', pm.response.json().csrf_token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-CSRFToken",
+                "value": "{{csrf}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"persona\": \"coffee_shop\"\n}"
+            },
+            "url": "{{baseUrl}}/api/demo/login"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('client again', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Timeline",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/applications/{{applicationId}}/events"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const hidden = 'Демо: внутренний комментарий, клиент его не видит';",
+                  "pm.test('timeline hides the bank comment', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    const events = pm.response.json();",
+                  "    pm.expect(events.some((event) => event.to_status === 'submitted')).to.eql(true);",
+                  "    pm.expect(events.every((event) => event.message !== hidden)).to.eql(true);",
+                  "    pm.expect(events.every((event) => event.is_internal !== true)).to.eql(true);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Bank manual review",
+      "item": [
+        {
+          "name": "CSRF",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/auth/csrf"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('csrf', () => pm.response.to.have.status(200));",
+                  "pm.environment.set('csrf', pm.response.json().csrf_token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login furniture_maker",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-CSRFToken",
+                "value": "{{csrf}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"persona\": \"furniture_maker\"\n}"
+            },
+            "url": "{{baseUrl}}/api/demo/login"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('director', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().company_role).to.eql('signatory');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create draft",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-CSRFToken",
+                "value": "{{csrf}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"need_type\": \"capex\",\n  \"purpose\": \"Демо: фрезерный станок для цеха\",\n  \"requested_amount\": \"8000000.00\",\n  \"term_months\": 36,\n  \"product_code\": \"investment_loan_basic\",\n  \"collateral_description\": \"Фрезерный станок (демо)\",\n  \"prefill_source\": \"manual\"\n}"
+            },
+            "url": "{{baseUrl}}/api/applications"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('draft', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "    pm.environment.set('reviewApplicationId', String(pm.response.json().id));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Upload bank_statement",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-CSRFToken",
+                "value": "{{csrf}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "kind",
+                  "value": "bank_statement",
+                  "type": "text"
+                },
+                {
+                  "key": "file",
+                  "src": "fixtures/statement.pdf",
+                  "type": "file"
+                }
+              ]
+            },
+            "url": "{{baseUrl}}/api/applications/{{reviewApplicationId}}/documents"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('bank_statement', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Upload tax_return",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-CSRFToken",
+                "value": "{{csrf}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "kind",
+                  "value": "tax_return",
+                  "type": "text"
+                },
+                {
+                  "key": "file",
+                  "src": "fixtures/statement.pdf",
+                  "type": "file"
+                }
+              ]
+            },
+            "url": "{{baseUrl}}/api/applications/{{reviewApplicationId}}/documents"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('tax_return', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Upload contract",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-CSRFToken",
+                "value": "{{csrf}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "kind",
+                  "value": "contract",
+                  "type": "text"
+                },
+                {
+                  "key": "file",
+                  "src": "fixtures/statement.pdf",
+                  "type": "file"
+                }
+              ]
+            },
+            "url": "{{baseUrl}}/api/applications/{{reviewApplicationId}}/documents"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('contract', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Upload invoice",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-CSRFToken",
+                "value": "{{csrf}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "kind",
+                  "value": "invoice",
+                  "type": "text"
+                },
+                {
+                  "key": "file",
+                  "src": "fixtures/statement.pdf",
+                  "type": "file"
+                }
+              ]
+            },
+            "url": "{{baseUrl}}/api/applications/{{reviewApplicationId}}/documents"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('invoice', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Submit",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.environment.set('reviewKey', pm.variables.replaceIn('{{$guid}}'));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('submitted', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-CSRFToken",
+                "value": "{{csrf}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{reviewKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/applications/{{reviewApplicationId}}/submit"
+          }
+        },
+        {
+          "name": "Manual review",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/applications/{{reviewApplicationId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('grade C waits for an officer', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    const application = pm.response.json();",
+                  "    pm.expect(application.status).to.eql('manual_review');",
+                  "    pm.expect(application.decision.grade).to.eql('C');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Bank CSRF",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/auth/csrf"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('csrf', () => pm.response.to.have.status(200));",
+                  "pm.environment.set('csrf', pm.response.json().csrf_token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login bank",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-CSRFToken",
+                "value": "{{csrf}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"persona\": \"bank\"\n}"
+            },
+            "url": "{{baseUrl}}/api/demo/login"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('bank', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Card",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/bank/applications/{{reviewApplicationId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('officer can act', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    const card = pm.response.json();",
+                  "    pm.environment.set('version', String(card.application.version));",
+                  "    pm.expect(card.application.available_actions).to.include('request_info');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Request a document",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-CSRFToken",
+                "value": "{{csrf}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"version\": {{version}},\n  \"message\": \"Загрузите бухгалтерскую отчётность за последний год\",\n  \"document_kinds\": [\"financial_report\"]\n}"
+            },
+            "url": "{{baseUrl}}/api/bank/applications/{{reviewApplicationId}}/request-info"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('info requested', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().application.status).to.eql('info_requested');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Accountant CSRF",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/auth/csrf"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('csrf', () => pm.response.to.have.status(200));",
+                  "pm.environment.set('csrf', pm.response.json().csrf_token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login accountant",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-CSRFToken",
+                "value": "{{csrf}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"persona\": \"accountant\"\n}"
+            },
+            "url": "{{baseUrl}}/api/demo/login"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('preparer', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().company_role).to.eql('preparer');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Open request",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/applications/{{reviewApplicationId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('open request', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    const request = pm.response.json().open_info_requests[0];",
+                  "    pm.expect(request.document_kinds).to.include('financial_report');",
+                  "    pm.environment.set('infoRequestId', String(request.id));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Upload financial_report",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-CSRFToken",
+                "value": "{{csrf}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "kind",
+                  "value": "financial_report",
+                  "type": "text"
+                },
+                {
+                  "key": "file",
+                  "src": "fixtures/statement.pdf",
+                  "type": "file"
+                }
+              ]
+            },
+            "url": "{{baseUrl}}/api/applications/{{reviewApplicationId}}/documents"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('financial_report', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Respond",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-CSRFToken",
+                "value": "{{csrf}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"Отчётность за год приложила\"\n}"
+            },
+            "url": "{{baseUrl}}/api/applications/{{reviewApplicationId}}/info-requests/{{infoRequestId}}/respond"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('back to the officer', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().status).to.eql('manual_review');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Bank CSRF again",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/auth/csrf"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('csrf', () => pm.response.to.have.status(200));",
+                  "pm.environment.set('csrf', pm.response.json().csrf_token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login bank",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-CSRFToken",
+                "value": "{{csrf}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"persona\": \"bank\"\n}"
+            },
+            "url": "{{baseUrl}}/api/demo/login"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('bank again', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Fresh version",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/bank/applications/{{reviewApplicationId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const card = pm.response.json();",
+                  "pm.test('five documents', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(card.documents.length).to.eql(5);",
+                  "    pm.environment.set('version', String(card.application.version));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Approve",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-CSRFToken",
+                "value": "{{csrf}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"version\": {{version}}\n}"
+            },
+            "url": "{{baseUrl}}/api/bank/applications/{{reviewApplicationId}}/approve"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('offer on the requested terms', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    const application = pm.response.json().application;",
+                  "    pm.expect(application.status).to.eql('offer');",
+                  "    pm.expect(application.requested_amount).to.eql('8000000.00');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
