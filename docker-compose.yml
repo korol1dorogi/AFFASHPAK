@@ -51,6 +51,15 @@ services:
       retries: 30
       start_period: 10s
 
+  # Swagger UI for the contract (docs/openapi.yaml), served by Caddy at /api/docs (T7).
+  swagger:
+    image: swaggerapi/swagger-ui:v5.17.14
+    environment:
+      BASE_URL: /api/docs
+      SWAGGER_JSON: /spec/openapi.yaml
+    volumes:
+      - ./docs/openapi.yaml:/spec/openapi.yaml:ro
+
   # The whole cabinet from a clean clone: the built SPA + /api through Caddy, plain HTTP.
   # Same image as the stand (deploy/caddy); for frontend work `npm run dev` stays faster.
   web:
@@ -65,6 +74,8 @@ services:
     depends_on:
       backend:
         condition: service_healthy
+      swagger:
+        condition: service_started
 
   mock:
     image: stoplight/prism:5.15.10

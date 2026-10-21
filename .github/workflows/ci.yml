@@ -186,6 +186,10 @@ jobs:
     needs: [backend, frontend, e2e, collection, gitleaks]
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    # DEPLOY_SSH_KEY lives in this environment, which only main may use (docs/deploy.md).
+    environment:
+      name: production
+      url: https://194-67-92-122.sslip.io
     concurrency:
       group: deploy-production
       cancel-in-progress: false

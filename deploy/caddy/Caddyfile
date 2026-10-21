@@ -13,6 +13,11 @@
 		-Server
 	}
 
+	# Swagger UI of the contract (more specific than /api/*, so it wins)
+	handle /api/docs* {
+		reverse_proxy swagger:8080
+	}
+
 	# API and the back office (admin lives on an unguessable path) → gunicorn
 	handle /api/* {
 		reverse_proxy backend:8000
