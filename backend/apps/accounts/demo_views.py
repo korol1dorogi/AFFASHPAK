@@ -1,6 +1,6 @@
-"""Demo personas and quick sign-in (docs/openapi.yaml, tag `demo`). 404 unless DEMO_MODE=1.
+"""Demo personas, quick sign-in and simulator outages (docs/openapi.yaml, tag `demo`).
 
-Failures and reset (/api/demo/failures, /api/demo/reset) belong to B7/L5.
+Everything here is 404 unless DEMO_MODE=1. /api/demo/reset belongs to B7/L5.
 """
 
 from django.conf import settings
@@ -17,6 +17,8 @@ from rest_framework.views import APIView
 from apps.accounts.demo import available_personas
 from apps.accounts.serializers import me_data
 from apps.core.authentication import enforce_csrf
+from apps.core.permissions import IsBankUser
+from apps.integrations import flags
 
 NOT_FOUND = "Не найдено."
 
@@ -55,3 +57,34 @@ class DemoLoginView(_DemoView):
         user = User.objects.get(username=persona["username"])
         login(request._request, user, backend="django.contrib.auth.backends.ModelBackend")
         return Response(me_data(user))
+
+
+class DemoFailuresSerializer(serializers.Serializer):
+    """DemoFailures: every source is required, unknown keys are rejected."""
+
+    egrul = serializers.BooleanField()
+    transparent_business = serializers.BooleanField()
+    bki = serializers.BooleanField()
+    bank_account = serializers.BooleanField()
+
+    def to_internal_value(self, data):
+        unknown = set(data) - set(self.fields) if hasattr(data, "keys") else set()
+        if unknown:
+            raise serializers.ValidationError({key: ["Неизвестный источник."] for key in unknown})
+        return super().to_internal_value(data)
+
+
+class DemoFailuresView(_DemoView):
+    """Scenario 7: a bank user switches a simulator off; the next applications see the outage."""
+
+    permission_classes = (IsBankUser,)
+
+    def get(self, request: Request) -> Response:
+        return Response(flags.current())
+
+    def put(self, request: Request) -> Response:
+        serializer = DemoFailuresSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        for source, failing in serializer.validated_data.items():
+            flags.set_failing(source, failing)
+        return Response(flags.current())
