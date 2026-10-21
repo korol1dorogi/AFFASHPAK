@@ -4,6 +4,32 @@
     "description": "Client path of scenario 1 through disbursement, then the bank card. The pipeline runs on submit.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "const cookie = pm.cookies.get('csrftoken');",
+          "const token = cookie && cookie.value ? cookie.value : cookie;",
+          "if (token) pm.environment.set('csrf', token);"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "pm.response.headers.each(function (header) {",
+          "    if (header.key.toLowerCase() !== 'set-cookie') return;",
+          "    const match = /^csrftoken=([^;]+)/.exec(header.value);",
+          "    if (match) pm.environment.set('csrf', match[1]);",
+          "});"
+        ]
+      }
+    }
+  ],
   "item": [
     {
       "name": "Health",
