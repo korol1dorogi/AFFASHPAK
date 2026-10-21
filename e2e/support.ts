@@ -23,17 +23,29 @@ export async function csrfHeaders(page: Page) {
   return { "X-CSRFToken": token };
 }
 
+/** The interface puts a no-break space between digit groups and before units (lib/format.ts). */
+export const NBSP = String.fromCharCode(0xa0);
+
 /** Money as the interface prints it: "2 009 314 ₽", thousands split by a no-break space. */
 export function rub(amount: string) {
-  return `${amount.replace(/ /g, " ")} ₽`;
+  return `${amount.replace(/ /g, NBSP)}${NBSP}₽`;
 }
 
-export type DocumentKind = "bank_statement" | "tax_return" | "contract" | "invoice" | "financial_report";
+export type DocumentKind =
+  | "bank_statement"
+  | "tax_return"
+  | "contract"
+  | "invoice"
+  | "financial_report";
 
 /** Demo PDF stubs with a DEMO watermark (S9, data/sample/documents). */
 export function demoPdf(kind: DocumentKind) {
   const path = new URL(`../data/sample/documents/${kind}_0001000042_demo.pdf`, import.meta.url);
-  return { name: `${kind}_demo.pdf`, mimeType: "application/pdf", buffer: readFileSync(fileURLToPath(path)) };
+  return {
+    name: `${kind}_demo.pdf`,
+    mimeType: "application/pdf",
+    buffer: readFileSync(fileURLToPath(path)),
+  };
 }
 
 export interface Draft {
@@ -74,7 +86,9 @@ export async function acceptAndSign(page: Page, id: number) {
   await page.getByRole("button", { name: "Принять и подписать" }).click();
   await expect(page).toHaveURL(new RegExp(`/app/applications/${id}/sign$`));
   await page.getByRole("button", { name: "Показать код" }).click();
-  const shown = await page.getByRole("img", { name: /^Код \d( \d){5}$/ }).getAttribute("aria-label");
+  const shown = await page
+    .getByRole("img", { name: /^Код \d( \d){5}$/ })
+    .getAttribute("aria-label");
   const code = (shown ?? "").replace(/\D/g, "");
   await page.getByLabel("Введите код").fill(code);
   await page.getByRole("button", { name: "Подписать", exact: true }).click();

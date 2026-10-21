@@ -5,6 +5,7 @@ import {
   createDraft,
   csrfHeaders,
   demoPdf,
+  NBSP,
   personaPage,
   rub,
   signInAs,
@@ -63,8 +64,8 @@ test.describe("scenario 3: seasonal store — counteroffer by DSCR", () => {
     await expect(offer).toContainText("Иные условия");
     await expect(offer).toContainText(rub("2 009 314"));
     await expect(offer).toContainText(`Вы просили ${rub("5 300 000")}`);
-    await expect(offer).toContainText("24 %");
-    await expect(offer).toContainText("12 мес");
+    await expect(offer).toContainText(`24${NBSP}%`);
+    await expect(offer).toContainText(`12${NBSP}мес`);
     await expect(offer).toContainText(rub("189 999,92"));
     const why = offer.getByRole("list", { name: "Почему такие условия" });
     await expect(why).toContainText("Грейд B (87 из 100)");
@@ -84,7 +85,11 @@ test.describe("scenario 4: manufacturer — manual review and info request", () 
   test("grade C → manual review → bank requests a document → client uploads and responds → bank approves → issued (B4, B5, C6, C7)", async ({
     browser,
   }) => {
-    const accountant = await personaPage(browser, "Главный бухгалтер: ООО «Дубрава Мебель»", /\/app$/);
+    const accountant = await personaPage(
+      browser,
+      "Главный бухгалтер: ООО «Дубрава Мебель»",
+      /\/app$/,
+    );
     const director = await personaPage(browser, /^ООО «Дубрава Мебель»/, /\/app$/);
     const bank = await personaPage(browser, "Сотрудник банка", /\/bank/);
     let id = 0;
@@ -184,8 +189,8 @@ test.describe("scenario 4: manufacturer — manual review and info request", () 
       await director.goto(`/app/applications/${id}`);
       const offer = director.getByRole("article", { name: "Предложение банка" });
       await expect(offer).toContainText(rub("8 000 000"));
-      await expect(offer).toContainText("23,5 %");
-      await expect(offer).toContainText("36 мес");
+      await expect(offer).toContainText(`23,5${NBSP}%`);
+      await expect(offer).toContainText(`36${NBSP}мес`);
       await expect(offer).toContainText(rub("311 766,44"));
       await acceptAndSign(director, id);
     });
@@ -219,7 +224,9 @@ test.describe("scenario 5: dependent supplier — decline with improvements", ()
     await expect(reasons).toContainText("Выручка упала на 20% к прошлому году");
     await expect(reasons).toContainText("80% денег приходит от одного покупателя");
     await expect(
-      page.getByText("Что можно улучшить", { exact: true }).locator("xpath=following-sibling::ol[1]/li"),
+      page
+        .getByText("Что можно улучшить", { exact: true })
+        .locator("xpath=following-sibling::ol[1]/li"),
     ).toHaveText([
       /Снизьте текущие платежи по долгам или увеличьте свободный денежный поток/,
       /Снизьте долг до 3,5 годовой прибыли/,
