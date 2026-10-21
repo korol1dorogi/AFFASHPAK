@@ -1,4 +1,5 @@
 import hashlib
+import logging
 
 from django.conf import settings
 from django.core.files.uploadedfile import UploadedFile
@@ -14,12 +15,14 @@ from apps.applications.models import (
 )
 from apps.applications.transitions import record_event
 from apps.documents.exceptions import Conflict, PayloadTooLarge
+from apps.documents.inspection import UnsafeFile, inspect
 from apps.documents.models import Document
 from apps.documents.names import safe_original_name
 from apps.documents.signatures import detect_content_type
 
 _HEADER_BYTES = 16
 _NOT_FOUND = "Не найдено."
+logger = logging.getLogger(__name__)
 
 UPLOADABLE_STATUSES = frozenset(
     {
@@ -89,6 +92,18 @@ def store_document(
             raise ValidationError(
                 {"file": ["Тип файла не поддерживается. Загрузите PDF, JPEG или PNG."]}
             )
+        try:
+            inspect(content_type, upload.read())  # size is capped above: at most 10 MB in memory
+        except UnsafeFile as exc:
+            logger.warning(
+                "upload rejected: application %s, user %s, %s: %s",
+                application_id, getattr(user, "pk", None), content_type, exc,
+            )  # fmt: skip
+            raise ValidationError(
+                {"file": [f"Файл не принят: {exc}. Загрузите обычный PDF, JPEG или PNG."]}
+            ) from exc
+        finally:
+            upload.seek(0)
 
         open_request = application.info_requests.filter(status=InfoRequestStatus.OPEN).last()
         document = Document(

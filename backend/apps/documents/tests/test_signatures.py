@@ -1,11 +1,25 @@
+import struct
+import zlib
+
 import pytest
 
 from apps.documents.names import attachment_filename, safe_original_name
 from apps.documents.signatures import JPEG, PDF, PNG, detect_content_type
 
+
+def png_chunk(kind: bytes, body: bytes) -> bytes:
+    return struct.pack(">I", len(body)) + kind + body + struct.pack(">I", zlib.crc32(kind + body))
+
+
+# Smallest well-formed files: inspection.py checks the structure, not only the magic bytes.
 PDF_BYTES = b"%PDF-1.4\n1 0 obj\n<<>>\ntrailer\n%%EOF"
-PNG_BYTES = b"\x89PNG\r\n\x1a\n" + b"\x00" * 8
-JPEG_BYTES = b"\xff\xd8\xff\xe0" + b"\x00" * 8
+PNG_BYTES = (
+    b"\x89PNG\r\n\x1a\n"
+    + png_chunk(b"IHDR", struct.pack(">IIBBBBB", 1, 1, 8, 0, 0, 0, 0))
+    + png_chunk(b"IDAT", zlib.compress(b"\x00\x00"))
+    + png_chunk(b"IEND", b"")
+)
+JPEG_BYTES = b"\xff\xd8\xff\xe0" + b"\x00" * 8 + b"\xff\xd9"
 
 
 @pytest.mark.parametrize(

@@ -336,3 +336,23 @@ def test_list_is_empty_for_a_new_application_and_hides_other_owners(media):
     assert response.status_code == 200
     assert response.json() == []
     assert_matches_contract(response, method="get", path=_url(application.id))
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "payload",
+    [
+        PDF_BYTES.replace(b"<<>>", b"<< /OpenAction << /S /JavaScript /JS (app.alert(1)) >> >>"),
+        PDF_BYTES + b"\n<html><script>alert(document.cookie)</script>",
+        PNG_BYTES + b"<?php system($_GET['c']); ?>",
+    ],
+)
+def test_malicious_upload_is_rejected_and_nothing_is_stored(media, payload):
+    owner = _user("demo-owner")
+    application = _application(owner)
+    response = _upload(_client(owner), application.id, _file("statement.pdf", payload))
+    assert response.status_code == 400
+    assert_matches_contract(response, method="post", path=_url(application.id))
+    assert response.json()["error"]["details"]["file"][0].startswith("Файл не принят")
+    assert not Document.objects.exists()
+    assert not any(path.is_file() for path in media.rglob("*"))
