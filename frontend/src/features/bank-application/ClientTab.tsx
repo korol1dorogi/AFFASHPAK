@@ -1,9 +1,9 @@
 import { ROLE_LABEL } from "@/app/session";
+import { Facts } from "@/components/Facts";
 import { MoneyText } from "@/components/Money";
 import { DemoBadge, EmptyState } from "@/components/States";
 import { Card, CardTitle } from "@/components/ui/card";
 import type { BankApplicationDetail } from "@/features/bank-application/api";
-import { Facts } from "@/features/bank-application/Facts";
 import { formatDate, formatDecimal } from "@/lib/format";
 import { BANK_CARD, LEGAL_FORM, REGISTRY_STATUS, SNAPSHOT_FIELD, SNAPSHOT_SOURCE } from "@/texts";
 

@@ -66,6 +66,7 @@ def seed_queue(size: int = DEFAULT_SIZE) -> int:
         Application.objects.filter(pk=application.pk).update(
             status_changed_at=now - timedelta(hours=hours),
             submitted_at=now - timedelta(hours=hours + 1),
+            created_at=now - timedelta(hours=hours + 2),  # drafted before it was sent
         )
         created += 1
     return created
