@@ -40,9 +40,9 @@ from apps.applications.transitions import (
     touch,
 )
 from apps.products.models import Product
+from apps.scoring.policy import CURRENT_POLICY_VERSION
 
 S = ApplicationStatus
-OFFICER_POLICY = "officer"
 SIGNATURE_TTL = timedelta(minutes=10)
 SIGNATURE_ATTEMPTS = 3  # D17
 
@@ -265,7 +265,7 @@ def _officer_decision(app: Application, actor: Actor, outcome: str, **fields: An
         decided_by=DecidedBy.OFFICER,
         officer=actor.user,
         grade=grade,
-        policy_version=OFFICER_POLICY,
+        policy_version=CURRENT_POLICY_VERSION,  # the rules in force; decided_by says who
         **fields,
     )
 

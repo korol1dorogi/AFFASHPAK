@@ -40,8 +40,8 @@ const MARK_TONE = {
 } as const;
 
 /**
- * Reasons of a preliminary evaluation or decision. `client`: plain titles and hints from texts/;
- * `bank`: metric codes and raw values. A null value is «нет данных», never 0.
+ * Reasons of a preliminary evaluation or decision: plain titles from texts/ for everyone; the bank
+ * variant also shows the metric code under the title. A null value is «нет данных», never 0.
  */
 export function ReasonList({
   reasons,
@@ -58,7 +58,7 @@ export function ReasonList({
       {reasons.map((reason) => {
         const text = METRIC[reason.metric];
         const { tone, Icon, label: markLabel } = mark(reason);
-        const title = variant === "bank" ? reason.metric : metricTitle(reason.metric);
+        const title = metricTitle(reason.metric);
         return (
           <li
             key={`${reason.metric}-${reason.message}`}
@@ -70,6 +70,9 @@ export function ReasonList({
             </span>
             <div className="min-w-0">
               <p className="m-0 font-semibold">{title}</p>
+              {variant === "bank" ? (
+                <p className="m-0 font-mono text-xs text-ink-muted">{reason.metric}</p>
+              ) : null}
               <p className="m-0 text-sm text-ink-muted">{reason.message}</p>
             </div>
             <span className="tabular text-right text-sm whitespace-nowrap">
