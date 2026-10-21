@@ -39,6 +39,8 @@ export function persona4Card(): BankApplicationDetail {
       director_name: "Пётр Демо",
       is_demo: true,
       my_role: null,
+      short_name: null,
+      integrations: { bank_account: "2026-10-01T09:00:00Z", edo: null },
     },
     members: [
       {

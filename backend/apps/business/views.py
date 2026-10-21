@@ -4,6 +4,8 @@ A client sees only their own company (MVP: one per user); everything else is 404
 Changing the company or its members is for the signatory; a preparer gets 403.
 """
 
+from decimal import Decimal
+
 from django.contrib.auth.models import AbstractBaseUser, User
 from django.db import IntegrityError, transaction
 from rest_framework import status
@@ -12,6 +14,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.accounts.demo import SNAPSHOT_NUMBERS
 from apps.accounts.models import UserKind
 from apps.applications.access import NOT_FOUND, current_membership, is_bank_user, user_kind
 from apps.applications.serializers import (
@@ -21,16 +24,27 @@ from apps.applications.serializers import (
 )
 from apps.business import registry
 from apps.business.metrics import company_metrics, latest_snapshot
-from apps.business.models import Company, LegalForm, MemberRole, Membership
+from apps.business.models import (
+    Company,
+    CompanyIntegration,
+    FinancialSnapshot,
+    IntegrationSource,
+    LegalForm,
+    MemberRole,
+    Membership,
+)
 from apps.business.serializers import (
     CompanyUpdateSerializer,
     InnSerializer,
     MemberCreateSerializer,
 )
-from apps.core.exceptions import Conflict
+from apps.core.exceptions import Conflict, SourceUnavailable
+from apps.integrations.flags import failing_sources
+from apps.integrations.simulator_data import dataset
 from apps.recommendations.serializers import ReasonSerializer
 
 SIGNATORY_ONLY = "Это может сделать только подписант компании."
+NO_SOURCE_DATA = "По этой компании источник данных не ответил. Попробуйте позже."
 CREATOR_POSITION = {LegalForm.IP: "Индивидуальный предприниматель", LegalForm.OOO: "Руководитель"}
 
 
@@ -98,8 +112,8 @@ class CompanyView(APIView):
         _require_signatory(membership)
         data = _valid(CompanyUpdateSerializer, request.data)
         company = membership.company
-        company.name = data["name"]
-        company.save(update_fields=["name"])
+        company.short_name = (data["short_name"] or "").strip()
+        company.save(update_fields=["short_name"])
         return Response(_company_data(membership))
 
 
@@ -165,3 +179,48 @@ class CompanyMetricsView(APIView):
                 "is_demo": company.is_demo,
             }
         )
+
+
+class IntegrationConnectView(APIView):
+    """POST /api/company/integrations/{source}/connect — connect a source (simulator, «демо»).
+
+    Both sources bring the company's synthetic statement snapshot (the same data the pipeline's
+    «bank_account» check reads); the connection is remembered with its time (Company.integrations).
+    A switched-off bank account on the demo panel answers 503, like a real outage.
+    """
+
+    def post(self, request: Request, source: str) -> Response:
+        if source not in IntegrationSource.values:
+            raise NotFound(NOT_FOUND)
+        if is_bank_user(request.user):
+            raise PermissionDenied("Источники подключает клиент.")
+        company = _membership(request.user).company
+        if source == IntegrationSource.BANK_ACCOUNT and source in failing_sources():
+            raise SourceUnavailable("Банк-симулятор выписок сейчас не отвечает. Попробуйте позже.")
+        snapshot = latest_snapshot(company) or _snapshot_from_simulator(company)
+        if snapshot is None:
+            raise SourceUnavailable(NO_SOURCE_DATA)
+        CompanyIntegration.objects.get_or_create(company=company, source=source)
+        return Response(
+            {
+                "source": source,
+                "status": "connected",
+                "is_demo": True,
+                "snapshot": FinancialSnapshotSerializer(snapshot).data,
+            }
+        )
+
+
+def _snapshot_from_simulator(company: Company) -> FinancialSnapshot | None:
+    """The statement snapshot the synthetic world has for this INN (apps/demo_data, S2)."""
+    data = dataset()
+    key = next((c["_key"] for c in data["companies"] if c["inn"] == company.inn), None)
+    record = next((s for s in data["financial_snapshots"] if s["company"] == key), None)
+    if record is None:
+        return None
+    numbers = {
+        name: None if record[name] is None else Decimal(record[name]) for name in SNAPSHOT_NUMBERS
+    }
+    return FinancialSnapshot.objects.create(
+        company=company, period=record["period"], source=record["source"], **numbers
+    )

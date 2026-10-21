@@ -15,7 +15,13 @@ from django.contrib.auth.models import User
 from django.db import transaction
 
 from apps.accounts.models import UserKind, UserProfile
-from apps.business.models import Company, FinancialSnapshot, Membership
+from apps.business.models import (
+    Company,
+    CompanyIntegration,
+    FinancialSnapshot,
+    IntegrationSource,
+    Membership,
+)
 from apps.demo_data.build import BANK_USERS, generate
 from apps.demo_data.personas import PERSONAS
 from apps.products.models import Product
@@ -178,6 +184,9 @@ def load_companies(data: dict, keys: set[str] | None = None) -> dict[str, int]:
             defaults={field: _decimal(record[field]) for field in SNAPSHOT_NUMBERS},
         )
         created["snapshots"] += is_new
+        CompanyIntegration.objects.get_or_create(  # the statement came through the account
+            company=companies[record["company"]], source=IntegrationSource.BANK_ACCOUNT
+        )
     return created
 
 

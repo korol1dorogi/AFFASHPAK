@@ -1,8 +1,6 @@
 import { z } from "zod";
-
-import { BANK_ACTIONS } from "@/features/bank-application/texts";
 import { percentToFraction } from "@/lib/format";
-import { BANK_CARD } from "@/texts";
+import { BANK_ACTIONS, BANK_CARD } from "@/texts";
 
 /** CommentCreate (docs/openapi.yaml): message 1–2000 characters. */
 export const commentSchema = z.object({

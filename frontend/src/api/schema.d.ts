@@ -913,7 +913,10 @@ export interface components {
          * @example 1.2500
          */
         DecimalString: string;
-        /** @example 0012345678 */
+        /**
+         * @description 10 цифр у ООО, 12 у ИП; контрольные цифры по алгоритму ФНС (неверные — 400)
+         * @example 0001000028
+         */
         Inn: string;
         /** @description Версия заявки для optimistic locking; несовпадение → 409 version_conflict */
         Version: number;
@@ -1032,13 +1035,21 @@ export interface components {
             is_demo: boolean;
             /** @description Роль текущего пользователя в компании; null — смотрит сотрудник банка */
             my_role: components["schemas"]["MemberRole"] | null;
+            /** @description Короткое название для интерфейса; null — показываем name из реестра (он не меняется) */
+            short_name: string | null;
+            integrations: components["schemas"]["CompanyIntegrations"];
+        };
+        /** @description Что подключено — когда; null — не подключено (connectIntegration) */
+        CompanyIntegrations: {
+            bank_account: string | null;
+            edo: string | null;
         };
         CompanyCreate: {
             inn: components["schemas"]["Inn"];
         };
         CompanyUpdate: {
-            /** @description Короткое название для интерфейса */
-            name?: string;
+            /** @description Короткое название для интерфейса; null или пустая строка — убрать. Реквизиты из реестра (name и др.) не меняются */
+            short_name?: string | null;
         };
         Member: {
             /** @example 1 */

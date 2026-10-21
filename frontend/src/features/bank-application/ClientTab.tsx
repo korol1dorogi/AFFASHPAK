@@ -65,6 +65,7 @@ export function ClientTab({ card }: { card: BankApplicationDetail }) {
         <Facts
           items={[
             { label: T.name, value: company.name },
+            ...(company.short_name ? [{ label: T.shortName, value: company.short_name }] : []),
             { label: T.legalForm, value: LEGAL_FORM[company.legal_form] },
             { label: T.inn, value: <span className="tabular">{company.inn}</span> },
             { label: T.ogrn, value: <span className="tabular">{company.ogrn}</span> },

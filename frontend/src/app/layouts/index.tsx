@@ -134,7 +134,9 @@ export function ClientLayout() {
           <Brand />
           {me.data?.is_demo || company.data?.is_demo ? <DemoBadge /> : null}
           {company.data ? (
-            <span className="text-sm text-ink-muted">{company.data.name}</span>
+            <span className="text-sm text-ink-muted">
+              {company.data.short_name ?? company.data.name}
+            </span>
           ) : null}
           <div className="flex-1" />
           <AssistantPanel />

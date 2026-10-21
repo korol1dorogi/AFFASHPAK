@@ -6,6 +6,11 @@ urlpatterns = [
     path("company/lookup", views.CompanyLookupView.as_view(), name="company-lookup"),
     path("company", views.CompanyView.as_view(), name="company"),
     path("company/metrics", views.CompanyMetricsView.as_view(), name="company-metrics"),
+    path(
+        "company/integrations/<str:source>/connect",
+        views.IntegrationConnectView.as_view(),
+        name="company-integration-connect",
+    ),
     path("company/members", views.MemberListView.as_view(), name="company-members"),
     path(
         "company/members/<int:member_id>",
