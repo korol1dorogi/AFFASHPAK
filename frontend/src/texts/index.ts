@@ -5,6 +5,7 @@
  */
 import type { Schemas } from "@/api/client";
 import type { operations } from "@/api/schema";
+import type { BankTab } from "@/app/routes";
 
 export const PRODUCT_NAME = "Оборот";
 
@@ -349,4 +350,210 @@ export const BANK_QUEUE = {
   emptyText: "Измените условия или сбросьте фильтры.",
   emptyQueue: "В очереди пока нет заявок",
   error: "Не получилось загрузить очередь",
+} as const;
+
+// ── Bank application card (B4) ──
+
+export const BANK_TAB: Record<BankTab, string> = {
+  application: "Заявка",
+  client: "Клиент",
+  checks: "Проверки",
+  scoring: "Скоринг",
+  documents: "Документы",
+  journal: "Журнал",
+};
+
+export const CHECK_SOURCE: Record<Schemas["CheckSource"], string> = {
+  egrul: "ЕГРЮЛ / ЕГРИП",
+  transparent_business: "«Прозрачный бизнес» ФНС",
+  bki: "Бюро кредитных историй",
+  bank_account: "Расчётный счёт",
+};
+
+export const CHECK_STATUS: Record<Schemas["Check"]["status"], string> = {
+  ok: "В порядке",
+  warning: "Есть замечания",
+  failed: "Не пройдена",
+  unavailable: "Источник не ответил",
+};
+
+export const DECIDED_BY: Record<Schemas["Decision"]["decided_by"], string> = {
+  auto: "Система",
+  officer: "Сотрудник банка",
+};
+
+export const OFFER_STATUS: Record<Schemas["Offer"]["status"], string> = {
+  active: "Действует",
+  accepted: "Принят клиентом",
+  declined: "Клиент отказался",
+  superseded: "Заменён новым",
+};
+
+export const INFO_REQUEST_ORIGIN: Record<Schemas["InfoRequest"]["origin"], string> = {
+  validation: "Автоматическая проверка полноты",
+  officer: "Запрос сотрудника",
+};
+
+export const INFO_REQUEST_STATUS: Record<Schemas["InfoRequest"]["status"], string> = {
+  open: "Ждёт ответа",
+  answered: "Клиент ответил",
+};
+
+export const LEGAL_FORM: Record<Schemas["LegalForm"], string> = {
+  ip: "ИП",
+  ooo: "ООО",
+};
+
+export const REGISTRY_STATUS: Record<Schemas["RegistryStatus"], string> = {
+  active: "Действует",
+  liquidating: "В процессе ликвидации",
+  liquidated: "Ликвидирована",
+};
+
+export const SNAPSHOT_SOURCE: Record<Schemas["SnapshotSource"], string> = {
+  case: "Данные кейса",
+  demo: "Демо-данные",
+  simulator: "Симулятор счёта",
+  manual: "Введено вручную",
+};
+
+type SnapshotMetric = Exclude<keyof Schemas["FinancialSnapshot"], "id" | "period" | "source">;
+
+/** Snapshot metrics in display order: money, then ratios shown as they are. */
+export const SNAPSHOT_FIELD: Record<SnapshotMetric, { title: string; format: "money" | "ratio" }> =
+  {
+    cleaned_credit_turnover: {
+      title: "Очищенный кредитовый оборот, в месяц",
+      format: "money",
+    },
+    cfads: { title: "Денежный поток на обслуживание долга (CFADS), в месяц", format: "money" },
+    debt_service: { title: "Платежи по текущим долгам, в месяц", format: "money" },
+    revenue: { title: "Выручка за 12 мес", format: "money" },
+    cogs: { title: "Себестоимость за 12 мес", format: "money" },
+    ebitda: { title: "EBITDA за 12 мес", format: "money" },
+    debt: { title: "Долг", format: "money" },
+    cash: { title: "Деньги на счетах", format: "money" },
+    receivables: { title: "Дебиторская задолженность", format: "money" },
+    inventory: { title: "Запасы", format: "money" },
+    payables: { title: "Кредиторская задолженность", format: "money" },
+    revenue_trend: { title: "Выручка год к году (коэффициент)", format: "ratio" },
+    counterparty_concentration: {
+      title: "Доля крупнейшего покупателя (коэффициент)",
+      format: "ratio",
+    },
+  };
+
+export const BANK_CARD = {
+  notFoundTitle: "Заявка не найдена",
+  notFoundText: "Возможно, ссылка устарела. Вернитесь к очереди и откройте заявку оттуда.",
+  forbiddenTitle: "Нет доступа",
+  forbiddenText: "Карточку заявки видят только сотрудники банка.",
+  backToQueue: "К очереди",
+  title: (id: number) => `Заявка № ${id}`,
+  tabsLabel: "Разделы карточки",
+  actionsLabel: "Действия сотрудника",
+  noValue: "нет данных",
+  noProduct: "Продукт не выбран",
+  noGrade: "нет",
+  noAssignee: "Не назначен",
+  sourceUnavailable:
+    "Один из источников не ответил — данные проверки неполные. Это не отказ: проверьте вручную.",
+  header: {
+    amount: "Сумма",
+    product: "Продукт",
+    grade: "Грейд",
+    assignee: "Исполнитель",
+  },
+  application: {
+    params: "Параметры заявки",
+    need: "Потребность",
+    purpose: "Цель",
+    requested: "Запрошено",
+    term: "Срок",
+    invoice: "Сумма отгрузки",
+    collateral: "Залог",
+    noCollateral: "Без залога",
+    created: "Создана",
+    submitted: "Отправлена",
+    statusChanged: "Статус изменён",
+    notSubmitted: "Ещё не отправлена",
+    offer: "Оффер",
+    offerRequested: "Клиент просил",
+    rate: "Ставка",
+    payment: "Платёж в месяц",
+    revolvingPayment: "Зависит от использования",
+    expires: "Действует до",
+    counteroffer: "Иные условия",
+    productChanged: "Другой продукт",
+    infoRequests: "Запросы информации",
+    documentsNeeded: "Документы",
+    clientAnswer: "Ответ клиента",
+    decisions: "История решений",
+    noDecisions: "Решений пока нет",
+    noDecisionsText: "Решение появится после автоматической проверки или действия сотрудника.",
+    decidedBy: "Кто решил",
+    preliminary: "предварительная оценка",
+    policy: "Версия правил",
+    comment: "Комментарий клиенту",
+    reasons: "Причины решения",
+    offerReasons: "Почему такие условия",
+    months: (n: number) => `${n} мес`,
+  },
+  client: {
+    requisites: "Реквизиты",
+    requisitesNote: "из ЕГРЮЛ",
+    inn: "ИНН",
+    ogrn: "ОГРН",
+    legalForm: "Форма",
+    name: "Название",
+    okved: "ОКВЭД",
+    registered: "Дата регистрации",
+    region: "Регион",
+    address: "Адрес",
+    registryStatus: "Статус в реестре",
+    director: "Руководитель",
+    members: "Сотрудники и роли",
+    noMembers: "Сотрудников нет",
+    snapshot: "Финансовый снимок",
+    period: "Период",
+    source: "Источник",
+    noSnapshot: "Снимка нет",
+    noSnapshotText: "Клиент не подключил счёт — метрики посчитать не из чего.",
+  },
+  checks: {
+    empty: "Проверки ещё не запускались",
+    emptyText:
+      "Реестры, «Прозрачный бизнес», БКИ и счёт проверяются автоматически после отправки заявки.",
+    missing: "Нет результата",
+    checkedAt: "Проверено",
+    list: "Проверки по источникам",
+  },
+  scoring: {
+    title: "Разложение скоринга",
+    note: "Скоринг — оценка риска заёмщика, а не решение по заявке.",
+    empty: "Скоринг ещё не считали",
+    emptyText: "Балльная карта считается после проверок источников.",
+    total: "Итого",
+    grade: "Грейд",
+    model: "Версия модели",
+    factors: "Факторы скоринга",
+    points: (points: number, max?: number) =>
+      max === undefined ? `${points} б.` : `${points} из ${max}`,
+    outOf: (total: number) => `${total} из 100`,
+  },
+  documents: {
+    empty: "Документов нет",
+    emptyText: "Клиент ещё не загрузил документы к заявке.",
+    download: (filename: string) => `Скачать ${filename}`,
+    downloadShort: "Скачать",
+  },
+  journal: {
+    title: "Журнал",
+    commentLabel: "Внутренний комментарий",
+    commentHint: "Клиент его не увидит.",
+    commentRequired: "Напишите комментарий",
+    commentTooLong: "Не длиннее 2000 символов",
+    send: "Добавить в журнал",
+    sent: "Комментарий добавлен",
+  },
 } as const;
