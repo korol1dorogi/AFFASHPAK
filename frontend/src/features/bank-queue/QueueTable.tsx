@@ -84,7 +84,7 @@ function Row({ item }: { item: Item }) {
           {item.id}
         </Link>
       </td>
-      <td className={cn(td, "max-w-72")}>
+      <td className={cn(td, "max-w-56")}>
         <div className="flex items-center gap-2">
           <div className="flex min-w-0 flex-col leading-4">
             <span className="truncate font-medium">{item.company_name}</span>
@@ -103,7 +103,7 @@ function Row({ item }: { item: Item }) {
           ) : null}
         </div>
       </td>
-      <td className={td}>
+      <td className={cn(td, "max-w-40 leading-4")}>
         {item.product_kind ? PRODUCT_KIND[item.product_kind] : BANK_QUEUE.noValue}
       </td>
       <td className={cn(td, "tabular text-right whitespace-nowrap")}>
@@ -113,9 +113,11 @@ function Row({ item }: { item: Item }) {
         <StatusBadge status={item.status} />
       </td>
       <td className={cn(td, "font-semibold")}>{item.grade ?? BANK_QUEUE.noValue}</td>
-      <td className={td}>
+      <td className={cn(td, "max-w-36")}>
         {item.assignee ? (
-          item.assignee.full_name
+          <span className="block truncate" title={item.assignee.full_name}>
+            {item.assignee.full_name}
+          </span>
         ) : (
           <span className="text-ink-muted">{BANK_QUEUE.unassigned}</span>
         )}

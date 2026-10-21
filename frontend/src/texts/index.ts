@@ -30,9 +30,7 @@ export const STATUS: Record<Schemas["ApplicationStatus"], StatusText> = {
     label: "Отправлена",
     group: "progress",
     meaning: "Заявка в банке, скоро начнётся проверка.",
-    // TODO(L4): until the pipeline runs, nothing moves the status on by itself; once L4 is
-    // merged, return to «Ничего делать не нужно — обновим статус сами.»
-    next: "Заявка в банке. Проверка запускается — статус обновится здесь.",
+    next: "Ничего делать не нужно — обновим статус сами.",
   },
   processing: {
     label: "Проверяем",
@@ -231,6 +229,32 @@ export const METRIC: Record<string, MetricText> = {
     format: "text",
   },
   score_total: { title: "Оценка риска", hint: "Сумма баллов балльной карты.", format: "points" },
+  // Automatic check (apps/pipeline): a source did not answer or the check could not finish
+  source_egrul: {
+    title: "Реестр ЕГРЮЛ/ЕГРИП",
+    hint: "Источник не ответил — заявку проверит сотрудник. Это не отказ.",
+    format: "text",
+  },
+  source_transparent_business: {
+    title: "«Прозрачный бизнес»",
+    hint: "Источник не ответил — заявку проверит сотрудник. Это не отказ.",
+    format: "text",
+  },
+  source_bki: {
+    title: "Бюро кредитных историй",
+    hint: "Источник не ответил — заявку проверит сотрудник. Это не отказ.",
+    format: "text",
+  },
+  source_bank_account: {
+    title: "Данные по счёту",
+    hint: "Счёт не подключён или выписка не пришла — заявку проверит сотрудник.",
+    format: "text",
+  },
+  automatic_check: {
+    title: "Автоматическая проверка",
+    hint: "Проверка не завершилась — заявку проверит сотрудник банка. Это не отказ.",
+    format: "text",
+  },
   // Stop factors (apps/scoring/stop_factors.py)
   registry_status: {
     title: "Статус в реестре",

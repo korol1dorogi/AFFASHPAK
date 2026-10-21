@@ -18,7 +18,7 @@ export const SEARCH_DELAY_MS = 400;
 function LabeledField({ label, children }: { label: string; children: (id: string) => ReactNode }) {
   const id = useId();
   return (
-    <div className="flex min-w-36 flex-1 flex-col gap-1">
+    <div className="flex min-w-44 flex-1 flex-col gap-1">
       <label htmlFor={id} className="text-sm font-medium text-ink-muted">
         {label}
       </label>
