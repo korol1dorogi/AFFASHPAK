@@ -50,6 +50,9 @@ export function homeFor(kind: "client" | "bank"): string {
 
 /** Only same-app paths are allowed as ?next= targets (no open redirects). */
 export function safeNext(next: string | null): string | null {
-  if (!next?.startsWith("/") || next.startsWith("//")) return null;
+  // Only a path of this site: «//evil.com» and «/\evil.com» (browsers read «\» as «/») lead away,
+  // «javascript:…» is not a path at all; control characters have no place in a path.
+  if (!next?.startsWith("/") || next.startsWith("//") || next.includes("\\")) return null;
+  if ([...next].some((character) => character.charCodeAt(0) < 0x20)) return null;
   return next;
 }
