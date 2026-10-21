@@ -16,10 +16,12 @@
 
 ```sh
 cp .env.example .env
-docker compose up -d --build          # db + backend → http://localhost:8000/api/health
-
-cd frontend && npm ci && npm run dev  # кабинет → http://localhost:5173
+docker compose up -d --build          # всё: db + backend + кабинет → http://localhost:8080
 ```
+
+Первый запуск собирает образы и засевает демо-данные (персоны и очередь банка) — около минуты. Порт занят — задайте `WEB_PORT` в `.env`.
+
+Разработка фронта с горячей перезагрузкой: `cd frontend && npm ci && npm run dev` → http://localhost:5173 (API — тот же бэкенд на :8000).
 
 Фронт без бэка, на моке контракта: `docker compose --profile mock up -d mock`, затем `npm run dev:mock` в frontend/.
 
