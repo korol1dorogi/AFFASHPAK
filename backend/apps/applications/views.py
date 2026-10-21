@@ -116,6 +116,14 @@ class ApplicationSubmitView(APIView):
                 response_status=status.HTTP_200_OK,
                 response_body=body,
             )
+            application_id = application.pk
+
+            def _run() -> None:
+                from apps.pipeline.tasks import enqueue
+
+                enqueue(application_id)
+
+            transaction.on_commit(_run)
         return Response(body)
 
 

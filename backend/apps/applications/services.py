@@ -186,6 +186,14 @@ def confirm_signature(application: Application, actor: Actor, code: str) -> Appl
                 application=app,
                 defaults={"amount": offer.amount if offer else app.requested_amount},
             )
+            application_id = app.pk
+
+            def _disburse() -> None:
+                from apps.pipeline.tasks import enqueue_disbursement
+
+                enqueue_disbursement(application_id)
+
+            transaction.on_commit(_disburse)
             return app
         signature.attempts_left -= 1
         signature.save(update_fields=["attempts_left"])

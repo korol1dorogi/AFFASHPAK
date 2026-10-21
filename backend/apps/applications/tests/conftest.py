@@ -13,6 +13,12 @@ def client_for(user) -> APIClient:
     return client
 
 
+@pytest.fixture(autouse=True)
+def _pipeline_off(settings):
+    """These tests drive transitions themselves. The live pipeline is in apps/pipeline."""
+    settings.PIPELINE_ENABLED = False
+
+
 @pytest.fixture
 def world(db):
     """A company with a signatory and a preparer, an outsider and a bank manager."""

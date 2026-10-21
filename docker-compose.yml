@@ -32,7 +32,9 @@ services:
       # e2e signs in many times from one IP; the stand keeps the strict defaults (settings.py).
       THROTTLE_LOGIN: ${THROTTLE_LOGIN:-300/min}
       THROTTLE_ANON: ${THROTTLE_ANON:-1200/min}
-    command: sh -c "python manage.py migrate --noinput && python manage.py seed_demo && python manage.py runserver 0.0.0.0:8000"
+      # Bind-mount of ./backend hides /app/media; /tmp is writable by the app user.
+      MEDIA_ROOT: /tmp/media
+    command: sh -c "mkdir -p /tmp/media && python manage.py migrate --noinput && python manage.py seed_demo && python manage.py runserver 0.0.0.0:8000"
     volumes:
       - ./backend:/app
       - ./docs:/docs:ro

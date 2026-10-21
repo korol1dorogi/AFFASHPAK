@@ -53,6 +53,8 @@ INSTALLED_APPS = [
     "apps.documents",
     "apps.notifications",
     "apps.assistant",
+    "apps.integrations",
+    "apps.pipeline",
 ]
 
 MIDDLEWARE = [
@@ -112,7 +114,9 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
-MEDIA_ROOT = BASE_DIR / "media"
+# Dev compose bind-mounts the source over /app, so the image's /app/media is hidden
+# and the container user cannot create it. Point MEDIA_ROOT at a writable path there.
+MEDIA_ROOT = Path(env("MEDIA_ROOT", str(BASE_DIR / "media")))
 
 # --- Uploads: hard limits (per-file checks live in the documents app) ---
 # The Django request cap sits just above the per-file limit so an oversized file
@@ -190,6 +194,13 @@ LLM_TIMEOUT_SECONDS = env_int("LLM_TIMEOUT_SECONDS", 30)
 
 # --- Demo stand: /api/demo/* and the seed of personas exist only with DEMO_MODE=1 ---
 DEMO_MODE = env_bool("DEMO_MODE", default=False)
+
+# --- Pipeline. No broker: the task runs in-process (compose has no worker yet). ---
+PIPELINE_ENABLED = env_bool("PIPELINE_ENABLED", default=True)
+CELERY_BROKER_URL = env("CELERY_BROKER_URL", "")
+CELERY_RESULT_BACKEND = env("CELERY_RESULT_BACKEND", "")
+CELERY_TASK_ALWAYS_EAGER = not CELERY_BROKER_URL
+CELERY_TASK_EAGER_PROPAGATES = True
 
 # --- Case data: read-only mount, never inside the repo ---
 CASE_DATA_DIR = Path(env("CASE_DATA_DIR", "/case-data"))

@@ -1,0 +1,14 @@
+{
+  "name": "local",
+  "values": [
+    { "key": "baseUrl", "value": "http://127.0.0.1:8000", "enabled": true },
+    { "key": "csrf", "value": "", "enabled": true },
+    { "key": "applicationId", "value": "", "enabled": true },
+    { "key": "documentId", "value": "", "enabled": true },
+    { "key": "version", "value": "0", "enabled": true },
+    { "key": "idempotencyKey", "value": "", "enabled": true },
+    { "key": "amount", "value": "900000.00", "enabled": true },
+    { "key": "termMonths", "value": "12", "enabled": true },
+    { "key": "productCode", "value": "overdraft_basic", "enabled": true }
+  ]
+}
