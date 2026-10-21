@@ -15,8 +15,8 @@ import { Input } from "@/components/ui/input";
 import { useCreateCompany, useLookup } from "@/features/company/api";
 import { NotActiveWarning, RegistryFacts } from "@/features/company/RegistryFacts";
 import { type InnValues, innSchema } from "@/features/company/schema";
-import { COMPANY } from "@/features/company/texts";
 import { ApiError, errorMessage } from "@/lib/errors";
+import { COMPANY } from "@/texts";
 
 const T = COMPANY.create;
 

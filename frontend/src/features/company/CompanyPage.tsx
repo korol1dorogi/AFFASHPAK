@@ -21,15 +21,15 @@ import {
   useUpdateCompany,
 } from "@/features/company/api";
 import { NotActiveWarning, RegistryFacts } from "@/features/company/RegistryFacts";
+import { Integrations, Metrics } from "@/features/company/Sources";
 import {
   type MemberValues,
   memberSchema,
   type NameValues,
   nameSchema,
 } from "@/features/company/schema";
-import { COMPANY } from "@/features/company/texts";
 import { ApiError, applyFieldErrors, errorMessage } from "@/lib/errors";
-import { LEGAL_FORM } from "@/texts";
+import { COMPANY, LEGAL_FORM } from "@/texts";
 
 const P = COMPANY.profile;
 const M = COMPANY.members;
@@ -45,7 +45,7 @@ function Requisites({ company }: { company: Company }) {
         <Badge variant="brand">{COMPANY.fromRegistry}</Badge>
       </div>
       <CardDescription>{P.requisitesNote}</CardDescription>
-      <RegistryFacts record={company} withName={false} />
+      <RegistryFacts record={company} />
       <NotActiveWarning status={company.registry_status} />
     </Card>
   );
@@ -57,19 +57,19 @@ function ShortNameForm({ company }: { company: Company }) {
   const [rest, setRest] = useState<string | null>(null);
   const form = useForm<NameValues>({
     resolver: zodResolver(nameSchema),
-    defaultValues: { name: company.name },
+    defaultValues: { short_name: company.short_name ?? "" },
   });
 
-  const submit = form.handleSubmit(({ name }) => {
+  const submit = form.handleSubmit(({ short_name }) => {
     setRest(null);
     update.mutate(
-      { name },
+      { short_name: short_name || null },
       {
         onSuccess: (saved) => {
-          form.reset({ name: saved.name });
+          form.reset({ short_name: saved.short_name ?? "" });
           toast.success(P.saved);
         },
-        onError: (error) => setRest(applyFieldErrors(error, form.setError, ["name"])),
+        onError: (error) => setRest(applyFieldErrors(error, form.setError, ["short_name"])),
       },
     );
   });
@@ -80,10 +80,15 @@ function ShortNameForm({ company }: { company: Company }) {
         <Field
           label={P.shortName}
           hint={P.shortNameHint}
-          error={form.formState.errors.name?.message}
+          error={form.formState.errors.short_name?.message}
           className="flex-1"
         >
-          <Input maxLength={300} autoComplete="organization" {...form.register("name")} />
+          <Input
+            maxLength={300}
+            autoComplete="organization"
+            placeholder={company.name}
+            {...form.register("short_name")}
+          />
         </Field>
         <Button
           type="submit"
@@ -262,13 +267,15 @@ export function CompanyPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title={data.name}
+        title={data.short_name ?? data.name}
         subtitle={`${LEGAL_FORM[data.legal_form]} · ${COMPANY.record.inn} ${data.inn}`}
       >
         {data.is_demo ? <DemoBadge /> : null}
       </PageHeader>
       <Requisites company={data} />
       {signatory ? <ShortNameForm company={data} /> : null}
+      <Integrations company={data} />
+      <Metrics />
       <Members canManage={signatory} meId={me.data?.id} />
     </div>
   );

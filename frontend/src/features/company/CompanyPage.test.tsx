@@ -48,12 +48,13 @@ describe("CompanyPage — requisites", () => {
     expect(screen.getByText("1260000000042")).toBeInTheDocument();
     expect(screen.getByText("г. Демо, ул. Примерная, 4")).toBeInTheDocument();
     expect(screen.getByText("Пётр Демо", { selector: "dd" })).toBeInTheDocument();
-    // `name` is the editable short name here, so it is not listed among the registry requisites.
-    expect(screen.queryByText("Название", { selector: "dt" })).not.toBeInTheDocument();
+    // The legal name is a registry requisite; the short name is a separate field (short_name).
+    expect(screen.getByText("Название", { selector: "dt" })).toBeInTheDocument();
+    expect(screen.getByText("ООО «Дубрава Мебель» (демо)", { selector: "dd" })).toBeInTheDocument();
     // The only fields are the short name and the new member: requisites are never typed in.
     await memberList();
     expect(screen.getAllByRole("textbox").map((field) => field.getAttribute("name"))).toEqual([
-      "name",
+      "short_name",
       "username",
       "position",
     ]);
@@ -71,9 +72,9 @@ describe("CompanyPage — requisites", () => {
     expect(await screen.findByText("Подключение компании")).toBeInTheDocument();
   });
 
-  it("signatory renames the company: PATCH {name}, the header follows", async () => {
+  it("signatory sets a short name: PATCH {short_name}, the header follows, the legal name stays", async () => {
     const fetchMock = open({
-      "PATCH /api/company": company({ name: "Дубрава" }),
+      "PATCH /api/company": company({ short_name: "Дубрава" }),
     });
     const field = await screen.findByLabelText("Короткое название");
     const save = screen.getByRole("button", { name: "Сохранить" });
@@ -82,22 +83,26 @@ describe("CompanyPage — requisites", () => {
     fireEvent.click(save);
     expect(await screen.findByRole("heading", { level: 1, name: "Дубрава" })).toBeInTheDocument();
     expect(await sent(fetchMock, "PATCH", "/api/company")).toEqual([
-      JSON.stringify({ name: "Дубрава" }),
+      JSON.stringify({ short_name: "Дубрава" }),
     ]);
   });
 
-  it("an empty name is refused", async () => {
-    const fetchMock = open();
-    fireEvent.change(await screen.findByLabelText("Короткое название"), {
-      target: { value: " " },
+  it("an empty short name brings the registry name back (PATCH null)", async () => {
+    const fetchMock = open({
+      "GET /api/company": company({ short_name: "Дубрава" }),
+      "PATCH /api/company": company({ short_name: null }),
     });
+    const field = await screen.findByLabelText("Короткое название");
+    fireEvent.change(field, { target: { value: "   " } });
     fireEvent.click(screen.getByRole("button", { name: "Сохранить" }));
-    expect(await screen.findByText("Напишите название")).toBeInTheDocument();
-    expect(await sent(fetchMock, "PATCH", "/api/company")).toEqual([]);
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "ООО «Дубрава Мебель» (демо)" }),
+    ).toBeInTheDocument();
+    expect(await sent(fetchMock, "PATCH", "/api/company")).toEqual([
+      JSON.stringify({ short_name: null }),
+    ]);
   });
-});
 
-describe("CompanyPage — members and roles", () => {
   it("lists members with roles; the signatory cannot remove themselves", async () => {
     open();
     const list = await memberList();
@@ -193,5 +198,35 @@ describe("CompanyPage — members and roles", () => {
     fireEvent.click(screen.getByRole("button", { name: "Добавить сотрудника" }));
     expect(await screen.findByText("Пользователь с таким логином не найден.")).toBeInTheDocument();
     expect(screen.getByLabelText("Логин сотрудника")).toHaveAttribute("aria-invalid", "true");
+  });
+});
+
+describe("CompanyPage — data sources", () => {
+  it("shows what is connected and connects the other one", async () => {
+    const fetchMock = open({
+      "GET /api/company": company({
+        integrations: { bank_account: "2026-10-01T09:00:00Z", edo: null },
+      }),
+      "POST /api/company/integrations/edo/connect": {
+        source: "edo",
+        status: "connected",
+        is_demo: true,
+        snapshot: {},
+      },
+    });
+    const list = await screen.findByRole("list", { name: "Источники данных" });
+    const [bank, edo] = within(list).getAllByRole("listitem");
+    expect(bank).toHaveTextContent("Выписка по расчётному счёту");
+    expect(bank).toHaveTextContent(/Подключено/);
+    fireEvent.click(within(edo as HTMLElement).getByRole("button", { name: "Подключить" }));
+    await waitFor(() =>
+      expect(
+        fetchMock.mock.calls.some(
+          ([request]) =>
+            (request as Request).method === "POST" &&
+            (request as Request).url.endsWith("/api/company/integrations/edo/connect"),
+        ),
+      ).toBe(true),
+    );
   });
 });

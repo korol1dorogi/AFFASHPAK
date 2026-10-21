@@ -78,3 +78,27 @@ export function useRemoveMember() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: keys.members }),
   });
 }
+
+/** Connect a data source (simulator): brings the statement snapshot, remembered in integrations. */
+export function useConnectIntegration() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (source: Schemas["IntegrationSource"]) =>
+      unwrap(
+        await api.POST("/api/company/integrations/{source}/connect", {
+          params: { path: { source } },
+        }),
+      ),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: keys.company });
+    },
+  });
+}
+
+/** Key metrics from the latest statement snapshot, explained like a preliminary evaluation. */
+export function useCompanyMetrics() {
+  return useQuery({
+    queryKey: [...keys.company, "metrics"],
+    queryFn: async () => unwrap(await api.GET("/api/company/metrics")),
+  });
+}

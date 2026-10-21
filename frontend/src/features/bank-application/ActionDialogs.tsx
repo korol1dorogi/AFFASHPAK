@@ -43,9 +43,9 @@ import {
   type RequestInfoValues,
   requestInfoSchema,
 } from "@/features/bank-application/schema";
-import { BANK_ACTIONS } from "@/features/bank-application/texts";
 import { applyFieldErrors, errorMessage, isConflict } from "@/lib/errors";
 import { formatMoney, formatRate } from "@/lib/format";
+import { BANK_ACTIONS } from "@/texts";
 
 const T = BANK_ACTIONS;
 

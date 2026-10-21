@@ -21,7 +21,15 @@ export function registryRecord(
 }
 
 export function company(changes: Partial<Schemas["Company"]> = {}): Schemas["Company"] {
-  return { ...registryRecord(), id: 4, is_demo: true, my_role: "signatory", ...changes };
+  return {
+    ...registryRecord(),
+    id: 4,
+    is_demo: true,
+    my_role: "signatory",
+    short_name: null,
+    integrations: { bank_account: null, edo: null },
+    ...changes,
+  };
 }
 
 export function me(changes: Partial<Schemas["Me"]> = {}): Schemas["Me"] {

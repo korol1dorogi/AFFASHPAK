@@ -1,22 +1,26 @@
 import { z } from "zod";
 
-import { COMPANY } from "@/features/company/texts";
+import { innIsValid } from "@/lib/inn";
+
+import { COMPANY } from "@/texts";
 
 const E = COMPANY.errors;
 
-// Limits mirror Inn, CompanyUpdate and MemberCreate in docs/openapi.yaml. The INN checksum is
-// not checked: the contract asks only for the format, and synthetic registry INNs do not pass it.
+// Limits mirror Inn, CompanyUpdate and MemberCreate in docs/openapi.yaml; the INN check digits
+// follow the ФНС algorithm (the API checks them too, every registry INN passes).
 export const innSchema = z.object({
   inn: z
     .string()
     .trim()
-    .regex(/^\d{10}(\d{2})?$/, E.inn),
+    .regex(/^\d{10}(\d{2})?$/, E.inn)
+    .refine(innIsValid, E.innChecksum),
 });
 
 export type InnValues = z.infer<typeof innSchema>;
 
+/** Empty — show the registry name again (the API stores null). */
 export const nameSchema = z.object({
-  name: z.string().trim().min(1, E.name).max(300, E.tooLong(300)),
+  short_name: z.string().trim().max(300, E.tooLong(300)),
 });
 
 export type NameValues = z.infer<typeof nameSchema>;

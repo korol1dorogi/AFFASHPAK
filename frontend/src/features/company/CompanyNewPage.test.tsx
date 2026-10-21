@@ -82,7 +82,7 @@ describe("CompanyNewPage — INN → registry → company", () => {
         { error: { code: "not_found", message: "Не нашли компанию с таким ИНН в реестре." } },
       ],
     });
-    await find("0009999999");
+    await find("9999999998"); // correct check digits, just not in the registry
     expect(await screen.findByText("Не нашли компанию с таким ИНН в реестре.")).toBeInTheDocument();
     expect(screen.getByLabelText("ИНН компании или ИП")).toHaveAttribute("aria-invalid", "true");
     expect(screen.queryByText("Нашли в реестре")).not.toBeInTheDocument();

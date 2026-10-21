@@ -11,9 +11,8 @@ import {
   RequestInfoDialog,
 } from "@/features/bank-application/ActionDialogs";
 import { type BankApplicationDetail, useAssign } from "@/features/bank-application/api";
-import { BANK_ACTIONS } from "@/features/bank-application/texts";
 import { errorMessage } from "@/lib/errors";
-import { ACTION, BANK_CARD } from "@/texts";
+import { ACTION, BANK_ACTIONS, BANK_CARD } from "@/texts";
 
 type Opened = "approve" | "counteroffer" | "product" | "request_info" | "decline";
 
