@@ -48,6 +48,8 @@ describe("CompanyPage — requisites", () => {
     expect(screen.getByText("1260000000042")).toBeInTheDocument();
     expect(screen.getByText("г. Демо, ул. Примерная, 4")).toBeInTheDocument();
     expect(screen.getByText("Пётр Демо", { selector: "dd" })).toBeInTheDocument();
+    // `name` is the editable short name here, so it is not listed among the registry requisites.
+    expect(screen.queryByText("Название", { selector: "dt" })).not.toBeInTheDocument();
     // The only fields are the short name and the new member: requisites are never typed in.
     await memberList();
     expect(screen.getAllByRole("textbox").map((field) => field.getAttribute("name"))).toEqual([

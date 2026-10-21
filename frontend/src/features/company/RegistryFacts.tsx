@@ -8,10 +8,19 @@ import { LEGAL_FORM, REGISTRY_STATUS } from "@/texts";
 
 const T = COMPANY.record;
 
-/** Requisites of an ЕГРЮЛ/ЕГРИП record, read-only: nobody types them in again (F12). */
-export function RegistryFacts({ record }: { record: Schemas["RegistryRecord"] }) {
+/**
+ * Requisites of an ЕГРЮЛ/ЕГРИП record, read-only: nobody types them in again (F12).
+ * `withName={false}` on the profile: there `name` is the editable short name, not the registry's.
+ */
+export function RegistryFacts({
+  record,
+  withName = true,
+}: {
+  record: Schemas["RegistryRecord"];
+  withName?: boolean;
+}) {
   const facts = [
-    { label: T.name, value: record.name },
+    ...(withName ? [{ label: T.name, value: record.name }] : []),
     { label: T.legalForm, value: LEGAL_FORM[record.legal_form] },
     { label: T.inn, value: record.inn },
     { label: T.ogrn, value: record.ogrn },

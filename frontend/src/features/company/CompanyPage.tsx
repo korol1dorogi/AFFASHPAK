@@ -45,7 +45,7 @@ function Requisites({ company }: { company: Company }) {
         <Badge variant="brand">{COMPANY.fromRegistry}</Badge>
       </div>
       <CardDescription>{P.requisitesNote}</CardDescription>
-      <RegistryFacts record={company} />
+      <RegistryFacts record={company} withName={false} />
       <NotActiveWarning status={company.registry_status} />
     </Card>
   );
