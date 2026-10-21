@@ -32,6 +32,11 @@ services:
       CASE_DATA_DIR: /case-data
       # Demo stand: personas and /api/demo/* (docs/openapi.yaml). 0 in .env turns them off.
       DEMO_MODE: ${DEMO_MODE:-1}
+      # Sign-in limits (docs/deploy.md): password login stays strict; demo personas and the
+      # anonymous pages around them allow a jury switching personas from one IP.
+      THROTTLE_LOGIN: ${THROTTLE_LOGIN:-10/min}
+      THROTTLE_DEMO_LOGIN: ${THROTTLE_DEMO_LOGIN:-120/min}
+      THROTTLE_ANON: ${THROTTLE_ANON:-300/min}
     command: >
       sh -c "python manage.py migrate --noinput
       && python manage.py seed_demo
