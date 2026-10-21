@@ -190,3 +190,23 @@ def seed_products() -> int:
         _, is_new = Product.objects.get_or_create(code=fields.pop("code"), defaults=fields)
         created += is_new
     return created
+
+
+def reset_demo() -> None:
+    """Back to the seeded state: no applications, no notifications, no outages, fresh queue."""
+    from apps.accounts.demo_queue import seed_queue
+    from apps.applications.models import Application
+    from apps.documents.models import Document
+    from apps.integrations import flags
+    from apps.integrations.breaker import breaker
+    from apps.notifications.models import Notification
+
+    for document in Document.objects.exclude(file=""):
+        document.file.delete(save=False)  # files first: the rows go with their applications
+    with transaction.atomic():
+        Notification.objects.all().delete()
+        Application.objects.all().delete()
+        flags.reset()
+    breaker.reset()
+    seed()
+    seed_queue()

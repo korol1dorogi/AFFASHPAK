@@ -11,4 +11,5 @@ urlpatterns = [
     path("demo/personas", demo_views.DemoPersonasView.as_view(), name="demo-personas"),
     path("demo/login", demo_views.DemoLoginView.as_view(), name="demo-login"),
     path("demo/failures", demo_views.DemoFailuresView.as_view(), name="demo-failures"),
+    path("demo/reset", demo_views.DemoResetView.as_view(), name="demo-reset"),
 ]
