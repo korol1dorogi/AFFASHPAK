@@ -13,9 +13,10 @@ export const keys = {
 const path = (id: number) => ({ params: { path: { id } } });
 
 /** The whole card for a bank employee; polls like the queue so client answers show up (F5). */
-export function useBankApplication(id: number) {
+export function useBankApplication(id: number, { enabled = true } = {}) {
   return useQuery({
     queryKey: keys.one(id),
+    enabled,
     queryFn: async () => unwrap(await api.GET("/api/bank/applications/{id}", path(id))),
     refetchInterval: 15_000,
   });

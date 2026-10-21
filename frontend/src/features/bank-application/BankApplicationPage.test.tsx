@@ -69,6 +69,21 @@ describe("BankApplicationPage — header and states", () => {
   });
 });
 
+describe("BankApplicationPage — bad id", () => {
+  it("a non-numeric id is «Заявка не найдена» without a request", async () => {
+    const fetchMock = mockApi(PRODUCTS);
+    renderRoutes(
+      [{ path: "/bank/applications/:id", element: <BankApplicationPage /> }],
+      "/bank/applications/abc",
+    );
+    expect(await screen.findByText("Заявка не найдена")).toBeInTheDocument();
+    const bankCalls = fetchMock.mock.calls.filter(([request]) =>
+      new URL((request as Request).url).pathname.startsWith("/api/bank/"),
+    );
+    expect(bankCalls).toHaveLength(0);
+  });
+});
+
 describe("BankApplicationPage — tabs in the URL", () => {
   it("opens the tab from ?tab= and writes the clicked tab back", async () => {
     const { router } = open("scoring");

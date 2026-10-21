@@ -92,6 +92,17 @@ function CardView({ card }: { card: BankApplicationDetail }) {
   );
 }
 
+function NotFound() {
+  return (
+    <EmptyState
+      icon={<SearchX className="size-6" aria-hidden="true" />}
+      title={BANK_CARD.notFoundTitle}
+      text={BANK_CARD.notFoundText}
+      action={<BackToQueue />}
+    />
+  );
+}
+
 function BackToQueue() {
   return (
     <Button asChild variant="secondary">
@@ -102,21 +113,14 @@ function BackToQueue() {
 
 export function BankApplicationPage() {
   const id = Number(useParams().id);
-  const card = useBankApplication(id);
+  const validId = Number.isSafeInteger(id) && id > 0;
+  const card = useBankApplication(id, { enabled: validId });
 
+  if (!validId) return <NotFound />;
   if (card.isPending) return <PageSkeleton />;
   if (card.isError) {
     const status = card.error instanceof ApiError ? card.error.status : 0;
-    if (status === 404) {
-      return (
-        <EmptyState
-          icon={<SearchX className="size-6" aria-hidden="true" />}
-          title={BANK_CARD.notFoundTitle}
-          text={BANK_CARD.notFoundText}
-          action={<BackToQueue />}
-        />
-      );
-    }
+    if (status === 404) return <NotFound />;
     if (status === 403) {
       return (
         <EmptyState
