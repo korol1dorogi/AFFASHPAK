@@ -1,0 +1,76 @@
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { toast } from "sonner";
+
+import type { Schemas } from "@/api/client";
+import { Field } from "@/components/Field";
+import { StatusTimeline } from "@/components/StatusTimeline";
+import { Button } from "@/components/ui/button";
+import { Card, CardTitle } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/input";
+import { useComment } from "@/features/bank-application/api";
+import { type CommentValues, commentSchema } from "@/features/bank-application/schema";
+import { applyFieldErrors } from "@/lib/errors";
+import { BANK_CARD } from "@/texts";
+
+const T = BANK_CARD.journal;
+
+function CommentForm({ applicationId }: { applicationId: number }) {
+  const comment = useComment(applicationId);
+  const [rest, setRest] = useState<string | null>(null);
+  const form = useForm<CommentValues>({
+    resolver: zodResolver(commentSchema),
+    defaultValues: { message: "" },
+  });
+
+  const submit = form.handleSubmit(({ message }) => {
+    setRest(null);
+    comment.mutate(message, {
+      onSuccess: () => {
+        form.reset({ message: "" });
+        toast.success(T.sent);
+      },
+      onError: (error) => setRest(applyFieldErrors(error, form.setError, ["message"])),
+    });
+  });
+
+  return (
+    <form onSubmit={submit} noValidate className="flex flex-col gap-3">
+      <Field
+        label={T.commentLabel}
+        hint={T.commentHint}
+        error={form.formState.errors.message?.message}
+      >
+        <Textarea {...form.register("message")} maxLength={2000} />
+      </Field>
+      {rest ? (
+        <p role="alert" className="m-0 text-sm text-status-danger">
+          {rest}
+        </p>
+      ) : null}
+      <div>
+        <Button type="submit" loading={comment.isPending}>
+          {T.send}
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+/** Full journal including internal events, plus an internal comment the client never sees. */
+export function JournalTab({
+  applicationId,
+  events,
+}: {
+  applicationId: number;
+  events: Schemas["ApplicationEvent"][];
+}) {
+  return (
+    <Card>
+      <CardTitle>{T.title}</CardTitle>
+      <StatusTimeline events={events} showInternal />
+      <CommentForm applicationId={applicationId} />
+    </Card>
+  );
+}
