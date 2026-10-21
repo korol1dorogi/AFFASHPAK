@@ -72,7 +72,7 @@ test.describe("scenario 5: dependent supplier — decline with improvements", ()
     await expect(reasons).toContainText("Выручка упала на 20% к прошлому году");
     await expect(reasons).toContainText("80% денег приходит от одного покупателя");
     await expect(
-      page.getByText("Что можно улучшить").locator("xpath=following-sibling::ol[1]/li"),
+      page.getByText("Что можно улучшить", { exact: true }).locator("xpath=following-sibling::ol[1]/li"),
     ).toHaveText([
       /Снизьте текущие платежи по долгам или увеличьте свободный денежный поток/,
       /Снизьте долг до 3,5 годовой прибыли/,
@@ -83,7 +83,30 @@ test.describe("scenario 5: dependent supplier — decline with improvements", ()
 });
 
 test.describe("scenario 6: company in liquidation — stop factor", () => {
-  test.fixme("instant decline with the stop factor (L4, C6)", async () => {});
+  test("instant decline with the stop factor (L4, C6)", async ({ page }) => {
+    await signInAs(page, "ООО «Вектор Сервис»");
+    await expect(page).toHaveURL(/\/app$/);
+    const id = await createDraft(page, {
+      need_type: "cash_gap",
+      product_code: "overdraft_basic",
+      purpose: "Покрыть кассовый разрыв до оплаты клиентов (демо)",
+      requested_amount: "500000.00",
+      term_months: 6,
+    });
+    await submitFromWizard(page, id);
+
+    // P1, stop factor C1: declined without a grade, nothing to improve
+    await expect(statusBadge(page)).toHaveText("Отказ");
+    await expect(page.getByRole("heading", { name: "Предварительная оценка" })).toBeVisible();
+    const reasons = page.getByRole("list", { name: "Причины" }).getByRole("listitem");
+    await expect(reasons).toHaveCount(1);
+    await expect(reasons).toContainText("Статус в реестре");
+    await expect(reasons).toContainText(
+      "По данным ЕГРЮЛ компания в процессе ликвидации — кредит оформить нельзя",
+    );
+    await expect(page.getByText(/Грейд [A-E]/)).toHaveCount(0);
+    await expect(page.getByText("Что можно улучшить", { exact: true })).toHaveCount(0);
+  });
 });
 
 test.describe("scenario 7: BKI outage — manual review", () => {
