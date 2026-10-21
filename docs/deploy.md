@@ -75,7 +75,12 @@ install -m 755 deploy/alfa-deploy.sh /usr/local/bin/alfa-deploy
 # ключ CI (пара генерируется у лида, приватная часть — только в GitHub Secrets)
 echo 'restrict,command="/usr/local/bin/alfa-deploy" ssh-ed25519 AAAA... github-actions-deploy-alfa' >> ~/.ssh/authorized_keys
 ```
-- GitHub → Settings → Secrets and variables → Actions → New repository secret `DEPLOY_SSH_KEY` — содержимое приватного ключа CI целиком.
+- Ключ CI — **секрет окружения `production`, не репозитория**: так его получает только джоба `deploy` и только из `main`, а не любой workflow любой ветки.
+  1. GitHub → Settings → Environments → New environment `production`.
+  2. Deployment branches and tags → Selected branches → правило `main`.
+  3. В окружении `production` → Environment secrets → Add secret `DEPLOY_SSH_KEY` — содержимое приватного ключа CI целиком.
+  4. Settings → Secrets and variables → Actions → **удалить** repository secret `DEPLOY_SSH_KEY` (иначе он по-прежнему доступен всем workflow).
+  Джоба `deploy` в `.github/workflows/ci.yml` уже объявляет `environment: production`; пока секрет не перенесён, она берёт старый репозиторный — деплой не ломается.
 - GitHub → Settings → Deploy keys → публичный ключ сервера для чтения репозитория (раздел 2, без write access).
 - IP и ключ хоста сервера записаны в `.github/workflows/ci.yml` (джоба `deploy`); при смене сервера — обновить там.
 - Скрипт в репозитории поменялся → переустановить его на сервере командой выше (CI запускает установленную копию).
@@ -83,7 +88,10 @@ echo 'restrict,command="/usr/local/bin/alfa-deploy" ssh-ed25519 AAAA... github-a
 Вручную (то же самое): `ssh root@<ip> alfa-deploy`, или на сервере `alfa-deploy`.
 
 ## 7. Демо-данные
-После Фазы 2: `docker compose run --rm backend python manage.py seed_demo` (персоны из docs/demo.md) и команда сброса демо-данных перед показом.
+Засев автоматический: при каждом старте бэкенд выполняет `seed_demo` — каталог, 8 персон, сотрудник банка и один раз 30 заявок популяции через конвейер (живая очередь банка). Существующее не трогает.
+- Сброс перед показом: демо-панель `/bank/demo` → «Сбросить» (или `POST /api/demo/reset` от сотрудника банка) — заявки, уведомления и флаги сбоев удаляются, очередь засевается заново.
+- Сценарий 7: на демо-панели включить сбой «Бюро кредитных историй», подать заявку персоной `bki_outage`, выключить.
+- Swagger: `https://<домен>/api/docs`.
 
 ## 8. Обслуживание
 - Логи: `docker compose logs -f --tail 100 caddy backend`

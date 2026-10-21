@@ -40,9 +40,9 @@ from apps.applications.transitions import (
     touch,
 )
 from apps.products.models import Product
+from apps.scoring.policy import CURRENT_POLICY_VERSION
 
 S = ApplicationStatus
-OFFICER_POLICY = "officer"
 SIGNATURE_TTL = timedelta(minutes=10)
 SIGNATURE_ATTEMPTS = 3  # D17
 
@@ -227,6 +227,17 @@ def respond_info(
         info.answered_by = actor.user
         info.answered_at = timezone.now()
         info.save(update_fields=["status", "response_message", "answered_by", "answered_at"])
+        if target == S.SUBMITTED:
+            # state-machine.md 10a: the completeness check asked, the client answered —
+            # the pipeline runs again (was: the application stayed «submitted» for good).
+            application_id = app.pk
+
+            def _rerun() -> None:
+                from apps.pipeline.tasks import enqueue
+
+                enqueue(application_id)
+
+            transaction.on_commit(_rerun)
         return app
 
 
@@ -254,7 +265,7 @@ def _officer_decision(app: Application, actor: Actor, outcome: str, **fields: An
         decided_by=DecidedBy.OFFICER,
         officer=actor.user,
         grade=grade,
-        policy_version=OFFICER_POLICY,
+        policy_version=CURRENT_POLICY_VERSION,  # the rules in force; decided_by says who
         **fields,
     )
 

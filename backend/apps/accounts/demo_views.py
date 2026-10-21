@@ -1,12 +1,12 @@
 """Demo personas, quick sign-in and simulator outages (docs/openapi.yaml, tag `demo`).
 
-Everything here is 404 unless DEMO_MODE=1. /api/demo/reset belongs to B7/L5.
+Everything here is 404 unless DEMO_MODE=1.
 """
 
 from django.conf import settings
 from django.contrib.auth import login
 from django.contrib.auth.models import User
-from rest_framework import serializers
+from rest_framework import serializers, status
 from rest_framework.exceptions import NotFound
 from rest_framework.permissions import AllowAny
 from rest_framework.request import Request
@@ -14,7 +14,7 @@ from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
-from apps.accounts.demo import available_personas
+from apps.accounts.demo import available_personas, reset_demo
 from apps.accounts.serializers import me_data
 from apps.core.authentication import enforce_csrf
 from apps.core.permissions import IsBankUser
@@ -88,3 +88,17 @@ class DemoFailuresView(_DemoView):
         for source, failing in serializer.validated_data.items():
             flags.set_failing(source, failing)
         return Response(flags.current())
+
+
+class DemoResetView(_DemoView):
+    """POST /api/demo/reset: back to the seeded state between demo runs (bank user).
+
+    Applications (with their files), notifications and outage flags go; the catalog, personas
+    and the demo queue are seeded again. Accounts people registered stay.
+    """
+
+    permission_classes = (IsBankUser,)
+
+    def post(self, request: Request) -> Response:
+        reset_demo()
+        return Response(status=status.HTTP_204_NO_CONTENT)

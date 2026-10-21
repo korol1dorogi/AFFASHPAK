@@ -18,6 +18,7 @@ urlpatterns = [
         views.InfoRequestRespondView.as_view(),
     ),
     path("bank/applications", bank_views.BankQueueView.as_view(), name="bank-queue"),
+    path("bank/dashboard", bank_views.BankDashboardView.as_view(), name="bank-dashboard"),
     path("bank/applications/<int:pk>", bank_views.BankApplicationDetailView.as_view()),
     path("bank/applications/<int:pk>/assign", bank_views.BankAssignView.as_view()),
     path("bank/applications/<int:pk>/approve", bank_views.BankApproveView.as_view()),
