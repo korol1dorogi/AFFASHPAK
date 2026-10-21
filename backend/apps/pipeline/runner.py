@@ -4,6 +4,7 @@ Stops that are visible from the company alone (liquidation) decline before any s
 """
 
 import json
+import logging
 from decimal import Decimal
 
 from django.db import transaction
@@ -21,19 +22,58 @@ from apps.applications.models import (
 from apps.applications.services import record_auto_decision, start_processing
 from apps.applications.transitions import record_event
 from apps.integrations.adapters import fetch_all
-from apps.pipeline.decide import decide
+from apps.pipeline.decide import SOURCE_NAME, decide
 from apps.scoring import build_input
+from apps.scoring.texts import rubles
 
 S = ApplicationStatus
+logger = logging.getLogger(__name__)
+
+CHECK_TEXT = {
+    "ok": "данные получены",
+    "warning": "есть замечания",
+    "failed": "компания не найдена",
+    "unavailable": "источник не ответил — проверит сотрудник",
+}
+PIPELINE_FAILED = (
+    "Автоматическая проверка не завершилась — заявку проверит сотрудник банка. Это не отказ"
+)
 
 
 def execute(application_id: int) -> None:
+    """Never leaves an application in «processing»: on any error it goes to an officer."""
     application = Application.objects.select_related("company", "product").get(pk=application_id)
     if application.status != S.SUBMITTED:
         return
     start_processing(application.pk)
     application.refresh_from_db()
+    try:
+        _run(application)
+    except Exception:
+        logger.exception("pipeline failed for application %s", application_id)
+        _to_officer(application_id)
 
+
+def _to_officer(application_id: int) -> None:
+    if Application.objects.filter(pk=application_id, status=S.PROCESSING).exists():
+        record_auto_decision(
+            application_id,
+            outcome=DecisionOutcome.MANUAL_REVIEW,
+            grade=None,
+            policy_version="2026.10-v1",
+            reasons=[
+                {
+                    "metric": "automatic_check",
+                    "value": None,
+                    "threshold": None,
+                    "passed": False,
+                    "message": PIPELINE_FAILED,
+                }
+            ],
+        )
+
+
+def _run(application: Application) -> None:
     gaps = _gaps(application)
     if gaps is not None:
         record_auto_decision(
@@ -136,9 +176,8 @@ def _store_checks(application: Application, answers: dict[str, dict]) -> None:
 
 
 def _summary(source: str, status: str) -> str:
-    if status == "unavailable":
-        return "Источник не ответил (демо)"
-    return f"{source}: {status}"
+    """«БКИ: данные получены» — what the client reads in the history, never a source code."""
+    return f"{SOURCE_NAME[source]}: {CHECK_TEXT.get(status, status)}"
 
 
 def _on_date(application: Application):
@@ -192,7 +231,7 @@ def _gaps(application: Application) -> dict | None:
     else:
         if application.requested_amount < product.amount_min:
             fields.append("requested_amount")
-            messages.append(f"Минимальная сумма по продукту — {product.amount_min} ₽")
+            messages.append(f"Минимальная сумма по продукту — {rubles(product.amount_min)}")
         if not product.term_min_months <= application.term_months <= product.term_max_months:
             fields.append("term_months")
             messages.append(

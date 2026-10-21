@@ -926,7 +926,7 @@
           "request": {
             "method": "GET",
             "header": [],
-            "url": "{{baseUrl}}/api/bank/applications"
+            "url": "{{baseUrl}}/api/bank/applications?ordering=-status_changed_at"
           },
           "event": [
             {

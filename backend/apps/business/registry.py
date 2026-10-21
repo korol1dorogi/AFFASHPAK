@@ -7,7 +7,7 @@ When S1 lands, only `_records` changes to an HTTP call that raises SourceUnavail
 
 from functools import cache
 
-from apps.demo_data.build import generate
+from apps.integrations.simulator_data import dataset
 
 RECORD_FIELDS = (
     "inn",
@@ -26,7 +26,7 @@ RECORD_FIELDS = (
 
 @cache
 def _records() -> dict[str, dict]:
-    data = generate()
+    data = dataset()
     egrul = data["simulators"]["egrul"]
     return {
         company["inn"]: {field: company[field] for field in RECORD_FIELDS}

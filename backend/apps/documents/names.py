@@ -6,6 +6,7 @@ from apps.documents.signatures import EXTENSIONS
 
 _MAX_ORIGINAL_LENGTH = 255
 _MAX_STEM_LENGTH = 180
+_FORBIDDEN = str.maketrans(dict.fromkeys('<>:"/\\|?*', "_"))
 
 
 def safe_original_name(raw: str | None) -> str:
@@ -19,9 +20,12 @@ def safe_original_name(raw: str | None) -> str:
 
 
 def attachment_filename(original_name: str, content_type: str) -> str:
-    """Download name whose extension matches the detected type, not the client's."""
+    """Download name whose extension matches the detected type, not the client's.
+
+    Characters no file system accepts (and that only markup needs: < > " …) become «_».
+    """
     extension = EXTENSIONS[content_type]
-    stem = PurePosixPath(original_name).stem.strip().strip(".")
+    stem = PurePosixPath(original_name).stem.translate(_FORBIDDEN).strip().strip(".")
     if not stem or stem in {".", ".."}:
         stem = "document"
     return f"{stem[:_MAX_STEM_LENGTH]}.{extension}"

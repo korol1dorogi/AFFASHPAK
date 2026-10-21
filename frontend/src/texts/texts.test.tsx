@@ -8,7 +8,8 @@ import { METRIC, metricTitle, UNKNOWN_METRIC_TITLE } from "@/texts";
  * Every Reason.metric the backend can return (21.10.2026). Update together with the backend:
  * - apps/scoring/factors.py — scorecard factors;
  * - apps/scoring/stop_factors.py — stop factors С1–С5;
- * - apps/recommendations/service.py — product fit, limits, score_total, dscr_after.
+ * - apps/recommendations/service.py — product fit, limits, score_total, dscr_after;
+ * - apps/pipeline/decide.py, runner.py — unavailable sources and a failed automatic check.
  */
 const BACKEND_METRICS = [
   // scoring factors
@@ -36,6 +37,12 @@ const BACKEND_METRICS = [
   "working_capital_need",
   "max_loan_by_dscr",
   "dscr_after",
+  // pipeline
+  "source_egrul",
+  "source_transparent_business",
+  "source_bki",
+  "source_bank_account",
+  "automatic_check",
 ] as const;
 
 describe("metric texts", () => {

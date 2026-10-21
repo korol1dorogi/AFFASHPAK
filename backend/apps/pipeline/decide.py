@@ -15,10 +15,19 @@ from apps.credit_math import (
     working_capital_need_metric,
 )
 from apps.products.models import Product
-from apps.scoring import ScoringInput, business_age_months, score
+from apps.scoring import ScoringInput, business_age_months, get_scorecard, score
 from apps.scoring.inputs import SOURCES
 from apps.scoring.policy import CURRENT_POLICY_VERSION, get_policy
 from apps.scoring.scorecard import ScoreResult
+from apps.scoring.texts import number, percent, rubles
+
+# Who the client reads about when a source does not answer (decision-model.md §7).
+SOURCE_NAME = {
+    "egrul": "ЕГРЮЛ/ЕГРИП",
+    "transparent_business": "«Прозрачный бизнес»",
+    "bki": "Бюро кредитных историй",
+    "bank_account": "Выписка по счёту",
+}
 
 
 @dataclass(frozen=True)
@@ -45,15 +54,7 @@ def decide(application: Application, inp: ScoringInput) -> Decision:
     reasons.append(_score_reason(result))
     source_unavailable = bool(unavailable)
     for source in unavailable:
-        reasons.append(
-            {
-                "metric": f"source_{source}",
-                "value": None,
-                "threshold": None,
-                "passed": False,
-                "message": "Источник не отвечает. Это не отказ — заявку проверит сотрудник",
-            }
-        )
+        reasons.append(_row(f"source_{source}", None, None, False, _unavailable_text(inp, source)))
 
     def pack(
         outcome: str,
@@ -84,18 +85,23 @@ def decide(application: Application, inp: ScoringInput) -> Decision:
         return pack(DecisionOutcome.MANUAL_REVIEW, extra=extra)
 
     chosen = product
+    requirements: dict | None = None
     if not _fits(product, application, inp):
         alternative = _alternative(product, application, inp)
+        requirements = _requirements_row(product, inp, alternative)
         if alternative is None:
             return pack(
                 DecisionOutcome.DECLINED,
                 improvements=["Под этот запрос нет другого подходящего продукта"],
+                extra=[requirements],
             )
         chosen = alternative
 
     term = _clamp_term(chosen, application.term_months)
     rate = rate_for(chosen, result.grade)
     cap, extra = _size(chosen, application, inp, result.grade, term)
+    if requirements is not None:
+        extra.insert(0, requirements)  # why the product changed comes first (F9, F11)
     if cap is None:
         outcome = (
             DecisionOutcome.DECLINED if chosen is not product else DecisionOutcome.MANUAL_REVIEW
@@ -162,6 +168,23 @@ def _alternative(product: Product, application: Application, inp: ScoringInput) 
     return candidate
 
 
+def _requirements_row(product: Product, inp: ScoringInput, alternative: Product | None) -> dict:
+    """Why the requested product does not fit (П6): the first broken requirement, in words."""
+    requirements = product.requirements or {}
+    forms = requirements.get("legal_forms") or []
+    minimum = int(requirements.get("min_business_age_months") or 0)
+    if forms and inp.legal_form not in forms:
+        cause = f"{product.name} не выдаётся этой правовой форме"
+    elif inp.registered_at is None:
+        cause = f"{product.name}: не получили дату регистрации компании"
+    elif business_age_months(inp.registered_at, inp.on_date) < minimum:
+        cause = f"{product.name} требует возраст бизнеса от {minimum} мес"
+    else:
+        cause = f"{product.name} требует залог"
+    tail = f"; подходит {alternative.name.lower()}" if alternative else ""
+    return _row("product_requirements", None, None, False, cause + tail)
+
+
 def _clamp_term(product: Product, term: int) -> int:
     return min(max(term, product.term_min_months), product.term_max_months)
 
@@ -200,9 +223,9 @@ def _overdraft_size(
     limit = min(overdraft_limit(turnover, alpha), product.amount_max)
     passed = limit >= requested
     text = (
-        f"Лимит — {alpha} среднемесячных поступлений: {limit} ₽"
+        f"Лимит — {percent(alpha)} среднемесячных поступлений на счёт: {rubles(limit)}"
         if passed
-        else f"По оборотам доступно {limit} ₽ — меньше запрошенного"
+        else f"По оборотам доступно {rubles(limit)} — меньше запрошенного"
     )
     return limit, [_row("overdraft_limit", limit, requested, passed, text)]
 
@@ -217,15 +240,17 @@ def _factoring_size(
     limit = min(factoring_advance(invoice, beta), product.amount_max)
     passed = limit >= requested
     text = (
-        f"Сразу — {beta} суммы отгрузки: {limit} ₽"
+        f"Сразу — {percent(beta)} суммы отгрузки: {rubles(limit)}"
         if passed
-        else f"Под эту отгрузку доступно {limit} ₽"
+        else f"Под эту отгрузку доступно {rubles(limit)}"
     )
     reasons = [_row("factoring_advance", limit, requested, passed, text)]
     commission = product.params.get("commission")
     if commission is not None:
         fee = factoring_commission(invoice, _decimal(commission, "0"))
-        reasons.append(_row("factoring_commission", fee, None, True, f"Разовая комиссия — {fee} ₽"))
+        reasons.append(
+            _row("factoring_commission", fee, None, True, f"Разовая комиссия — {rubles(fee)}")
+        )
     return limit, reasons
 
 
@@ -242,9 +267,9 @@ def _dscr_cap(product: Product, inp: ScoringInput, rate: Decimal, term: int) -> 
 def _dscr_reason(limit: Decimal, requested: Decimal, rate: Decimal, term: int) -> dict:
     passed = limit >= requested
     text = (
-        f"Платёж посилен: допустимо до {limit} ₽"
+        f"Платёж посилен: допустимо до {rubles(limit)}"
         if passed
-        else f"Сумма ограничена {limit} ₽ на {term} мес при ставке {rate}"
+        else f"Сумма ограничена {rubles(limit)} на {term} мес при ставке {percent(rate)}"
     )
     return _row("max_loan_by_dscr", limit, requested, passed, text)
 
@@ -254,9 +279,9 @@ def _need_reason(need, requested: Decimal) -> dict:
         return _row("working_capital_need", None, requested, False, need.note or "")
     passed = need.value >= requested
     text = (
-        f"В обороте заморожено {need.value} ₽ — больше бизнесу не нужно"
+        f"В обороте заморожено {rubles(need.value)} — больше бизнесу не нужно"
         if passed
-        else f"Потребность в оборотных средствах — {need.value} ₽, меньше запрошенного"
+        else f"Потребность в оборотных средствах — {rubles(need.value)}, меньше запрошенного"
     )
     return _row("working_capital_need", need.value, requested, passed, text)
 
@@ -272,7 +297,8 @@ def _dscr_after(
     metric = dscr(cfads, current + payment)
     threshold = _min_dscr(product)
     passed = metric.value is not None and metric.value >= threshold
-    text = f"С новым платежом {payment} ₽/мес запас покрытия — {metric.value}"
+    coverage = "нет данных" if metric.value is None else number(metric.value)
+    text = f"С новым платежом {rubles(payment)} в месяц поток покрывает платежи в {coverage} раза"
     return _row("dscr_after", metric.value, threshold, passed, text)
 
 
@@ -287,18 +313,29 @@ def _amount_improvements(
         return texts
     longer = max_loan_by_dscr(cfads, service, rate, product.term_max_months, _min_dscr(product))
     if longer.value is not None:
-        texts.insert(0, f"При сроке {product.term_max_months} мес допустимо {longer.value} ₽")
+        months = product.term_max_months
+        texts.insert(0, f"При сроке {months} мес допустимо {rubles(longer.value)}")
     return texts
 
 
 def _score_reason(result: ScoreResult) -> dict:
+    """Passes from the lowest grade offered automatically (B, decision-model.md §6)."""
+    card = get_scorecard(result.model_version)
+    threshold = next(minimum for minimum, grade in card.grades if grade == "B")
     return {
         "metric": "score_total",
         "value": str(result.total),
-        "threshold": "75",
-        "passed": result.grade in {"A", "B"},
+        "threshold": str(threshold),
+        "passed": result.total >= threshold,
         "message": f"Грейд {result.grade} ({result.total} из 100)",
     }
+
+
+def _unavailable_text(inp: ScoringInput, source: str) -> str:
+    check = inp.check(source)
+    if source == "bank_account" and check is not None and check.data.get("not_connected"):
+        return "Счёт не подключён — данные по счёту проверит сотрудник. Это не отказ"
+    return f"{SOURCE_NAME[source]} сейчас не отвечает — заявку проверит сотрудник. Это не отказ"
 
 
 def _factor_reason(factor) -> dict:

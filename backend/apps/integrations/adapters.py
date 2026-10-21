@@ -3,66 +3,69 @@
 S1 will replace the lookup with HTTP. The pipeline only sees status + data.
 """
 
+import logging
 from concurrent.futures import ThreadPoolExecutor
-from functools import cache
 
-from apps.demo_data.build import generate
 from apps.integrations.breaker import breaker
-from apps.integrations.flags import SOURCES, is_failing
+from apps.integrations.flags import SOURCES, failing_sources
+from apps.integrations.simulator_data import simulators
 
 ATTEMPTS = 3
 UNAVAILABLE = {"status": "unavailable", "data": {}}
+NOT_CONNECTED = {"status": "unavailable", "data": {"not_connected": True}}
 NOT_IN_REGISTRY = {"status": "failed", "data": {}}
 SOURCE_TIMEOUT_SECONDS = 2
-
-
-@cache
-def _simulators() -> dict:
-    return generate(n_companies=0)["simulators"]
+logger = logging.getLogger(__name__)
 
 
 def _answer(source: str, inn: str, *, has_account: bool) -> dict:
     if source == "bank_account":
         if not has_account:
-            return dict(UNAVAILABLE)
+            return dict(NOT_CONNECTED)
         return {"status": "ok", "data": {"months": 18}}
-    table = _simulators().get(source) or {}
+    table = simulators().get(source) or {}
     found = table.get(inn)
     if found is None:
         return dict(NOT_IN_REGISTRY if source == "egrul" else UNAVAILABLE)
     return found
 
 
-def fetch(source: str, inn: str, *, has_account: bool) -> dict:
+def fetch(source: str, inn: str, *, has_account: bool, failing: bool = False) -> dict:
     """One source. A forced outage or an open breaker is `unavailable` without calling out."""
-    if is_failing(source) or not breaker.allow(source):
+    if failing or not breaker.allow(source):
         return dict(UNAVAILABLE)
-    last_error: Exception | None = None
-    for _ in range(ATTEMPTS):
+    for attempt in range(1, ATTEMPTS + 1):
         try:
             answer = _answer(source, inn, has_account=has_account)
-        except Exception as exc:  # a down simulator is an outage, not a crash of the pipeline
-            last_error = exc
+        except Exception:  # a down simulator is an outage, not a crash of the pipeline
+            logger.warning("%s: attempt %s of %s failed", source, attempt, ATTEMPTS, exc_info=True)
             continue
         breaker.success(source)
         return answer
     breaker.failure(source)
-    if last_error is not None:
-        return dict(UNAVAILABLE)
     return dict(UNAVAILABLE)
 
 
 def fetch_all(inn: str, *, has_account: bool) -> dict[str, dict]:
-    """All four sources at once. One slow source does not block the others past the timeout."""
+    """All four sources at once. A source slower than the timeout counts as unavailable and
+    the pipeline does not wait for it (no `with`: its exit would join the slow thread)."""
+    failing = failing_sources()  # read once, in the request thread (DemoState lives in the DB)
+    simulators()  # build the cached dataset here, once: inside the threads it would hit the timeout
     results: dict[str, dict] = {}
-    with ThreadPoolExecutor(max_workers=len(SOURCES)) as pool:
+    pool = ThreadPoolExecutor(max_workers=len(SOURCES))
+    try:
         futures = {
-            pool.submit(fetch, source, inn, has_account=has_account): source for source in SOURCES
+            source: pool.submit(
+                fetch, source, inn, has_account=has_account, failing=source in failing
+            )
+            for source in SOURCES
         }
-        for future, source in futures.items():
+        for source, future in futures.items():
             try:
                 results[source] = future.result(timeout=SOURCE_TIMEOUT_SECONDS)
-            except Exception:
+            except Exception:  # a timeout or a crash of the source: an outage
                 breaker.failure(source)
                 results[source] = dict(UNAVAILABLE)
+    finally:
+        pool.shutdown(wait=False, cancel_futures=True)
     return results

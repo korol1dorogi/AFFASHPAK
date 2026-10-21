@@ -127,6 +127,9 @@ DATA_UPLOAD_MAX_MEMORY_SIZE = env_int(
     UPLOAD_MAX_FILE_BYTES + 64 * 1024,
 )
 FILE_UPLOAD_MAX_MEMORY_SIZE = DATA_UPLOAD_MAX_MEMORY_SIZE
+# Stored uploads are data, never programs: no execute bit, not readable by other users.
+FILE_UPLOAD_PERMISSIONS = 0o640
+FILE_UPLOAD_DIRECTORY_PERMISSIONS = 0o750
 
 # --- Sessions + CSRF on a single origin (no CORS, no JWT) ---
 SESSION_COOKIE_HTTPONLY = True
