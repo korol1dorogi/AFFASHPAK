@@ -110,7 +110,69 @@ test.describe("scenario 6: company in liquidation — stop factor", () => {
 });
 
 test.describe("scenario 7: BKI outage — manual review", () => {
-  test.fixme("demo panel turns BKI off → application lands in manual review with a note (B7, L4)", async () => {});
+  test("demo panel turns BKI off → application lands in manual review with a note (B7, L4)", async ({
+    browser,
+  }) => {
+    const bank = await personaPage(browser, "Сотрудник банка", /\/bank/);
+    const setFailures = async (bki: boolean) => {
+      // TODO B7: заменить на UI — /bank/demo is still a placeholder
+      const response = await bank.request.put("/api/demo/failures", {
+        headers: await csrfHeaders(bank),
+        data: { egrul: false, transparent_business: false, bki, bank_account: false },
+      });
+      expect(response.status()).toBe(200);
+      expect((await response.json()).bki).toBe(bki);
+    };
+
+    await setFailures(true);
+    let id: number;
+    try {
+      const client = await personaPage(browser, "кофейня «Северный ветер»", /\/app$/);
+      id = await createDraft(client, {
+        need_type: "cash_gap",
+        product_code: "overdraft_basic",
+        purpose: "Покрыть кассовый разрыв до оплаты клиентов (демо)",
+        requested_amount: "900000.00",
+        term_months: 12,
+      });
+      await submitFromWizard(client, id);
+
+      // P3 needs_review: the outage sends the application to an officer, it is not a decline
+      await expect(statusBadge(client)).toHaveText("У сотрудника банка");
+      await expect(client.getByRole("heading", { name: "Предварительная оценка" })).toBeVisible();
+      const reasons = client.getByRole("list", { name: "Причины" });
+      await expect(reasons).toContainText(
+        "Бюро кредитных историй сейчас не отвечает — заявку проверит сотрудник. Это не отказ",
+      );
+      await expect(reasons).toContainText("Грейд B (82 из 100)");
+    } finally {
+      await setFailures(false);
+    }
+
+    await bank.goto("/bank?status=manual_review&search=000100000702&ordering=-status_changed_at");
+    const link = bank.getByRole("link", { name: `Заявка №${id}`, exact: true });
+    const row = bank.getByRole("row").filter({ has: link });
+    await expect(row.getByRole("img", { name: "Источник недоступен" })).toBeVisible();
+
+    await link.click();
+    await expect(bank).toHaveURL(new RegExp(`/bank/applications/${id}`));
+    await expect(
+      bank.getByRole("status").filter({ hasText: "Один из источников не ответил" }),
+    ).toContainText("Это не отказ: проверьте вручную.");
+    const actions = bank.getByRole("complementary", { name: "Действия сотрудника" });
+    for (const action of [
+      "Взять в работу",
+      "Одобрить",
+      "Иные условия",
+      "Запросить информацию",
+      "Отказать",
+    ]) {
+      await expect(actions.getByRole("button", { name: action, exact: true })).toBeVisible();
+    }
+    await bank.getByRole("tab", { name: "Проверки" }).click();
+    await expect(bank.getByRole("tabpanel")).toContainText("Бюро кредитных историй");
+    await expect(bank.getByRole("tabpanel")).toContainText("Источник не ответил");
+  });
 });
 
 test.describe("scenario 8: equipment without collateral — alternative product", () => {
