@@ -21,7 +21,7 @@ from apps.applications.models import (
 )
 from apps.applications.offers import current_offer
 from apps.applications.transitions import available_actions
-from apps.business.models import Company, FinancialSnapshot, Membership
+from apps.business.models import Company, FinancialSnapshot, IntegrationSource, Membership
 from apps.documents.models import DocumentKind
 from apps.products.serializers import ProductSerializer
 
@@ -212,10 +212,26 @@ class CompanySerializer(serializers.ModelSerializer):
             "director_name",
             "is_demo",
             "my_role",
+            "short_name",
+            "integrations",
         )
+
+    short_name = serializers.SerializerMethodField()
+    integrations = serializers.SerializerMethodField()
 
     def get_my_role(self, company: Company) -> str | None:
         return self.context.get("role")
+
+    def get_short_name(self, company: Company) -> str | None:
+        return company.short_name or None
+
+    def get_integrations(self, company: Company) -> dict[str, str | None]:
+        connected = {i.source: i.connected_at for i in company.integrations.all()}
+        field = serializers.DateTimeField()
+        return {
+            source: field.to_representation(connected[source]) if source in connected else None
+            for source in IntegrationSource.values
+        }
 
 
 class MemberSerializer(serializers.ModelSerializer):

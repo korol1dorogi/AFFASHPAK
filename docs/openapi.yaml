@@ -1250,7 +1250,8 @@ components:
     Inn:
       type: string
       pattern: '^\d{10}(\d{2})?$'
-      examples: ["0012345678"]
+      description: 10 цифр у ООО, 12 у ИП; контрольные цифры по алгоритму ФНС (неверные — 400)
+      examples: ["0001000028"]
     Version:
       type: integer
       minimum: 0
@@ -1386,13 +1387,27 @@ components:
       allOf:
         - $ref: "#/components/schemas/RegistryRecord"
         - type: object
-          required: [id, is_demo, my_role]
+          required: [id, is_demo, my_role, short_name, integrations]
           properties:
             id: { type: integer, examples: [1] }
             is_demo: { type: boolean, description: Синтетические данные — показываем пометку «демо» }
             my_role:
               description: Роль текущего пользователя в компании; null — смотрит сотрудник банка
               oneOf: [{ $ref: "#/components/schemas/MemberRole" }, { type: "null" }]
+            short_name:
+              description: Короткое название для интерфейса; null — показываем name из реестра (он не меняется)
+              oneOf: [{ type: string, maxLength: 300, examples: ["Ромашка"] }, { type: "null" }]
+            integrations: { $ref: "#/components/schemas/CompanyIntegrations" }
+
+    CompanyIntegrations:
+      type: object
+      description: Что подключено — когда; null — не подключено (connectIntegration)
+      required: [bank_account, edo]
+      properties:
+        bank_account:
+          oneOf: [{ type: string, format: date-time }, { type: "null" }]
+        edo:
+          oneOf: [{ type: string, format: date-time }, { type: "null" }]
 
     CompanyCreate:
       type: object
@@ -1406,7 +1421,9 @@ components:
       minProperties: 1
       additionalProperties: false
       properties:
-        name: { type: string, minLength: 1, maxLength: 300, description: Короткое название для интерфейса }
+        short_name:
+          description: Короткое название для интерфейса; null или пустая строка — убрать. Реквизиты из реестра (name и др.) не меняются
+          oneOf: [{ type: string, maxLength: 300 }, { type: "null" }]
 
     Member:
       type: object

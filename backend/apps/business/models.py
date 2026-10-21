@@ -35,6 +35,8 @@ class Company(models.Model):
         max_length=16, choices=RegistryStatus.choices, default=RegistryStatus.ACTIVE
     )
     director_name = models.CharField(max_length=200, blank=True, default="")
+    # The client's own label for the interface; `name` stays the registry's legal name.
+    short_name = models.CharField(max_length=300, blank=True, default="")
     is_demo = models.BooleanField(default=False)
     created_at = models.DateTimeField(default=timezone.now)
 
@@ -44,6 +46,29 @@ class Company(models.Model):
 
     def __str__(self) -> str:
         return self.name
+
+
+class IntegrationSource(models.TextChoices):
+    BANK_ACCOUNT = "bank_account", "Выписка по счёту"
+    EDO = "edo", "ЭДО: документы отгрузки"
+
+
+class CompanyIntegration(models.Model):
+    """A connected data source (simulator) of a company and when it was connected."""
+
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name="integrations")
+    source = models.CharField(max_length=16, choices=IntegrationSource.choices)
+    connected_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        constraints = (
+            models.UniqueConstraint(
+                fields=("company", "source"), name="integration_company_source"
+            ),
+        )
+
+    def __str__(self) -> str:
+        return f"{self.company}: {self.source}"
 
 
 class MemberRole(models.TextChoices):
