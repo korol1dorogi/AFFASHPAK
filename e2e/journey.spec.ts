@@ -38,7 +38,45 @@ test.describe("scenario 2: supplier — factoring for a shipment", () => {
 });
 
 test.describe("scenario 3: seasonal store — counteroffer by DSCR", () => {
-  test.fixme("asks 5.3 mln → counteroffer 2 009 314 ₽ with reasons → accepts → issued (C7)", async () => {});
+  test("asks 5.3 mln → counteroffer 2 009 314 ₽ with reasons → accepts → issued (C7)", async ({
+    page,
+  }) => {
+    await signInAs(page, "садовый центр «Зелёный двор»");
+    await expect(page).toHaveURL(/\/app$/);
+    const id = await createDraft(
+      page,
+      {
+        need_type: "working_capital",
+        product_code: "working_capital_loan_basic",
+        purpose: "Закупка рассады и инвентаря к сезону (демо)",
+        requested_amount: "5300000.00",
+        term_months: 12,
+      },
+      ["bank_statement", "tax_return"],
+    );
+    await submitFromWizard(page, id);
+
+    // P7 auto_counteroffer: grade B (87), the amount is capped by DSCR
+    await expect(statusBadge(page)).toHaveText("Есть предложение");
+    await expect(page.getByText("Банк предлагает другие условия")).toBeVisible();
+    const offer = page.getByRole("article", { name: "Предложение банка" });
+    await expect(offer).toContainText("Иные условия");
+    await expect(offer).toContainText(rub("2 009 314"));
+    await expect(offer).toContainText(`Вы просили ${rub("5 300 000")}`);
+    await expect(offer).toContainText("24 %");
+    await expect(offer).toContainText("12 мес");
+    await expect(offer).toContainText(rub("189 999,92"));
+    const why = offer.getByRole("list", { name: "Почему такие условия" });
+    await expect(why).toContainText("Грейд B (87 из 100)");
+    await expect(why).toContainText("Сумма ограничена 2 009 314 ₽ на 12 мес при ставке 24%");
+    await expect(why).toContainText("поток покрывает платежи в 1,25 раза");
+
+    await acceptAndSign(page, id);
+  });
+  // docs/test-scenarios.md scenario 3, step 5: the counteroffer screen also shows «что улучшить»
+  // («При сроке 24 мес допустимо 3 593 645 ₽») and calls it a preliminary evaluation. Bug:
+  // ApplicationPage hides DecisionCard while an offer is active and OfferCard renders neither.
+  test.fixme("counteroffer screen shows what to improve and says «предварительная оценка» (C6)", async () => {});
 });
 
 test.describe("scenario 4: manufacturer — manual review and info request", () => {
