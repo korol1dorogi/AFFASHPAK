@@ -6,6 +6,7 @@ import { MoneyText } from "@/components/Money";
 import { DemoBadge, EmptyState, ErrorState, PageHeader, PageSkeleton } from "@/components/States";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Button } from "@/components/ui/button";
+import { ActionPanel } from "@/features/bank-application/ActionPanel";
 import { ApplicationTab } from "@/features/bank-application/ApplicationTab";
 import {
   type BankApplicationDetail,
@@ -76,8 +77,7 @@ function CardView({ card }: { card: BankApplicationDetail }) {
   return (
     <div className="flex flex-col gap-6">
       <Header card={card} />
-      {/* TODO(B5): action buttons from application.available_actions go here. */}
-      <aside aria-label={BANK_CARD.actionsLabel} />
+      <ActionPanel card={card} />
       <CardTabs
         panels={{
           application: <ApplicationTab card={card} />,

@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { api, type Schemas } from "@/api/client";
-import { unwrap } from "@/lib/errors";
+import { isConflict, unwrap } from "@/lib/errors";
 
 export type BankApplicationDetail = Schemas["BankApplicationDetail"];
 
@@ -40,6 +40,54 @@ export function useComment(id: number) {
       ),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: keys.one(id) }),
   });
+}
+
+/**
+ * Employee actions answer with the whole card: put it into the cache and refresh the queue.
+ * 409 (version_conflict, invalid_transition): someone changed the application — re-read the card.
+ */
+function useCardMutation<A>(id: number, run: (arg: A) => Promise<BankApplicationDetail>) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: run,
+    onSuccess: (card) => {
+      queryClient.setQueryData(keys.one(id), card);
+      void queryClient.invalidateQueries({ queryKey: ["bank", "queue"] });
+    },
+    onError: (error) => {
+      if (isConflict(error)) void queryClient.invalidateQueries({ queryKey: keys.one(id) });
+    },
+  });
+}
+
+export function useAssign(id: number) {
+  return useCardMutation(id, async (body: Schemas["VersionedAction"]) =>
+    unwrap(await api.POST("/api/bank/applications/{id}/assign", { ...path(id), body })),
+  );
+}
+
+export function useApprove(id: number) {
+  return useCardMutation(id, async (body: Schemas["VersionedAction"]) =>
+    unwrap(await api.POST("/api/bank/applications/{id}/approve", { ...path(id), body })),
+  );
+}
+
+export function useCounteroffer(id: number) {
+  return useCardMutation(id, async (body: Schemas["CounterofferAction"]) =>
+    unwrap(await api.POST("/api/bank/applications/{id}/counteroffer", { ...path(id), body })),
+  );
+}
+
+export function useRequestInfo(id: number) {
+  return useCardMutation(id, async (body: Schemas["RequestInfoAction"]) =>
+    unwrap(await api.POST("/api/bank/applications/{id}/request-info", { ...path(id), body })),
+  );
+}
+
+export function useDecline(id: number) {
+  return useCardMutation(id, async (body: Schemas["DeclineAction"]) =>
+    unwrap(await api.POST("/api/bank/applications/{id}/decline", { ...path(id), body })),
+  );
 }
 
 /** Download through the API client (session + attachment), then hand the file to the browser. */
