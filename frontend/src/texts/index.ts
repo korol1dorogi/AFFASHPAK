@@ -154,10 +154,13 @@ export interface MetricText {
   /** Пояснение «что это» — без терминов. */
   hint: string;
   /** Как показывать значение. */
-  format: "money" | "decimal" | "percent" | "months" | "points" | "text";
+  format: "money" | "decimal" | "percent" | "months" | "days" | "points" | "text";
 }
 
-/** Reason.metric → text. Unknown metrics fall back to the API's own `message`. */
+/**
+ * Reason.metric → text: every metric apps/scoring and apps/recommendations can return
+ * (the list is pinned in texts.test.ts). An unknown metric gets UNKNOWN_METRIC_TITLE, never its code.
+ */
 export const METRIC: Record<string, MetricText> = {
   overdraft_limit: {
     title: "Лимит от оборота",
@@ -225,4 +228,53 @@ export const METRIC: Record<string, MetricText> = {
     format: "text",
   },
   score_total: { title: "Оценка риска", hint: "Сумма баллов балльной карты.", format: "points" },
+  // Stop factors (apps/scoring/stop_factors.py)
+  registry_status: {
+    title: "Статус в реестре",
+    hint: "Действует компания, ликвидируется или уже ликвидирована — по ЕГРЮЛ/ЕГРИП.",
+    format: "text",
+  },
+  egrul_found: {
+    title: "Запись в реестре",
+    hint: "Есть ли компания в ЕГРЮЛ/ЕГРИП.",
+    format: "text",
+  },
+  ebitda: {
+    title: "Операционная прибыль (EBITDA)",
+    hint: "Прибыль до процентов, налогов и амортизации.",
+    format: "money",
+  },
+  bki_current_overdue_days: {
+    title: "Текущая просрочка",
+    hint: "Сколько дней сейчас просрочен платёж по кредиту.",
+    format: "days",
+  },
+  // Product fit in the match (apps/recommendations/service.py)
+  product_requirements: {
+    title: "Требования продукта",
+    hint: "Правовая форма, возраст бизнеса и залог.",
+    format: "text",
+  },
+  term_months: {
+    title: "Срок",
+    hint: "Какой срок допускает продукт.",
+    format: "months",
+  },
+  amount_min: {
+    title: "Минимальная сумма продукта",
+    hint: "Меньше этой суммы продукт не выдаётся.",
+    format: "money",
+  },
+  amount_max: {
+    title: "Максимальная сумма продукта",
+    hint: "Больше этой суммы продукт не выдаётся.",
+    format: "money",
+  },
 };
+
+export const UNKNOWN_METRIC_TITLE = "Дополнительная проверка";
+
+/** Title of a reason for the client; a metric code never reaches the screen. */
+export function metricTitle(metric: string): string {
+  return METRIC[metric]?.title ?? UNKNOWN_METRIC_TITLE;
+}
