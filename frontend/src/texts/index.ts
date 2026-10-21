@@ -4,6 +4,7 @@
  * the type check here until it gets its text.
  */
 import type { Schemas } from "@/api/client";
+import type { operations } from "@/api/schema";
 
 export const PRODUCT_NAME = "Оборот";
 
@@ -280,3 +281,72 @@ export const UNKNOWN_METRIC_TITLE = "Дополнительная проверк
 export function metricTitle(metric: string): string {
   return METRIC[metric]?.title ?? UNKNOWN_METRIC_TITLE;
 }
+
+// ── Bank queue (B3) ──
+
+export type QueueOrdering = NonNullable<
+  NonNullable<operations["listBankApplications"]["parameters"]["query"]>["ordering"]
+>;
+
+export const QUEUE_ORDERING: Record<QueueOrdering, string> = {
+  status_changed_at: "Дольше всего в статусе",
+  "-status_changed_at": "Недавно сменили статус",
+  requested_amount: "Сумма: по возрастанию",
+  "-requested_amount": "Сумма: по убыванию",
+  "-created_at": "Сначала новые",
+  created_at: "Сначала старые",
+};
+
+export const BANK_QUEUE = {
+  title: "Очередь заявок",
+  subtitle: "Заявки клиентов по статусам. Список обновляется сам раз в 15 секунд.",
+  statusFilter: "Фильтр по статусу",
+  allStatuses: "Все",
+  statusChip: (label: string, count: number) => `${label}: ${count}`,
+  filters: "Фильтры очереди",
+  search: "Поиск",
+  searchPlaceholder: "ИНН или название",
+  product: "Продукт",
+  allProducts: "Все продукты",
+  grade: "Грейд",
+  anyGrade: "Любой грейд",
+  assignee: "Исполнитель",
+  assigneeAll: "Все",
+  assigneeMe: "Мои",
+  assigneeNone: "Не назначены",
+  assigneeId: (id: string) => `Сотрудник №${id}`,
+  minHours: "В статусе",
+  anyHours: "Сколько угодно",
+  moreThanHours: (hours: number) => `Больше ${hours} ч`,
+  ordering: "Сортировка",
+  resetFilters: "Сбросить фильтры",
+  table: "Заявки в очереди",
+  columns: {
+    id: "№",
+    company: "Компания",
+    product: "Продукт",
+    amount: "Сумма",
+    status: "Статус",
+    grade: "Грейд",
+    assignee: "Исполнитель",
+    inStatus: "В статусе",
+  },
+  openApplication: (id: number) => `Заявка №${id}`,
+  inn: (inn: string) => `ИНН ${inn}`,
+  hoursInStatus: (hours: number) => `${hours} ч`,
+  overdue: "дольше суток",
+  sourceUnavailable: "Источник недоступен",
+  unassigned: "Не назначен",
+  noValue: "—",
+  pagination: "Страницы очереди",
+  previous: "Назад",
+  next: "Вперёд",
+  pageOf: (page: number, pages: number) => `Страница ${page} из ${pages}`,
+  total: (count: number) => `всего ${count}`,
+  refreshing: "Обновляем…",
+  loading: "Загружаем очередь",
+  empty: "Заявок с такими фильтрами нет",
+  emptyText: "Измените условия или сбросьте фильтры.",
+  emptyQueue: "В очереди пока нет заявок",
+  error: "Не получилось загрузить очередь",
+} as const;
