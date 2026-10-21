@@ -33,7 +33,12 @@ erDiagram
 - `legal_form`: `ip` | `ooo`; `name`, `inn` (уникальный), `ogrn`, `okved`, `okved_name`, `registered_at`, `region`, `address`
 - `registry_status`: `active` | `liquidating` | `liquidated` — из ЕГРЮЛ; `liquidating`/`liquidated` — стоп-фактор (сценарий 6)
 - `director_name`; `is_demo`; `created_at`
-- Данные из ЕГРЮЛ заполняются один раз (автозаполнение по ИНН) и дальше переиспользуются — повторного ввода нет (C3).
+- `short_name` — короткое название для интерфейса, задаёт подписант; пусто — показываем `name`. Реквизиты из реестра (`name` и др.) через API не меняются (D20)
+- Данные из ЕГРЮЛ заполняются один раз (автозаполнение по ИНН) и дальше переиспользуются — повторного ввода нет (C3). ИНН — с контрольными цифрами ФНС (D22).
+
+**CompanyIntegration** — подключённый источник данных компании (симулятор)
+- `company` → Company, `source`: `bank_account` | `edo`, `connected_at`; уникальная пара (company, source)
+- Подключение (`connectIntegration`) приносит снимок по счёту (`FinancialSnapshot`); в API — `Company.integrations` (D19)
 
 **Membership** — пользователь в компании
 - `user` → User, `company` → Company, `role`: `signatory` | `preparer`; `position` (должность текстом: «Генеральный директор», «Главный бухгалтер»…); уникальная пара (user, company)
