@@ -110,7 +110,7 @@ export function ImprovementList({
   return (
     <div className="flex flex-col gap-3">
       <p className="m-0 font-semibold">{title}</p>
-      <ol className="m-0 flex list-none flex-col gap-2 p-0">
+      <ol aria-label={title} className="m-0 flex list-none flex-col gap-2 p-0">
         {items.map((item, index) => (
           <li key={item} className="grid grid-cols-[28px_1fr] items-start gap-3">
             <span className="grid size-7 place-items-center rounded-full bg-primary-soft font-display text-sm font-bold text-primary-ink">

@@ -36,11 +36,22 @@ export type DocumentKind =
   | "tax_return"
   | "contract"
   | "invoice"
-  | "financial_report";
+  | "financial_report"
+  | "shipment_document";
+
+/** S9 has no separate shipment stub: the UPD is an invoice-like document. */
+const STUB: Record<DocumentKind, string> = {
+  bank_statement: "bank_statement",
+  tax_return: "tax_return",
+  contract: "contract",
+  invoice: "invoice",
+  financial_report: "financial_report",
+  shipment_document: "invoice",
+};
 
 /** Demo PDF stubs with a DEMO watermark (S9, data/sample/documents). */
 export function demoPdf(kind: DocumentKind) {
-  const path = new URL(`../data/sample/documents/${kind}_0001000042_demo.pdf`, import.meta.url);
+  const path = new URL(`../data/sample/documents/${STUB[kind]}_0001000042_demo.pdf`, import.meta.url);
   return {
     name: `${kind}_demo.pdf`,
     mimeType: "application/pdf",
@@ -55,6 +66,7 @@ export interface Draft {
   requested_amount: string;
   term_months: number;
   collateral_description?: string;
+  invoice_amount?: string;
 }
 
 /**

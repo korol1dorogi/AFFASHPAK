@@ -17,9 +17,9 @@ function statusBadge(page: Page) {
   return page.locator("[data-status]").first();
 }
 
-// Client and bank journeys = the 7 scenarios from docs/plan.md (personas: docs/demo.md,
-// statuses: docs/state-machine.md). Each test becomes real when its task is done
-// (docs/tasks.md "Готово, когда"); until then it stays fixme.
+// Client and bank journeys = scenarios 1–8 (docs/test-scenarios.md; personas: docs/demo.md,
+// statuses: docs/state-machine.md). Every test makes its own application, so they run on a stand
+// with any amount of data and in any order.
 test.describe("scenario 1: coffee shop — overdraft, auto offer, signing, disbursement", () => {
   test("client logs in as the persona and sees the dashboard (C2, C8)", async ({ page }) => {
     await signInAs(page, "кофейня «Зерно и пар»");
@@ -29,13 +29,77 @@ test.describe("scenario 1: coffee shop — overdraft, auto offer, signing, disbu
     );
     await expect(page.getByText("Подписант")).toBeVisible();
   });
-  test.fixme("match recommends an overdraft of 900 000 ₽ with reasons (C4)", async () => {});
-  test.fixme("wizard prefills the application; director submits (C5)", async () => {});
-  test.fixme("auto offer → accept → sign with the on-screen code → issued (C6, C7)", async () => {});
+  test("match recommends an overdraft of 900 000 ₽ with reasons (C4)", async ({ page }) => {
+    await signInAs(page, "кофейня «Зерно и пар»");
+    await expect(page).toHaveURL(/\/app$/);
+    await page.goto("/app/match");
+    await page.getByText("Не хватает денег до поступлений").click();
+    await page.getByRole("button", { name: "Показать варианты" }).click();
+    const first = page.locator("article").first();
+    await expect(first).toContainText("Овердрафт");
+    await expect(first).toContainText(rub("900 000"));
+    await expect(first.getByText("Лимит от оборота")).toBeVisible();
+  });
+
+  test("wizard prefills the application; director submits (C5)", async ({ page }) => {
+    await signInAs(page, "кофейня «Зерно и пар»");
+    await expect(page).toHaveURL(/\/app$/);
+    await page.goto("/app/match");
+    await page.getByText("Не хватает денег до поступлений").click();
+    await page.getByRole("button", { name: "Показать варианты" }).click();
+    await page.getByRole("button", { name: "Оформить заявку" }).first().click();
+    await expect(page).toHaveURL(/\/edit\/business$/);
+    // F12: the company comes from the registry, nothing is typed again
+    await expect(page.getByText("Лаврова Анна Сергеевна (демо)").first()).toBeVisible();
+    await expect(page.getByRole("list", { name: "Показатели бизнеса" })).toBeVisible();
+    const id = Number(page.url().match(/applications\/(\d+)/)?.[1]);
+    await submitFromWizard(page, id);
+    await expect(statusBadge(page)).toHaveText("Есть предложение");
+  });
+
+  test("auto offer → accept → sign with the on-screen code → issued (C6, C7)", async ({ page }) => {
+    await signInAs(page, "кофейня «Зерно и пар»");
+    await expect(page).toHaveURL(/\/app$/);
+    const id = await createDraft(page, {
+      need_type: "cash_gap",
+      product_code: "overdraft_basic",
+      purpose: "Зарплата сотрудникам до поступлений от покупателей (демо)",
+      requested_amount: "900000.00",
+      term_months: 12,
+    });
+    await submitFromWizard(page, id);
+    await expect(statusBadge(page)).toHaveText("Есть предложение");
+    const offer = page.getByRole("article", { name: "Предложение банка" });
+    await expect(offer).toContainText(rub("900 000"));
+    await expect(offer).toContainText("Зависит от использования");
+    await expect(page.getByText("Предварительная оценка").first()).toBeVisible();
+    await acceptAndSign(page, id);
+  });
 });
 
 test.describe("scenario 2: supplier — factoring for a shipment", () => {
-  test.fixme("factoring offer of 4 500 000 ₽ for the UPD amount → issued (C4, C7)", async () => {});
+  test("factoring offer of 4 500 000 ₽ for the UPD amount → issued (C4, C7)", async ({ page }) => {
+    await signInAs(page, "Северный поставщик");
+    await expect(page).toHaveURL(/\/app$/);
+    const id = await createDraft(
+      page,
+      {
+        need_type: "receivable_delay",
+        product_code: "factoring_basic",
+        purpose: "Покупатель оплатит отгрузку через 60 дней (демо)",
+        requested_amount: "4500000.00",
+        term_months: 2,
+        invoice_amount: "5000000.00",
+      },
+      ["contract", "shipment_document"],
+    );
+    await submitFromWizard(page, id);
+    await expect(statusBadge(page)).toHaveText("Есть предложение");
+    const offer = page.getByRole("article", { name: "Предложение банка" });
+    await expect(offer).toContainText(rub("4 500 000"));
+    await expect(page.getByText(`Сразу — 90% суммы отгрузки: ${rub("4 500 000")}`)).toBeVisible();
+    await acceptAndSign(page, id);
+  });
 });
 
 test.describe("scenario 3: seasonal store — counteroffer by DSCR", () => {
@@ -77,7 +141,28 @@ test.describe("scenario 3: seasonal store — counteroffer by DSCR", () => {
   // docs/test-scenarios.md scenario 3, step 5: the counteroffer screen also shows «что улучшить»
   // («При сроке 24 мес допустимо 3 593 645 ₽») and calls it a preliminary evaluation. Bug:
   // ApplicationPage hides DecisionCard while an offer is active and OfferCard renders neither.
-  test.fixme("counteroffer screen shows what to improve and says «предварительная оценка» (C6)", async () => {});
+  test("counteroffer screen shows what to improve and says «предварительная оценка» (C6)", async ({
+    page,
+  }) => {
+    await signInAs(page, "садовый центр «Зелёный двор»");
+    await expect(page).toHaveURL(/\/app$/);
+    const id = await createDraft(
+      page,
+      {
+        need_type: "working_capital",
+        product_code: "working_capital_loan_basic",
+        purpose: "Закупка рассады и инвентаря к сезону (демо)",
+        requested_amount: "5300000.00",
+        term_months: 12,
+      },
+      ["bank_statement", "tax_return"],
+    );
+    await submitFromWizard(page, id);
+    await expect(statusBadge(page)).toHaveText("Есть предложение");
+    await expect(page.getByText("Предварительная оценка").first()).toBeVisible();
+    const improve = page.getByRole("list", { name: "Что можно улучшить" });
+    await expect(improve).toContainText(`При сроке 24 мес допустимо ${rub("3 593 645")}`);
+  });
 });
 
 test.describe("scenario 4: manufacturer — manual review and info request", () => {
@@ -330,7 +415,33 @@ test.describe("scenario 7: BKI outage — manual review", () => {
 });
 
 test.describe("scenario 8: equipment without collateral — alternative product", () => {
-  test.fixme("investment loan without collateral → leasing offer → issued (S6, D15)", async () => {});
+  test("investment loan without collateral → leasing offer → issued (S6, D15)", async ({ page }) => {
+    await signInAs(page, "Ковка и Фреза");
+    await expect(page).toHaveURL(/\/app$/);
+    const id = await createDraft(
+      page,
+      {
+        need_type: "capex",
+        product_code: "investment_loan_basic",
+        purpose: "Покупка токарно-фрезерного центра с ЧПУ (демо)",
+        requested_amount: "12000000.00",
+        term_months: 36,
+      },
+      ["bank_statement", "tax_return", "contract", "invoice"],
+    );
+    await submitFromWizard(page, id);
+    // P6: the loan needs collateral → leasing; P7: the amount by DSCR
+    await expect(page.getByText("Банк предлагает другой продукт")).toBeVisible();
+    const offer = page.getByRole("article", { name: "Предложение банка" });
+    await expect(offer).toContainText("Другой продукт");
+    await expect(offer).toContainText(rub("11 443 551"));
+    await expect(offer).toContainText(rub("440 000"));
+    await expect(offer.getByText("Почему другой продукт")).toBeVisible();
+    await expect(offer).toContainText(
+      "Инвестиционный кредит требует залог; подходит лизинг оборудования и транспорта",
+    );
+    await acceptAndSign(page, id);
+  });
 });
 
 test.describe("access", () => {
