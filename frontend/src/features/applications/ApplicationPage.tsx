@@ -118,7 +118,17 @@ function InfoRequestCard({
   );
 }
 
-function DecisionCard({ decision }: { decision: Schemas["Decision"] }) {
+/**
+ * Who decided and «что улучшить». Next to an active offer the reasons are already on the offer
+ * card, so they are not repeated (withReasons=false), but the rest stays visible.
+ */
+function DecisionCard({
+  decision,
+  withReasons = true,
+}: {
+  decision: Schemas["Decision"];
+  withReasons?: boolean;
+}) {
   return (
     <Card>
       <div className="flex flex-wrap items-center gap-2">
@@ -130,7 +140,7 @@ function DecisionCard({ decision }: { decision: Schemas["Decision"] }) {
         </Badge>
       </div>
       {decision.comment ? <p className="m-0">{decision.comment}</p> : null}
-      <ReasonList reasons={decision.reasons} />
+      {withReasons ? <ReasonList reasons={decision.reasons} /> : null}
       <ImprovementList items={decision.improvements} />
     </Card>
   );
@@ -229,8 +239,18 @@ export function ApplicationPage() {
           {data.open_info_requests.map((request) => (
             <InfoRequestCard key={request.id} application={data} request={request} />
           ))}
-          {data.decision && !(data.offer && data.status === "offer") ? (
-            <DecisionCard decision={data.decision} />
+          {data.decision ? (
+            <DecisionCard
+              decision={data.decision}
+              // OfferCard lists the reasons only for a changed amount or product
+              withReasons={
+                !(
+                  data.offer &&
+                  data.status === "offer" &&
+                  (data.offer.is_counteroffer || data.offer.product_changed)
+                )
+              }
+            />
           ) : null}
         </div>
 

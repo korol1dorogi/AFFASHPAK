@@ -6,6 +6,7 @@ a stale version answers 409 version_conflict.
 """
 
 from datetime import datetime, timedelta
+from decimal import Decimal
 
 from django.db.models import Count, Q, QuerySet
 from django.utils import timezone
@@ -19,7 +20,9 @@ from apps.applications.access import Actor, get_bank_application
 from apps.applications.models import (
     ActorKind,
     Application,
+    ApplicationEvent,
     ApplicationStatus,
+    Decision,
     Grade,
     Score,
 )
@@ -256,3 +259,79 @@ def _valid(serializer_class, request: Request) -> dict:
     serializer = serializer_class(data=request.data)
     serializer.is_valid(raise_exception=True)
     return dict(serializer.validated_data)
+
+
+FUNNEL = (
+    ApplicationStatus.SUBMITTED,
+    ApplicationStatus.PROCESSING,
+    ApplicationStatus.MANUAL_REVIEW,
+    ApplicationStatus.INFO_REQUESTED,
+    ApplicationStatus.OFFER,
+    ApplicationStatus.SIGNING,
+    ApplicationStatus.SIGNED,
+    ApplicationStatus.ISSUED,
+    ApplicationStatus.DECLINED,
+    ApplicationStatus.CANCELLED,
+)
+FINAL_OUTCOMES = ("offer", "counteroffer", "alternative_product", "declined")
+
+
+class DashboardParamsSerializer(serializers.Serializer):
+    days = serializers.IntegerField(min_value=1, max_value=90, default=30)
+
+
+class BankDashboardView(_BankView):
+    """GET /api/bank/dashboard — funnel, average hours in each status, share of auto decisions.
+
+    Period: applications submitted in the last `days`. Hours in status come from the status
+    journal (ApplicationEvent.to_status); the current status counts until now.
+    """
+
+    def get(self, request: Request) -> Response:
+        params = DashboardParamsSerializer(data=request.query_params)
+        params.is_valid(raise_exception=True)
+        days = params.validated_data["days"]
+        now = timezone.now()
+        applications = Application.objects.filter(
+            submitted_at__gte=now - timedelta(days=days)
+        ).exclude(status=ApplicationStatus.DRAFT)
+        ids = list(applications.values_list("id", flat=True))
+        reached: dict[str, set[int]] = {stage: set() for stage in FUNNEL}
+        reached[ApplicationStatus.SUBMITTED].update(ids)
+        for app_id, state in applications.values_list("id", "status"):
+            if state in reached:
+                reached[state].add(app_id)
+        hours: dict[str, list[Decimal]] = {}
+        journal = (
+            ApplicationEvent.objects.filter(application_id__in=ids, to_status__isnull=False)
+            .order_by("application_id", "created_at", "id")
+            .values_list("application_id", "to_status", "created_at")
+        )
+        previous: tuple[int, str, datetime] | None = None
+        for app_id, state, at in [*journal, (None, None, None)]:
+            if state in reached and app_id is not None:
+                reached[state].add(app_id)
+            if previous is not None:
+                left = at if app_id == previous[0] else now
+                spent = Decimal((left - previous[2]).total_seconds()) / 3600
+                hours.setdefault(previous[1], []).append(spent)
+            previous = (app_id, state, at) if app_id is not None else None
+        decisions = Decision.objects.filter(application_id__in=ids, outcome__in=FINAL_OUTCOMES)
+        total_decisions = decisions.count()
+        auto = decisions.filter(decided_by="auto").count()
+        return Response(
+            {
+                "period_days": days,
+                "total_applications": len(ids),
+                "funnel": [{"stage": stage, "count": len(reached[stage])} for stage in FUNNEL],
+                "avg_hours_in_status": {
+                    state: str((sum(values) / len(values)).quantize(Decimal("0.01")))
+                    for state, values in hours.items()
+                },
+                "auto_decision_share": (
+                    str((Decimal(auto) / total_decisions).quantize(Decimal("0.0001")))
+                    if total_decisions
+                    else None
+                ),
+            }
+        )

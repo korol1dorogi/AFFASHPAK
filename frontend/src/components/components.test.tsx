@@ -71,12 +71,15 @@ describe("ReasonList", () => {
     expect(screen.queryByText(/^0$/)).toBeNull();
   });
 
-  it("uses plain titles for the client and metric codes for the bank", () => {
+  it("uses plain titles for everyone and adds metric codes for the bank", () => {
     const { rerender } = render(<ReasonList reasons={reasons.slice(0, 1)} />);
     expect(
       screen.getByText("Лимит от оборота", { selector: "p.font-semibold" }),
     ).toBeInTheDocument();
     rerender(<ReasonList reasons={reasons.slice(0, 1)} variant="bank" />);
+    expect(
+      screen.getByText("Лимит от оборота", { selector: "p.font-semibold" }),
+    ).toBeInTheDocument();
     expect(screen.getByText("overdraft_limit")).toBeInTheDocument();
   });
 });

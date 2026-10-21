@@ -1,11 +1,11 @@
 import type { Schemas } from "@/api/client";
+import { Facts } from "@/components/Facts";
 import { MoneyText, RateText } from "@/components/Money";
 import { ImprovementList, ReasonList } from "@/components/ReasonList";
 import { EmptyState } from "@/components/States";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardTitle } from "@/components/ui/card";
 import type { BankApplicationDetail } from "@/features/bank-application/api";
-import { Facts } from "@/features/bank-application/Facts";
 import { formatDate, formatDateTime } from "@/lib/format";
 import {
   BANK_CARD,

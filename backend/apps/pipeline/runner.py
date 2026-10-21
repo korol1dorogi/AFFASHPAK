@@ -23,7 +23,7 @@ from apps.applications.services import record_auto_decision, start_processing
 from apps.applications.transitions import record_event
 from apps.integrations.adapters import fetch_all
 from apps.pipeline.decide import SOURCE_NAME, decide
-from apps.scoring import build_input
+from apps.scoring import CURRENT_POLICY_VERSION, build_input
 from apps.scoring.texts import rubles
 
 S = ApplicationStatus
@@ -60,7 +60,7 @@ def _to_officer(application_id: int) -> None:
             application_id,
             outcome=DecisionOutcome.MANUAL_REVIEW,
             grade=None,
-            policy_version="2026.10-v1",
+            policy_version=CURRENT_POLICY_VERSION,
             reasons=[
                 {
                     "metric": "automatic_check",
@@ -80,7 +80,7 @@ def _run(application: Application) -> None:
             application.pk,
             outcome=DecisionOutcome.INFO_REQUESTED,
             grade=None,
-            policy_version="2026.10-v1",
+            policy_version=CURRENT_POLICY_VERSION,
             reasons=[],
             info_request=gaps,
         )
@@ -149,7 +149,7 @@ def _decline(application_id: int, stops) -> None:
         application_id,
         outcome=DecisionOutcome.DECLINED,
         grade=None,
-        policy_version="2026.10-v1",
+        policy_version=CURRENT_POLICY_VERSION,
         reasons=[_reason(stop.reason) for stop in stops],
         improvements=[stop.improvement for stop in stops if stop.improvement],
     )

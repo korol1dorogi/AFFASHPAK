@@ -120,10 +120,23 @@ def seed(n_companies: int = 0) -> dict[str, int]:
     """
     data = persona_dataset() if n_companies == 0 else generate(n_companies=n_companies)
     created = {"products": seed_products()}
-    created |= {"companies": 0, "users": 0, "memberships": 0, "snapshots": 0}
+    created |= load_companies(data)
+    return created
+
+
+def load_companies(data: dict, keys: set[str] | None = None) -> dict[str, int]:
+    """Companies of a generated dataset with their users, memberships and snapshots.
+
+    keys: only these company `_key`s (and the people working there); None — all of them.
+    """
+    created = {"companies": 0, "users": 0, "memberships": 0, "snapshots": 0}
+    wanted = [m for m in data["memberships"] if keys is None or m["company"] in keys]
+    user_keys = {m["user"] for m in wanted}
 
     companies: dict[str, Company] = {}
     for record in data["companies"]:
+        if keys is not None and record["_key"] not in keys:
+            continue
         company, is_new = Company.objects.get_or_create(
             inn=record["inn"],
             defaults={
@@ -137,6 +150,8 @@ def seed(n_companies: int = 0) -> dict[str, int]:
 
     users: dict[str, User] = {}
     for record in data["users"]:
+        if keys is not None and record["_key"] not in user_keys:
+            continue
         user, is_new = User.objects.get_or_create(username=record["username"])
         if is_new:
             user.set_unusable_password()  # demo users sign in through /api/demo/login only
@@ -145,7 +160,7 @@ def seed(n_companies: int = 0) -> dict[str, int]:
         users[record["_key"]] = user
         created["users"] += is_new
 
-    for record in data["memberships"]:
+    for record in wanted:
         _, is_new = Membership.objects.get_or_create(
             user=users[record["user"]],
             company=companies[record["company"]],
@@ -154,6 +169,8 @@ def seed(n_companies: int = 0) -> dict[str, int]:
         created["memberships"] += is_new
 
     for record in data["financial_snapshots"]:
+        if record["company"] not in companies:
+            continue
         _, is_new = FinancialSnapshot.objects.get_or_create(
             company=companies[record["company"]],
             period=record["period"],
@@ -173,3 +190,23 @@ def seed_products() -> int:
         _, is_new = Product.objects.get_or_create(code=fields.pop("code"), defaults=fields)
         created += is_new
     return created
+
+
+def reset_demo() -> None:
+    """Back to the seeded state: no applications, no notifications, no outages, fresh queue."""
+    from apps.accounts.demo_queue import seed_queue
+    from apps.applications.models import Application
+    from apps.documents.models import Document
+    from apps.integrations import flags
+    from apps.integrations.breaker import breaker
+    from apps.notifications.models import Notification
+
+    for document in Document.objects.exclude(file=""):
+        document.file.delete(save=False)  # files first: the rows go with their applications
+    with transaction.atomic():
+        Notification.objects.all().delete()
+        Application.objects.all().delete()
+        flags.reset()
+    breaker.reset()
+    seed()
+    seed_queue()
