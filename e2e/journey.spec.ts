@@ -1,16 +1,18 @@
 import { expect, type Page, test } from "@playwright/test";
 
-/** Quick sign-in as a seeded demo persona (DEMO_MODE=1, docs/openapi.yaml `demo`). */
-async function signInAs(page: Page, title: RegExp | string) {
-  await page.goto("/login");
-  await page.locator("li", { hasText: title }).getByRole("button", { name: "Войти" }).click();
-}
+import {
+  createDraft,
+  csrfHeaders,
+  demoPdf,
+  personaPage,
+  rub,
+  signInAs,
+  submitFromWizard,
+} from "./support";
 
-/** Unsafe API calls from the page's session need the CSRF cookie echoed in a header. */
-async function csrfHeaders(page: Page) {
-  const cookies = await page.context().cookies();
-  const token = cookies.find((cookie) => cookie.name === "csrftoken")?.value ?? "";
-  return { "X-CSRFToken": token };
+/** The application's status as the header badge shows it (STATUS labels, frontend texts). */
+function statusBadge(page: Page) {
+  return page.locator("[data-status]").first();
 }
 
 // Client and bank journeys = the 7 scenarios from docs/plan.md (personas: docs/demo.md,
@@ -44,7 +46,40 @@ test.describe("scenario 4: manufacturer — manual review and info request", () 
 });
 
 test.describe("scenario 5: dependent supplier — decline with improvements", () => {
-  test.fixme("decline shows reasons and what to improve (C6)", async () => {});
+  test("decline shows reasons and what to improve (C6)", async ({ page }) => {
+    await signInAs(page, "ООО «Опора Снаб»");
+    await expect(page).toHaveURL(/\/app$/);
+    const id = await createDraft(
+      page,
+      {
+        need_type: "working_capital",
+        product_code: "working_capital_loan_basic",
+        purpose: "Пополнение оборотных средств под поставки (демо)",
+        requested_amount: "3000000.00",
+        term_months: 12,
+      },
+      ["bank_statement", "tax_return"],
+    );
+    await submitFromWizard(page, id);
+
+    // P4 auto_decline: grade E (47), docs/test-scenarios.md scenario 5
+    await expect(statusBadge(page)).toHaveText("Отказ");
+    await expect(page.getByRole("heading", { name: "Предварительная оценка" })).toBeVisible();
+    const reasons = page.getByRole("list", { name: "Причины" });
+    await expect(reasons).toContainText("Грейд E (47 из 100)");
+    await expect(reasons).toContainText("1,1 ₽ на рубль при норме 1,25");
+    await expect(reasons).toContainText("Долги — 4,2 годовых прибыли, это больше нормы 3,5");
+    await expect(reasons).toContainText("Выручка упала на 20% к прошлому году");
+    await expect(reasons).toContainText("80% денег приходит от одного покупателя");
+    await expect(
+      page.getByText("Что можно улучшить").locator("xpath=following-sibling::ol[1]/li"),
+    ).toHaveText([
+      /Снизьте текущие платежи по долгам или увеличьте свободный денежный поток/,
+      /Снизьте долг до 3,5 годовой прибыли/,
+      /Восстановите выручку хотя бы до уровня прошлого года/,
+      /Снизьте долю крупнейшего покупателя до 50% и меньше/,
+    ]);
+  });
 });
 
 test.describe("scenario 6: company in liquidation — stop factor", () => {
