@@ -1,4 +1,4 @@
-"""Personas 1–7 to the kopeck: docs/data-spec.md §9 and decision-model.md §8 (D4).
+"""Personas 1–8 to the kopeck: docs/data-spec.md §9 and decision-model.md §8 (D4).
 
 Product parameters (alpha 0.3, beta 0.9, 24 % for 12 months, min DSCR 1.25) are those of the D3
 catalog draft; they are not part of the generated data.
@@ -39,6 +39,8 @@ REQUISITES = {
                             "2021-10-01", "liquidating", "ООО «Вектор Сервис» (демо)"),
     "bki_outage": ("ip", "000100000702", "323000100000079", "56.10", "food_service", "2023-10-01",
                    "active", "ИП Миронов Артём Валерьевич — кофейня «Северный ветер» (демо)"),
+    "equipment_no_collateral": ("ooo", "0001000081", "1170001000080", "25.62", "manufacturing",
+                                "2017-10-01", "active", "ООО «Ковка и Фреза» (демо)"),
 }  # fmt: skip
 
 DIRECTORS = {
@@ -49,6 +51,7 @@ DIRECTORS = {
     "dependent_supplier": "Карпов Денис Андреевич",
     "liquidating_company": "Зуев Павел Олегович",
     "bki_outage": "Миронов Артём Валерьевич",
+    "equipment_no_collateral": "Тимофеев Роман Ильич",
 }
 
 # §9.2: (cleaned_credit_turnover, cfads, debt_service, revenue, cogs, ebitda, debt, cash,
@@ -67,6 +70,8 @@ SNAPSHOTS = {
     "liquidating_company": ("1200000.00", "96000.00", "0.00", N, N, N, N, N, N, N, N, "0.2000",
                             "0.9000"),
     "bki_outage": ("3000000.00", "450000.00", "0.00", N, N, N, N, N, N, N, N, "0.1000", "1.0500"),
+    "equipment_no_collateral": ("12000000.00", "1800000.00", "1000000.00", N, N, N, N, N, N, N, N,
+                                "0.4000", "1.0000"),
 }  # fmt: skip
 SNAPSHOT_FIELDS = (
     "cleaned_credit_turnover", "cfads", "debt_service", "revenue", "cogs", "ebitda", "debt",
@@ -101,10 +106,16 @@ OPEX = {
                             1107, 1098, 1087, 1025, 964, 1008, 1105],
 }  # fmt: skip
 REVENUE["bki_outage"], OPEX["bki_outage"] = REVENUE["coffee_shop"], OPEX["coffee_shop"]
+# Persona 8 (§9.2): tau = 1.00, so months 13–18 repeat 1–6; O = 0.85 M without rounding.
+_P8_FIRST = [12240, 12000, 11760, 11280, 11520, 12600]
+_P8_REVENUE = [*_P8_FIRST, 12960, 12960, 13200, 10200, 11040, 12240, *_P8_FIRST]
+REVENUE["equipment_no_collateral"] = _P8_REVENUE
+OPEX["equipment_no_collateral"] = [str(D(m) * D("0.85")) for m in _P8_REVENUE]
 K_WINDOW = {
     "coffee_shop": 3_600_000, "retail_supplier": 57_600_000, "garden_store": 1_825_000,
     "furniture_maker": 57_600_000, "dependent_supplier": 25_920_000,
     "liquidating_company": 2_880_000, "bki_outage": 3_600_000,
+    "equipment_no_collateral": 57_600_000,
 }  # fmt: skip
 # §9.2 «Плательщики и долги»: (largest payer, other payers' count, retail, obligations)
 PAYERS = {
@@ -117,6 +128,8 @@ PAYERS = {
                            [("loan", "200000.00"), ("loan", "100000.00")]),
     "liquidating_company": ("ООО «Кедр Консалт» (демо)", 5, False, []),
     "bki_outage": ("ООО «Офис на Северной» (демо)", 0, True, []),
+    "equipment_no_collateral": ("ООО «Гидропривод Сервис» (демо)", 3, False,
+                                [("loan", "600000.00"), ("leasing", "400000.00")]),
 }  # fmt: skip
 
 

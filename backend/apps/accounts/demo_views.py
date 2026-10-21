@@ -11,6 +11,7 @@ from rest_framework.exceptions import NotFound
 from rest_framework.permissions import AllowAny
 from rest_framework.request import Request
 from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
 from apps.accounts.demo import available_personas
@@ -39,7 +40,9 @@ class DemoPersonasView(_DemoView):
 
 
 class DemoLoginView(_DemoView):
-    throttle_scope = "login"
+    # Only its own scope: the per-IP anonymous limit would cut a jury switching personas.
+    throttle_classes = (ScopedRateThrottle,)
+    throttle_scope = "demo_login"
 
     def post(self, request: Request) -> Response:
         enforce_csrf(request)

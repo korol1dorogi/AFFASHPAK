@@ -35,4 +35,5 @@ known-first-party = ["config", "apps"]
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "config.settings"
 python_files = ["test_*.py"]
-addopts = "-ra --strict-markers -p no:cacheprovider"
+addopts = "-ra --strict-markers -p no:cacheprovider -m 'not slow'"
+markers = ["slow: long generator runs; CI runs them in a separate step (pytest -m slow)"]

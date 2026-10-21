@@ -5,9 +5,11 @@ Seeding only creates what is missing, so restarts keep what people changed durin
 a full reset is /api/demo/reset (B7).
 """
 
+import json
 from datetime import date
 from decimal import Decimal
 from functools import cache
+from pathlib import Path
 
 from django.contrib.auth.models import User
 from django.db import transaction
@@ -16,6 +18,9 @@ from apps.accounts.models import UserKind, UserProfile
 from apps.business.models import Company, FinancialSnapshot, Membership
 from apps.demo_data.build import BANK_USERS, generate
 from apps.demo_data.personas import PERSONAS
+from apps.products.models import Product
+
+PRODUCTS_FIXTURE = Path(__file__).resolve().parents[1] / "products" / "fixtures" / "products.json"
 
 BANK_PERSONA = "bank"
 BANK_TITLE = "Сотрудник банка (демо)"
@@ -109,9 +114,13 @@ def _decimal(value: str | None) -> Decimal | None:
 
 @transaction.atomic
 def seed(n_companies: int = 0) -> dict[str, int]:
-    """Create missing demo companies, users, memberships and snapshots. Returns counts created."""
+    """Create missing products, demo companies, users, memberships and snapshots.
+
+    Returns counts created. The catalog comes first: without it /api/recommendations finds nothing.
+    """
     data = persona_dataset() if n_companies == 0 else generate(n_companies=n_companies)
-    created = {"companies": 0, "users": 0, "memberships": 0, "snapshots": 0}
+    created = {"products": seed_products()}
+    created |= {"companies": 0, "users": 0, "memberships": 0, "snapshots": 0}
 
     companies: dict[str, Company] = {}
     for record in data["companies"]:
@@ -152,4 +161,15 @@ def seed(n_companies: int = 0) -> dict[str, int]:
             defaults={field: _decimal(record[field]) for field in SNAPSHOT_NUMBERS},
         )
         created["snapshots"] += is_new
+    return created
+
+
+def seed_products() -> int:
+    """The catalog from docs/products.md (D3 fixture), matched by code; existing rows are kept."""
+    records = json.loads(PRODUCTS_FIXTURE.read_text(encoding="utf-8"))
+    created = 0
+    for record in records:
+        fields = dict(record["fields"])
+        _, is_new = Product.objects.get_or_create(code=fields.pop("code"), defaults=fields)
+        created += is_new
     return created

@@ -148,6 +148,15 @@ if not DEBUG:
     SILENCED_SYSTEM_CHECKS = ["security.W021"]
 
 # --- DRF ---
+# Per-IP for anonymous, per-user otherwise. demo_login is separate from login: on the stand the
+# jury switches personas from one IP, while password login stays strict (docs/deploy.md).
+THROTTLE_DEFAULTS = {
+    "anon": "60/min",
+    "user": "600/min",
+    "login": "10/min",
+    "demo_login": "120/min",
+    "assistant": "20/min",
+}
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "apps.core.authentication.SessionAuthentication",
@@ -166,10 +175,7 @@ REST_FRAMEWORK = {
         "rest_framework.throttling.ScopedRateThrottle",
     ],
     "DEFAULT_THROTTLE_RATES": {
-        "anon": env("THROTTLE_ANON", "60/min"),
-        "user": env("THROTTLE_USER", "600/min"),
-        "login": env("THROTTLE_LOGIN", "10/min"),
-        "assistant": env("THROTTLE_ASSISTANT", "20/min"),
+        scope: env(f"THROTTLE_{scope.upper()}", rate) for scope, rate in THROTTLE_DEFAULTS.items()
     },
     "EXCEPTION_HANDLER": "apps.core.exceptions.api_exception_handler",
     "COERCE_DECIMAL_TO_STRING": True,

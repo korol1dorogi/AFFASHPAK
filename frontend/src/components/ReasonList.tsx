@@ -3,7 +3,7 @@ import { Check, Minus, X } from "lucide-react";
 import type { Schemas } from "@/api/client";
 import { formatDecimal, formatMoney } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { METRIC, type MetricText } from "@/texts";
+import { METRIC, type MetricText, metricTitle } from "@/texts";
 
 type Reason = Schemas["Reason"];
 
@@ -16,6 +16,8 @@ function formatValue(value: string | null, format: MetricText["format"] | undefi
       return `${formatDecimal(String(Math.round(Number(value) * 100)))} %`;
     case "months":
       return `${formatDecimal(value)} мес`;
+    case "days":
+      return `${formatDecimal(value)} дн.`;
     case "points":
       return formatDecimal(value);
     default:
@@ -56,7 +58,7 @@ export function ReasonList({
       {reasons.map((reason) => {
         const text = METRIC[reason.metric];
         const { tone, Icon, label: markLabel } = mark(reason);
-        const title = variant === "bank" ? reason.metric : (text?.title ?? reason.metric);
+        const title = variant === "bank" ? reason.metric : metricTitle(reason.metric);
         return (
           <li
             key={`${reason.metric}-${reason.message}`}

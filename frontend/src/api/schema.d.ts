@@ -1588,7 +1588,7 @@ export interface components {
             /** @example Кофейня, ИП (демо) */
             title: string;
             username: string;
-            /** @description Номер сценария из docs/plan.md */
+            /** @description Номер сценария из docs/plan.md (8 — D15) */
             scenario: number;
             kind: components["schemas"]["UserKind"];
         };

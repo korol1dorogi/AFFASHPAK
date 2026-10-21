@@ -9,6 +9,7 @@ import pytest
 
 from apps.credit_math import debt_to_ebitda, dscr
 from apps.credit_math.statement import statement_metrics
+from apps.demo_data.calibration import CORRIDOR, MIN_GINI, Calibration, calibrate, gini
 from apps.demo_data.companies import labels
 from apps.demo_data.reference import GENERATOR_VERSION
 from apps.demo_data.rng import Rng
@@ -220,6 +221,36 @@ def test_latent_risk(population):
         assert isinstance(latent["default_12m"], bool)
 
 
-@pytest.mark.skip(reason="D5 apps/scoring ещё нет: грейды A–E считать нечем (§11.5–11.8, D9)")
+def _assert_calibrated(result: Calibration) -> None:
+    deviations = {key: str(delta) for key, delta in result.deviations().items()}
+    assert result.in_corridor(), f"outside ±{CORRIDOR} p.p.: {deviations}"
+    assert abs(sum(result.shares.values()) - 100) <= D("0.05")  # each share rounded to 0.01
+    assert result.gini_expected >= MIN_GINI
+    assert result.gini_realized >= MIN_GINI
+
+
 def test_grade_distribution_in_corridor():
-    """§11.5–11.8: A ~15 · B ~30 · C ~25 · D ~15 · E ~10 · stop 5 %; n = 5000, Gini ≥ 0.4."""
+    """§11.5–11.8 on the seeded population (n = 240, seed 2026): A ~15 · B ~30 · C ~25 · D ~15 ·
+    E ~10 · stop 5 % within ±5 p.p., Gini ≥ 0.4 (decision-model.md, D9: 0.515 / 0.631)."""
+    result = calibrate(2026, 240)
+    _assert_calibrated(result)
+    assert result.shares["stop"] == 5  # the generator's stop quotas are exact
+    assert (result.gini_expected, result.gini_realized) == (D("0.515"), D("0.631"))
+
+
+@pytest.mark.slow
+def test_grade_distribution_is_stable_on_5000():
+    """§11.5: n = 5000 on four seeds — each in the corridor, spread between seeds ≤ 3 p.p."""
+    results = [calibrate(seed, 5000) for seed in (2026, 2027, 2028, 2029)]
+    for result in results:
+        _assert_calibrated(result)
+    for key in result.shares:
+        values = [r.shares[key] for r in results]
+        assert max(values) - min(values) <= 3, key
+
+
+def test_gini_orders_risky_companies_lower():
+    perfect = [(10, D(1)), (20, D(0))]
+    assert gini(perfect) == D("1.000")
+    assert gini([(20, D(1)), (10, D(0))]) == D("-1.000")
+    assert gini([(10, D("0.5")), (10, D("0.5"))]) == D("0.000")
