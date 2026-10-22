@@ -115,8 +115,9 @@ describe("ApprovalPlan on a decline", () => {
     );
     expect(steps[1]).toHaveTextContent("+6 баллов");
     expect(steps[1]).toHaveTextContent("Верните выручку хотя бы к 90% прошлогодней (сейчас 80%)");
-    // The plan replaces the general list: its advice would repeat the steps.
-    expect(screen.queryByText("Что можно улучшить")).not.toBeInTheDocument();
+    // The plan comes first; all the advice («Что можно улучшить», scenario 5) stays below it.
+    expect(screen.getByText("Что можно улучшить", { exact: true })).toBeInTheDocument();
+    for (const text of IMPROVEMENTS) expect(screen.getByText(text)).toBeInTheDocument();
   });
 
   it("without a plan the general «что улучшить» stays", async () => {

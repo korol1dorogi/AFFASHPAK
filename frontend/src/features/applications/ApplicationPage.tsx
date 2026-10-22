@@ -143,11 +143,10 @@ function DecisionCard({
       {decision.comment ? <p className="m-0">{decision.comment}</p> : null}
       {withReasons ? <ReasonList reasons={decision.reasons} /> : null}
       {decision.approval_plan && decision.grade ? (
-        // The plan carries its own advice for each step; the general list would repeat it.
+        // The shortest way to grade C with targets; all the advice stays below it.
         <ApprovalPlan plan={decision.approval_plan} grade={decision.grade} />
-      ) : (
-        <ImprovementList items={decision.improvements} />
-      )}
+      ) : null}
+      <ImprovementList items={decision.improvements} />
     </Card>
   );
 }
