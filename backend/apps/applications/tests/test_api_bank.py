@@ -218,5 +218,7 @@ def test_clients_cannot_download_through_the_bank_route(world, media):
         )
         .json()
     )
-    response = world["as_signatory"].get(bank_url(application.pk, f"/documents/{document['id']}"))
-    assert response.status_code == 404
+    path = bank_url(application.pk, f"/documents/{document['id']}")
+    response = world["as_signatory"].get(path)
+    assert response.status_code == 403  # like the rest of /api/bank/*, before any lookup
+    assert_matches_contract(response, method="get", path=path)
