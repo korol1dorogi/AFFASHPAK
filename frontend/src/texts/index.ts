@@ -277,6 +277,27 @@ export const METRIC: Record<string, MetricText> = {
     hint: "Сколько дней сейчас просрочен платёж по кредиту.",
     format: "days",
   },
+  accounts_suspended: {
+    title: "Операции по счетам",
+    hint: "Не приостановила ли налоговая операции по счетам компании — с такими счетами кредит не выдать.",
+    format: "text",
+  },
+  // ЕГРЮЛ marks that send the application to an officer (apps/scoring/review.py, SRC5)
+  egrul_unreliable_address: {
+    title: "Достоверность адреса",
+    hint: "Есть ли в ЕГРЮЛ отметка, что адрес компании недостоверен. Это не отказ: проверит сотрудник.",
+    format: "text",
+  },
+  egrul_unreliable_director: {
+    title: "Достоверность сведений о руководителе",
+    hint: "Есть ли в ЕГРЮЛ отметка, что сведения о руководителе недостоверны. Это не отказ: проверит сотрудник.",
+    format: "text",
+  },
+  egrul_pending_exclusion: {
+    title: "Исключение из реестра",
+    hint: "Не готовит ли налоговая исключение компании из ЕГРЮЛ. Это не отказ: проверит сотрудник.",
+    format: "text",
+  },
   // Product fit in the match (apps/recommendations/service.py)
   product_requirements: {
     title: "Требования продукта",

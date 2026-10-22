@@ -5,9 +5,10 @@ import { ReasonList } from "@/components/ReasonList";
 import { METRIC, metricTitle, UNKNOWN_METRIC_TITLE } from "@/texts";
 
 /**
- * Every Reason.metric the backend can return (21.10.2026). Update together with the backend:
+ * Every Reason.metric the backend can return (22.10.2026). Update together with the backend:
  * - apps/scoring/factors.py — scorecard factors;
- * - apps/scoring/stop_factors.py — stop factors С1–С5;
+ * - apps/scoring/stop_factors.py — stop factors С1–С6;
+ * - apps/scoring/review.py — ЕГРЮЛ marks that send the application to an officer;
  * - apps/recommendations/service.py — product fit, limits, score_total, dscr_after;
  * - apps/pipeline/decide.py, runner.py — unavailable sources and a failed automatic check.
  */
@@ -25,6 +26,11 @@ const BACKEND_METRICS = [
   "egrul_found",
   "ebitda",
   "bki_current_overdue_days",
+  "accounts_suspended",
+  // registry marks → manual review (apps/scoring/review.py)
+  "egrul_unreliable_address",
+  "egrul_unreliable_director",
+  "egrul_pending_exclusion",
   // recommendations
   "score_total",
   "product_requirements",
