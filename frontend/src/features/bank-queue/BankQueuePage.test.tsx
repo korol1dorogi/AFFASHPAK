@@ -163,6 +163,34 @@ describe("BankQueuePage", () => {
     await waitFor(() => expect(screen.getByLabelText("В статусе")).toHaveValue(""));
   });
 
+  it("«Только просроченные» writes overdue=1 to the URL and asks the server (XP4)", async () => {
+    const fetchMock = mockApi({
+      [QUEUE]: page([item(42, { is_overdue: true, overdue_hours: 0 })]),
+    });
+    const router = render();
+    await screen.findByRole("table");
+
+    const toggle = screen.getByRole("checkbox", { name: "Только просроченные" });
+    fireEvent.click(toggle);
+    await waitFor(() => expect(router.state.location.search).toBe("?overdue=1"));
+    await waitFor(() => expect(queueCalls(fetchMock).at(-1)?.get("overdue")).toBe("true"));
+    expect(screen.getByText("просрочено, меньше часа")).toBeInTheDocument();
+
+    fireEvent.click(toggle);
+    await waitFor(() => expect(router.state.location.search).toBe(""));
+    expect(queueCalls(fetchMock).at(-1)?.has("overdue")).toBe(false);
+  });
+
+  it("opens with the overdue filter from a link", async () => {
+    const fetchMock = mockApi({ [QUEUE]: page([item(42)]) });
+    render("/bank?overdue=1");
+    await screen.findByRole("table");
+
+    expect(screen.getByRole("checkbox", { name: "Только просроченные" })).toBeChecked();
+    expect(queueCalls(fetchMock)[0]?.get("overdue")).toBe("true");
+    expect(screen.getByRole("button", { name: "Сбросить фильтры" })).toBeInTheDocument();
+  });
+
   it("shows a non-preset hours value from the URL", async () => {
     mockApi({ [QUEUE]: page([item(41)]) });
     render("/bank?min_hours_in_status=10");
