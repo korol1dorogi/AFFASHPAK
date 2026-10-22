@@ -2028,8 +2028,13 @@ components:
         source: { $ref: "#/components/schemas/CheckSource" }
         status:
           type: string
-          enum: [ok, warning, failed, unavailable]
-          description: unavailable — источник не ответил (сценарий 7)
+          enum: [ok, warning, failed, unavailable, not_found, restricted, consent_missing]
+          description: |
+            ok, warning, failed — источник ответил; unavailable — источник не ответил (сценарий 7);
+            not_found — ИНН нет в реестре (ЕГРЮЛ/ЕГРИП → отказ, стоп-фактор С2);
+            restricted — источник ответил, но сведения скрыты (→ ручное рассмотрение);
+            consent_missing — БКИ не запрашивали: нет согласия клиента (→ ручное рассмотрение).
+            Нет данных — не отказ (SRC2).
         summary: { type: string }
         data: { type: object, additionalProperties: true }
         checked_at: { type: string, format: date-time }

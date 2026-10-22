@@ -399,6 +399,9 @@ export const CHECK_STATUS: Record<Schemas["Check"]["status"], string> = {
   warning: "Есть замечания",
   failed: "Не пройдена",
   unavailable: "Источник не ответил",
+  not_found: "Нет в реестре",
+  restricted: "Сведения скрыты",
+  consent_missing: "Не запрашивали — нет согласия",
 };
 
 export const DECIDED_BY: Record<Schemas["Decision"]["decided_by"], string> = {

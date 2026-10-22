@@ -1444,10 +1444,14 @@ export interface components {
         Check: {
             source: components["schemas"]["CheckSource"];
             /**
-             * @description unavailable — источник не ответил (сценарий 7)
+             * @description ok, warning, failed — источник ответил; unavailable — источник не ответил (сценарий 7);
+             *     not_found — ИНН нет в реестре (ЕГРЮЛ/ЕГРИП → отказ, стоп-фактор С2);
+             *     restricted — источник ответил, но сведения скрыты (→ ручное рассмотрение);
+             *     consent_missing — БКИ не запрашивали: нет согласия клиента (→ ручное рассмотрение).
+             *     Нет данных — не отказ (SRC2).
              * @enum {string}
              */
-            status: "ok" | "warning" | "failed" | "unavailable";
+            status: "ok" | "warning" | "failed" | "unavailable" | "not_found" | "restricted" | "consent_missing";
             summary: string;
             data: {
                 [key: string]: unknown;
