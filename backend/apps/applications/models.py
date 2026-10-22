@@ -188,6 +188,9 @@ class CheckStatus(models.TextChoices):
     WARNING = "warning", "Внимание"
     FAILED = "failed", "Не пройдена"
     UNAVAILABLE = "unavailable", "Источник недоступен"
+    NOT_FOUND = "not_found", "Нет в реестре"
+    RESTRICTED = "restricted", "Сведения скрыты"
+    CONSENT_MISSING = "consent_missing", "Нет согласия клиента"
 
 
 class Check(models.Model):
