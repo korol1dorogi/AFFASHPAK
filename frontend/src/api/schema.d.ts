@@ -550,6 +550,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/applications/{id}/what-if": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ApplicationId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * «Что если» под оффером — платёж, DSCR и допустимая сумма на другой срок (расчёт, не решение)
+         * @description Только расчёт: оффер банка не меняется. Ставка — из действующего оффера, допустимая сумма —
+         *     те же правила, что у подбора (credit_math: max_loan_by_dscr, лимиты продукта). Доступно при
+         *     действующем оффере на продукт с фиксированным платежом (КПО, инвестиционный кредит, лизинг);
+         *     сумма вне лимитов продукта не ошибка, а fits = false с причиной. Заявки чужой компании — 404.
+         */
+        post: operations["calculateWhatIf"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/applications/{id}/signature": {
         parameters: {
             query?: never;
@@ -1334,6 +1359,25 @@ export interface components {
             stop_factors: components["schemas"]["Reason"][];
             /** @constant */
             is_preliminary: true;
+        };
+        WhatIfRequest: {
+            amount: components["schemas"]["Money"];
+            /** @description В пределах срока продукта оффера, иначе 400 */
+            term_months: number;
+        };
+        WhatIfResult: {
+            amount: components["schemas"]["Money"];
+            term_months: number;
+            rate: components["schemas"]["Rate"];
+            monthly_payment: components["schemas"]["Money"];
+            /** @description Допустимая сумма на этот срок; null — посчитать нельзя (причина в reasons) */
+            max_amount: components["schemas"]["Money"] | null;
+            /** @description DSCR с новым платежом; null — посчитать нельзя */
+            dscr_after: components["schemas"]["DecimalString"] | null;
+            min_dscr: components["schemas"]["DecimalString"];
+            /** @description Все проверки пройдены — такие условия прошли бы */
+            fits: boolean;
+            reasons: components["schemas"]["Reason"][];
         };
         AnnuityRequest: {
             principal: components["schemas"]["Money"];
@@ -2828,6 +2872,36 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    calculateWhatIf: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ApplicationId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WhatIfRequest"];
+            };
+        };
+        responses: {
+            /** @description Расчёт */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WhatIfResult"];
+                };
+            };
+            400: components["responses"]["ValidationError"];
+            401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
         };

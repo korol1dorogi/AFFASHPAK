@@ -15,6 +15,7 @@ from dataclasses import dataclass, replace
 from datetime import date
 from decimal import Decimal
 
+from apps.applications.models import Application, OfferStatus
 from apps.applications.offers import monthly_payment, rate_for
 from apps.business.models import Company, FinancialSnapshot, LegalForm
 from apps.credit_math import (
@@ -91,8 +92,9 @@ class RecommendationResult:
 class _Context:
     request: RecommendationInput
     inp: ScoringInput
-    grade: str
-    grade_reason: Reason
+    # The what-if (XP1) sizes with the offer's own rate: it needs neither a grade nor its reason.
+    grade: str = ""
+    grade_reason: Reason | None = None
 
     def metric(self, name: str) -> Decimal | None:
         return self.inp.metric(name)
@@ -364,4 +366,98 @@ def recommend(
         need_type=request.need_type,
         offers=tuple(replace(offer, rank=index) for index, offer in enumerate(ranked, start=1)),
         stop_factors=(),
+    )
+
+
+# ── «Что если» под оффером (XP1) ──
+
+
+class WhatIfUnavailable(Exception):
+    """Nothing to play with: no active offer, or a revolving product without a fixed payment."""
+
+    def __init__(self, code: str, message: str) -> None:
+        super().__init__(message)
+        self.code = code
+        self.message = message
+
+
+class TermOutOfRange(ValueError):
+    """The term is outside the range of the offer's product."""
+
+
+@dataclass(frozen=True)
+class WhatIf:
+    amount: Decimal
+    term_months: int
+    rate: Decimal
+    monthly_payment: Decimal
+    max_amount: Decimal | None  # None — the limit cannot be counted; the reason says why
+    dscr_after: Decimal | None
+    min_dscr: Decimal
+    fits: bool
+    reasons: tuple[Reason, ...]
+
+
+def what_if(application: Application, amount: Decimal, term: int, *, on_date: date) -> WhatIf:
+    """Payment, DSCR and the allowed amount for other terms of the active offer.
+
+    The same sizers as the match (SIZERS) and the offer's own rate, so the numbers agree with the
+    offer the pipeline made; a calculation, never a decision. An amount outside the product's
+    limits is not an error but `fits = False` with the reason; a term outside them is.
+    """
+    offer = application.offers.filter(status=OfferStatus.ACTIVE).select_related("product").first()
+    if offer is None:
+        raise WhatIfUnavailable(
+            "no_active_offer", "Посчитать другие условия можно, пока предложение банка действует."
+        )
+    product = offer.product
+    sizer = SIZERS.get(product.kind)
+    if product.is_revolving or sizer is None:
+        raise WhatIfUnavailable(
+            "revolving_product",
+            "У этого продукта платёж зависит от использования — расчёт по сроку не нужен.",
+        )
+    if not product.term_min_months <= term <= product.term_max_months:
+        raise TermOutOfRange(
+            f"Срок по продукту — от {product.term_min_months} до {product.term_max_months} мес"
+        )
+
+    amount, rate, min_dscr = round_money(amount), offer.rate, _min_dscr(product)
+    payment = monthly_payment(product, amount, rate, term)
+    company = application.company
+    request = RecommendationInput(
+        need_type=application.need_type,
+        amount=amount,
+        term_months=term,
+        invoice_amount=application.invoice_amount,
+    )
+    ctx = _Context(request, scoring_input(company, latest_snapshot(company), on_date))
+    by_dscr = _dscr_limit(product, ctx, rate, term)
+    size = None if by_dscr.value is None else sizer(product, ctx, rate, term)
+    if size is None:  # no cash flow data, or no room for a new payment: None and the reason
+        reason = Reason("max_loan_by_dscr", None, amount, False, by_dscr.note)
+        return WhatIf(amount, term, rate, payment, None, None, min_dscr, False, (reason,))
+
+    reasons = list(size.reasons)
+    limit = size.limit
+    if limit > product.amount_max:
+        limit = product.amount_max
+        message = f"Максимальная сумма по продукту — {rubles(product.amount_max)}"
+        passed = amount <= product.amount_max
+        reasons.append(Reason("amount_max", product.amount_max, amount, passed, message))
+    if amount < product.amount_min:
+        message = f"Минимальная сумма по продукту — {rubles(product.amount_min)}"
+        reasons.append(Reason("amount_min", amount, product.amount_min, False, message))
+    after = _dscr_after(product, ctx, payment)
+    reasons.append(after)
+    return WhatIf(
+        amount=amount,
+        term_months=term,
+        rate=rate,
+        monthly_payment=payment,
+        max_amount=round_money(limit),
+        dscr_after=after.value,
+        min_dscr=min_dscr,
+        fits=all(reason.passed for reason in reasons),
+        reasons=tuple(reasons),
     )
