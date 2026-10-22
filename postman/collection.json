@@ -421,7 +421,7 @@
           "script": {
             "type": "text/javascript",
             "exec": [
-              "pm.test('not the bank route', () => pm.response.to.have.status(404));"
+              "pm.test('not the bank route: 403 like the rest of /api/bank/* (X2)', () => pm.response.to.have.status(403));"
             ]
           }
         }
