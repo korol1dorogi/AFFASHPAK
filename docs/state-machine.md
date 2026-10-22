@@ -53,7 +53,7 @@ stateDiagram-v2
 ## Переходы
 | # | Из | В | Действие (API) | Кто | Условия | Событие → уведомление клиенту |
 |---|---|---|---|---|---|---|
-| 1 | draft | submitted | `submit` (POST …/submit) | клиент: signatory | обязательные поля заполнены; `Idempotency-Key`; повтор с тем же ключом → тот же ответ без нового перехода | `status_changed` → «Заявка отправлена» |
+| 1 | draft | submitted | `submit` (POST …/submit) | клиент: signatory | обязательные поля заполнены; `Idempotency-Key`; повтор с тем же ключом → тот же ответ без нового перехода; согласие на запрос в БКИ (`bki_consent: true` и актуальная `consent_version`, иначе 400) — сохраняется как BkiConsent в той же транзакции (SRC1) | `consent_given` → «Согласие на запрос в БКИ», затем `status_changed` → «Заявка отправлена» |
 | 2 | submitted | processing | `pipeline.start` | система (worker) | — | `status_changed` |
 | 3 | processing | declined | `stop_factor` | система | любой стоп-фактор в validation/enrichment | `decision` → «Отказ: …» |
 | 4 | processing | offer | `auto_offer` / `auto_counteroffer` / `auto_alternative_product` | система | грейд и правила decision-model.md (D4); контроффер — если запрошенная сумма или срок не проходят (например, сумма > max_loan_by_dscr); другой продукт — если он лучше закрывает потребность | `decision` → «Готово предложение» |
