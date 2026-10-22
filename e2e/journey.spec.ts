@@ -53,8 +53,14 @@ test.describe("scenario 1: coffee shop — overdraft, auto offer, signing, disbu
     await expect(page.getByText("Лаврова Анна Сергеевна (демо)").first()).toBeVisible();
     await expect(page.getByRole("list", { name: "Показатели бизнеса" })).toBeVisible();
     const id = Number(page.url().match(/applications\/(\d+)/)?.[1]);
+    // SRC1: without the consent the application stays a draft
+    await page.goto(`/app/applications/${id}/edit/review`);
+    await page.getByRole("button", { name: "Отправить в банк" }).click();
+    await expect(page.getByRole("alert")).toContainText("Поставьте галочку согласия");
+    await expect(page).toHaveURL(/\/edit\/review$/);
     await submitFromWizard(page, id);
     await expect(statusBadge(page)).toHaveText("Есть предложение");
+    await expect(page.getByText("Согласие на запрос в БКИ")).toBeVisible();
   });
 
   test("auto offer → accept → sign with the on-screen code → issued (C6, C7)", async ({ page }) => {

@@ -787,6 +787,23 @@ export const NOTIFICATIONS = {
   markRead: "Прочитано",
 } as const;
 
+/**
+ * SRC1: consent to the credit bureau request (218-FZ, art. 6), ticked on the last wizard step.
+ * `version` must match BKI_CONSENT_VERSION in backend/apps/applications/models.py: a new wording
+ * means a new version on both sides, and the API rejects the old one.
+ */
+export const BKI_CONSENT = {
+  version: "bki-2026-10",
+  label: "Согласен на запрос кредитной истории в бюро кредитных историй",
+  text:
+    "Банк запросит кредитную историю компании и её руководителя в бюро кредитных историй — " +
+    "только для рассмотрения этой заявки (ст. 6 Федерального закона № 218-ФЗ «О кредитных " +
+    "историях»). Согласие действует 6 месяцев, а если договор будет заключён — весь срок " +
+    "договора. Без согласия банк не может проверить кредитную историю, поэтому отправить " +
+    "заявку нельзя.",
+  required: "Поставьте галочку согласия — без неё заявку не отправить.",
+} as const;
+
 /** B6: bank dashboard. */
 export const BANK_DASHBOARD = {
   title: "Дашборд",
