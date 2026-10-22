@@ -150,6 +150,27 @@ export const DECISION_OUTCOME: Record<Schemas["DecisionOutcome"], string> = {
   declined: "Отказ",
 };
 
+/** 1 балл, 2 балла, 5 баллов, 11 баллов, 21 балл. */
+function pointsWord(n: number): string {
+  if (n % 10 === 1 && n % 100 !== 11) return "балл";
+  if ([2, 3, 4].includes(n % 10) && ![12, 13, 14].includes(n % 100)) return "балла";
+  return "баллов";
+}
+
+/** XP2: «как получить одобрение» при отказе по грейду. */
+export const APPROVAL_PLAN = {
+  title: "Как получить одобрение",
+  summary: (current: number, grade: string, target: number, targetGrade: string) =>
+    `Сейчас ${current} ${pointsWord(current)} из 100 — грейд ${grade}. Эти шаги дают ${target} — ` +
+    `грейд ${targetGrade}: ${
+      targetGrade === "C"
+        ? "с ним заявку рассмотрит сотрудник банка."
+        : "с ним банк сможет одобрить заявку."
+    }`,
+  points: (n: number) => `+${n} ${pointsWord(n)}`,
+  note: "Предварительная оценка по данным вашего счёта, не решение банка.",
+} as const;
+
 export interface MetricText {
   /** Понятное название для клиента. */
   title: string;
