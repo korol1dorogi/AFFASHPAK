@@ -7,6 +7,8 @@ import { unwrap } from "@/lib/errors";
 export const keys = {
   company: ["company"] as const,
   members: ["company", "members"] as const,
+  invitations: ["company", "invitations"] as const,
+  myInvitations: ["invitations"] as const,
   lookup: (inn: string) => ["company", "lookup", inn] as const,
 };
 
@@ -57,12 +59,76 @@ export function useMembers() {
   });
 }
 
-export function useAddMember() {
+/** The company's invitations still waiting for an answer. */
+export function useInvitations() {
+  return useQuery({
+    queryKey: keys.invitations,
+    queryFn: async () => unwrap(await api.GET("/api/company/invitations")),
+  });
+}
+
+/** Nobody joins without consent: the invitee accepts on their side (useAcceptInvitation). */
+export function useInvite() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (body: Schemas["MemberCreate"]) =>
-      unwrap(await api.POST("/api/company/members", { body })),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: keys.members }),
+    mutationFn: async (body: Schemas["InvitationCreate"]) =>
+      unwrap(await api.POST("/api/company/invitations", { body })),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: keys.invitations }),
+  });
+}
+
+export function useCancelInvitation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (invitationId: number) =>
+      unwrap(
+        await api.DELETE("/api/company/invitations/{invitation_id}", {
+          params: { path: { invitation_id: invitationId } },
+        }),
+      ),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: keys.invitations }),
+  });
+}
+
+/** Invitations addressed to the current user (a client without a company sees them first). */
+export function useMyInvitations() {
+  return useQuery({
+    queryKey: keys.myInvitations,
+    queryFn: async () => unwrap(await api.GET("/api/invitations")),
+  });
+}
+
+/** Like creating a company: `me` gets it at once, so RequireCompany lets the client into /app. */
+export function useAcceptInvitation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (invitationId: number) =>
+      unwrap(
+        await api.POST("/api/invitations/{invitation_id}/accept", {
+          params: { path: { invitation_id: invitationId } },
+        }),
+      ),
+    onSuccess: (company) => {
+      queryClient.setQueryData(keys.company, company);
+      queryClient.setQueryData<Me | null>(["me"], (me) =>
+        me ? { ...me, company_id: company.id, company_role: company.my_role } : me,
+      );
+      void queryClient.invalidateQueries({ queryKey: ["me"] });
+      void queryClient.invalidateQueries({ queryKey: keys.myInvitations });
+    },
+  });
+}
+
+export function useDeclineInvitation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (invitationId: number) =>
+      unwrap(
+        await api.POST("/api/invitations/{invitation_id}/decline", {
+          params: { path: { invitation_id: invitationId } },
+        }),
+      ),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: keys.myInvitations }),
   });
 }
 

@@ -169,8 +169,105 @@ export interface paths {
         /** Сотрудники компании и их роли */
         get: operations["listCompanyMembers"];
         put?: never;
-        /** Добавить сотрудника по логину (только signatory) */
-        post: operations["addCompanyMember"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/company/invitations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Приглашения компании, ждущие ответа */
+        get: operations["listCompanyInvitations"];
+        put?: never;
+        /**
+         * Пригласить сотрудника по логину (только signatory)
+         * @description Сотрудник появится в компании, только когда сам примет приглашение (acceptInvitation).
+         *     Ответ одинаковый для любого логина правильного формата — есть ли такой клиент, работает ли
+         *     он в другой компании или это сотрудник банка, подписант не узнаёт (docs/security.md).
+         *     409 — логин уже в этой компании (member_exists) или уже приглашён (invitation_exists).
+         */
+        post: operations["inviteCompanyMember"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/company/invitations/{invitation_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                invitation_id: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Отозвать приглашение, пока на него не ответили (только signatory) */
+        delete: operations["cancelCompanyInvitation"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/invitations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Приглашения в компании, адресованные текущему пользователю (403 — сотрудник банка) */
+        get: operations["listMyInvitations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/invitations/{invitation_id}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                invitation_id: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Принять приглашение и войти в компанию (409 — пользователь уже работает в компании) */
+        post: operations["acceptInvitation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/invitations/{invitation_id}/decline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                invitation_id: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Отклонить приглашение */
+        post: operations["declineInvitation"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1062,10 +1159,43 @@ export interface components {
             /** @example Главный бухгалтер */
             position: string;
         };
-        MemberCreate: {
+        InvitationCreate: {
             username: string;
             role: components["schemas"]["MemberRole"];
             position: string;
+        };
+        /** @description Приглашение компании в том виде, как его отправил подписант */
+        Invitation: {
+            /** @example 1 */
+            id: number;
+            /** @example demo_accountant */
+            username: string;
+            role: components["schemas"]["MemberRole"];
+            /** @example Главный бухгалтер */
+            position: string;
+            /** Format: date-time */
+            created_at: string;
+        };
+        /** @description Приглашение, адресованное текущему пользователю */
+        IncomingInvitation: {
+            /** @example 1 */
+            id: number;
+            company: {
+                /** @example 1 */
+                id: number;
+                /** @example ООО «Демо Мебель» */
+                name: string;
+                short_name: string | null;
+                legal_form: components["schemas"]["LegalForm"];
+                inn: components["schemas"]["Inn"];
+            };
+            role: components["schemas"]["MemberRole"];
+            /** @example Главный бухгалтер */
+            position: string;
+            /** @description Кто пригласил; null — его учётная запись удалена */
+            invited_by: components["schemas"]["UserRef"] | null;
+            /** Format: date-time */
+            created_at: string;
         };
         /** @enum {string} */
         SnapshotSource: "case" | "demo" | "simulator" | "manual";
@@ -2095,7 +2225,29 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
-    addCompanyMember: {
+    listCompanyInvitations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Приглашения */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Invitation"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    inviteCompanyMember: {
         parameters: {
             query?: never;
             header?: never;
@@ -2104,17 +2256,17 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["MemberCreate"];
+                "application/json": components["schemas"]["InvitationCreate"];
             };
         };
         responses: {
-            /** @description Добавлен */
+            /** @description Приглашение создано */
             201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Member"];
+                    "application/json": components["schemas"]["Invitation"];
                 };
             };
             400: components["responses"]["ValidationError"];
@@ -2122,6 +2274,100 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+        };
+    };
+    cancelCompanyInvitation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                invitation_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Отозвано */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listMyInvitations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Приглашения, ждущие ответа */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IncomingInvitation"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    acceptInvitation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                invitation_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Компания, в которую вошёл пользователь */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Company"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    declineInvitation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                invitation_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Отклонено */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
     removeCompanyMember: {

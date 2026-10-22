@@ -2,11 +2,14 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { CompanyNewPage } from "@/features/company/CompanyNewPage";
-import { company, me, registryRecord } from "@/features/company/fixtures";
+import { company, incomingInvitation, me, registryRecord } from "@/features/company/fixtures";
 import { mockApi, renderRoutes } from "@/test/utils";
 
 const LOOKUP = "GET /api/company/lookup";
-const NEW_CLIENT = { "GET /api/auth/me": me({ company_id: null, company_role: null }) };
+const NEW_CLIENT = {
+  "GET /api/auth/me": me({ company_id: null, company_role: null }),
+  "GET /api/invitations": [],
+};
 
 function open(handlers: Record<string, unknown>) {
   const fetchMock = mockApi({ ...NEW_CLIENT, ...handlers });
@@ -154,5 +157,68 @@ describe("CompanyNewPage — INN → registry → company", () => {
       "/app/company/new",
     );
     expect(await screen.findByText("Профиль компании")).toBeInTheDocument();
+  });
+});
+
+describe("CompanyNewPage — invitations", () => {
+  it("shows who invites, into what and as whom; accepting joins the company", async () => {
+    const fetchMock = open({
+      "GET /api/invitations": [incomingInvitation()],
+      "POST /api/invitations/7/accept": company({ my_role: "preparer" }),
+    });
+    const list = await screen.findByRole("list", { name: "Приглашения в компании" });
+    expect(list).toHaveTextContent("ООО «Дубрава Мебель» (демо)");
+    expect(list).toHaveTextContent("Готовит заявки · Главный бухгалтер");
+    expect(list).toHaveTextContent("Пригласил: Пётр Демо");
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Принять приглашение от ООО «Дубрава Мебель» (демо)",
+      }),
+    );
+    expect(await screen.findByText("Главная")).toBeInTheDocument();
+    expect(calls(fetchMock, "POST", "/api/invitations/7/accept")).toHaveLength(1);
+    // The INN path was not used.
+    expect(calls(fetchMock, "POST", "/api/company")).toHaveLength(0);
+  });
+
+  it("declining removes the invitation and keeps the INN path", async () => {
+    let pending = [incomingInvitation()];
+    const fetchMock = open({
+      "GET /api/invitations": () => pending,
+      "POST /api/invitations/7/decline": () => {
+        pending = [];
+        return [204, null];
+      },
+    });
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Отклонить приглашение от ООО «Дубрава Мебель» (демо)",
+      }),
+    );
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("list", { name: "Приглашения в компании" }),
+      ).not.toBeInTheDocument(),
+    );
+    expect(calls(fetchMock, "POST", "/api/invitations/7/decline")).toHaveLength(1);
+    expect(screen.getByLabelText("ИНН компании или ИП")).toBeInTheDocument();
+  });
+
+  it("already in a company: the API's message, no navigation", async () => {
+    open({
+      "GET /api/invitations": [incomingInvitation()],
+      "POST /api/invitations/7/accept": [
+        409,
+        { error: { code: "member_exists", message: "Вы уже работаете в компании." } },
+      ],
+    });
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Принять приглашение от ООО «Дубрава Мебель» (демо)",
+      }),
+    );
+    expect(await screen.findByRole("alert")).toHaveTextContent("Вы уже работаете в компании.");
+    expect(screen.queryByText("Главная")).not.toBeInTheDocument();
   });
 });
