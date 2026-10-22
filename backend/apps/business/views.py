@@ -1,13 +1,16 @@
-"""Company of the current client and its members (docs/openapi.yaml, tag `company`).
+"""Company of the current client, its members and invitations (docs/openapi.yaml, tag `company`).
 
 A client sees only their own company (MVP: one per user); everything else is 404.
 Changing the company or its members is for the signatory; a preparer gets 403.
+Nobody is added to a company without consent: the signatory invites, the invitee accepts.
 """
 
 from decimal import Decimal
 
 from django.contrib.auth.models import AbstractBaseUser, User
 from django.db import IntegrityError, transaction
+from django.db.models import QuerySet
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
 from rest_framework.request import Request
@@ -15,8 +18,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.accounts.demo import SNAPSHOT_NUMBERS
-from apps.accounts.models import UserKind
-from apps.applications.access import NOT_FOUND, current_membership, is_bank_user, user_kind
+from apps.applications.access import NOT_FOUND, current_membership, is_bank_user
 from apps.applications.serializers import (
     CompanySerializer,
     FinancialSnapshotSerializer,
@@ -29,14 +31,18 @@ from apps.business.models import (
     CompanyIntegration,
     FinancialSnapshot,
     IntegrationSource,
+    Invitation,
+    InvitationStatus,
     LegalForm,
     MemberRole,
     Membership,
 )
 from apps.business.serializers import (
     CompanyUpdateSerializer,
+    IncomingInvitationSerializer,
     InnSerializer,
-    MemberCreateSerializer,
+    InvitationCreateSerializer,
+    InvitationSerializer,
 )
 from apps.core.exceptions import Conflict, SourceUnavailable
 from apps.integrations.flags import failing_sources
@@ -130,29 +136,6 @@ class MemberListView(APIView):
         members = company.memberships.select_related("user__profile")
         return Response(MemberSerializer(members, many=True).data)
 
-    def post(self, request: Request) -> Response:
-        membership = _membership(request.user)
-        _require_signatory(membership)
-        data = _valid(MemberCreateSerializer, request.data)
-        user = User.objects.filter(username=data["username"], is_active=True).first()
-        if user is None:
-            raise NotFound("Пользователь с таким логином не найден.")
-        if user_kind(user) != UserKind.CLIENT:
-            raise ValidationError({"username": ["Сотрудника банка нельзя добавить в компанию."]})
-        if Membership.objects.filter(user=user).exists():
-            raise _already_member()
-        try:
-            member = Membership.objects.create(
-                user=user, company=membership.company, role=data["role"], position=data["position"]
-            )
-        except IntegrityError as exc:
-            raise _already_member() from exc
-        return Response(MemberSerializer(member).data, status=status.HTTP_201_CREATED)
-
-
-def _already_member() -> Conflict:
-    return Conflict("Этот пользователь уже работает в компании.", code="member_exists")
-
 
 class MemberDetailView(APIView):
     def delete(self, request: Request, member_id: int) -> Response:
@@ -164,6 +147,115 @@ class MemberDetailView(APIView):
         if member.pk == membership.pk:
             raise Conflict("Себя убрать нельзя.", code="cannot_remove_self")
         member.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+# ───────────────────────── invitations ─────────────────────────
+# A member joins only by accepting an invitation. Inviting answers 201 for any well-formed login:
+# whether it exists, works elsewhere or belongs to the bank stays unknown to the signatory.
+
+
+def _pending(company: Company) -> QuerySet[Invitation]:
+    return company.invitations.filter(status=InvitationStatus.PENDING)
+
+
+class InvitationListView(APIView):
+    """GET/POST /api/company/invitations — the company's pending invitations."""
+
+    def get(self, request: Request) -> Response:
+        company = _membership(request.user).company
+        return Response(InvitationSerializer(_pending(company), many=True).data)
+
+    def post(self, request: Request) -> Response:
+        membership = _membership(request.user)
+        _require_signatory(membership)
+        data = _valid(InvitationCreateSerializer, request.data)
+        company = membership.company
+        if company.memberships.filter(user__username__iexact=data["username"]).exists():
+            raise Conflict("Этот сотрудник уже в вашей компании.", code="member_exists")
+        try:
+            with transaction.atomic():
+                invitation = Invitation.objects.create(
+                    company=company, invited_by=request.user, **data
+                )
+        except IntegrityError as exc:  # a pending invitation for the same login
+            raise Conflict(
+                "Этот логин уже приглашён — ждём ответа.", code="invitation_exists"
+            ) from exc
+        return Response(InvitationSerializer(invitation).data, status=status.HTTP_201_CREATED)
+
+
+class InvitationDetailView(APIView):
+    """DELETE /api/company/invitations/{id} — the signatory takes a pending invitation back."""
+
+    def delete(self, request: Request, invitation_id: int) -> Response:
+        membership = _membership(request.user)
+        invitation = _pending(membership.company).filter(pk=invitation_id).first()
+        if invitation is None:
+            raise NotFound(NOT_FOUND)
+        _require_signatory(membership)
+        _close(invitation, InvitationStatus.CANCELLED)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+def _incoming(user: AbstractBaseUser) -> QuerySet[Invitation]:
+    """Pending invitations addressed to the user's login; bank users have none."""
+    if is_bank_user(user):
+        raise PermissionDenied("Приглашения в компанию — только для клиентов.")
+    return Invitation.objects.filter(
+        username__iexact=user.get_username(), status=InvitationStatus.PENDING
+    )
+
+
+def _close(invitation: Invitation, outcome: str) -> None:
+    invitation.status = outcome
+    invitation.responded_at = timezone.now()
+    invitation.save(update_fields=["status", "responded_at"])
+
+
+class MyInvitationListView(APIView):
+    """GET /api/invitations — invitations waiting for the current user's answer."""
+
+    def get(self, request: Request) -> Response:
+        invitations = _incoming(request.user).select_related("company", "invited_by__profile")
+        return Response(IncomingInvitationSerializer(invitations, many=True).data)
+
+
+class InvitationAcceptView(APIView):
+    """POST /api/invitations/{id}/accept — join the company; one company per client (MVP)."""
+
+    def post(self, request: Request, invitation_id: int) -> Response:
+        with transaction.atomic():
+            # Two accepts at once must not give the user two companies: serialize per user.
+            User.objects.select_for_update().filter(pk=request.user.pk).first()
+            invitations = _incoming(request.user).select_for_update()
+            invitation = invitations.filter(pk=invitation_id).first()
+            if invitation is None:
+                raise NotFound(NOT_FOUND)
+            if current_membership(request.user) is not None:
+                raise Conflict(
+                    "Вы уже работаете в компании. Чтобы перейти в другую, попросите подписанта "
+                    "убрать вас из сотрудников.",
+                    code="member_exists",
+                )
+            membership = Membership.objects.create(
+                user=request.user,
+                company=invitation.company,
+                role=invitation.role,
+                position=invitation.position,
+            )
+            _close(invitation, InvitationStatus.ACCEPTED)
+        return Response(_company_data(membership))
+
+
+class InvitationDeclineView(APIView):
+    """POST /api/invitations/{id}/decline — the company sees the invitation no more."""
+
+    def post(self, request: Request, invitation_id: int) -> Response:
+        invitation = _incoming(request.user).filter(pk=invitation_id).first()
+        if invitation is None:
+            raise NotFound(NOT_FOUND)
+        _close(invitation, InvitationStatus.DECLINED)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 

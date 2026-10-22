@@ -240,26 +240,116 @@ paths:
                 items: { $ref: "#/components/schemas/Member" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/company/invitations:
+    get:
+      tags: [company]
+      operationId: listCompanyInvitations
+      summary: Приглашения компании, ждущие ответа
+      responses:
+        "200":
+          description: Приглашения
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Invitation" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
     post:
       tags: [company]
-      operationId: addCompanyMember
-      summary: Добавить сотрудника по логину (только signatory)
+      operationId: inviteCompanyMember
+      summary: Пригласить сотрудника по логину (только signatory)
+      description: |
+        Сотрудник появится в компании, только когда сам примет приглашение (acceptInvitation).
+        Ответ одинаковый для любого логина правильного формата — есть ли такой клиент, работает ли
+        он в другой компании или это сотрудник банка, подписант не узнаёт (docs/security.md).
+        409 — логин уже в этой компании (member_exists) или уже приглашён (invitation_exists).
       requestBody:
         required: true
         content:
           application/json:
-            schema: { $ref: "#/components/schemas/MemberCreate" }
+            schema: { $ref: "#/components/schemas/InvitationCreate" }
       responses:
         "201":
-          description: Добавлен
+          description: Приглашение создано
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/Member" }
+              schema: { $ref: "#/components/schemas/Invitation" }
         "400": { $ref: "#/components/responses/ValidationError" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/Conflict" }
+
+  /api/company/invitations/{invitation_id}:
+    parameters:
+      - name: invitation_id
+        in: path
+        required: true
+        schema: { type: integer, minimum: 1 }
+    delete:
+      tags: [company]
+      operationId: cancelCompanyInvitation
+      summary: Отозвать приглашение, пока на него не ответили (только signatory)
+      responses:
+        "204": { description: Отозвано }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/invitations:
+    get:
+      tags: [company]
+      operationId: listMyInvitations
+      summary: Приглашения в компании, адресованные текущему пользователю (403 — сотрудник банка)
+      responses:
+        "200":
+          description: Приглашения, ждущие ответа
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/IncomingInvitation" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/invitations/{invitation_id}/accept:
+    parameters:
+      - name: invitation_id
+        in: path
+        required: true
+        schema: { type: integer, minimum: 1 }
+    post:
+      tags: [company]
+      operationId: acceptInvitation
+      summary: Принять приглашение и войти в компанию (409 — пользователь уже работает в компании)
+      responses:
+        "200":
+          description: Компания, в которую вошёл пользователь
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Company" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /api/invitations/{invitation_id}/decline:
+    parameters:
+      - name: invitation_id
+        in: path
+        required: true
+        schema: { type: integer, minimum: 1 }
+    post:
+      tags: [company]
+      operationId: declineInvitation
+      summary: Отклонить приглашение
+      responses:
+        "204": { description: Отклонено }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
 
   /api/company/members/{member_id}:
     parameters:
@@ -1443,14 +1533,48 @@ components:
         role: { $ref: "#/components/schemas/MemberRole" }
         position: { type: string, examples: ["Главный бухгалтер"] }
 
-    MemberCreate:
+    InvitationCreate:
       type: object
       required: [username, role, position]
       additionalProperties: false
       properties:
-        username: { type: string, minLength: 1, maxLength: 150 }
+        username: { type: string, minLength: 1, maxLength: 150, pattern: '^[\w.@+-]+$' }
         role: { $ref: "#/components/schemas/MemberRole" }
         position: { type: string, minLength: 1, maxLength: 100 }
+
+    Invitation:
+      type: object
+      description: Приглашение компании в том виде, как его отправил подписант
+      required: [id, username, role, position, created_at]
+      properties:
+        id: { type: integer, examples: [1] }
+        username: { type: string, examples: [demo_accountant] }
+        role: { $ref: "#/components/schemas/MemberRole" }
+        position: { type: string, examples: ["Главный бухгалтер"] }
+        created_at: { type: string, format: date-time }
+
+    IncomingInvitation:
+      type: object
+      description: Приглашение, адресованное текущему пользователю
+      required: [id, company, role, position, invited_by, created_at]
+      properties:
+        id: { type: integer, examples: [1] }
+        company:
+          type: object
+          required: [id, name, short_name, legal_form, inn]
+          properties:
+            id: { type: integer, examples: [1] }
+            name: { type: string, examples: ["ООО «Демо Мебель»"] }
+            short_name:
+              oneOf: [{ type: string, maxLength: 300 }, { type: "null" }]
+            legal_form: { $ref: "#/components/schemas/LegalForm" }
+            inn: { $ref: "#/components/schemas/Inn" }
+        role: { $ref: "#/components/schemas/MemberRole" }
+        position: { type: string, examples: ["Главный бухгалтер"] }
+        invited_by:
+          description: Кто пригласил; null — его учётная запись удалена
+          oneOf: [{ $ref: "#/components/schemas/UserRef" }, { type: "null" }]
+        created_at: { type: string, format: date-time }
 
     SnapshotSource:
       type: string

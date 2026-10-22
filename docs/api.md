@@ -79,8 +79,13 @@ POST /api/applications/{id}/signature/confirm   {"code"}              → signed
 | POST | `/api/company` | Создать компанию по ИНН; реквизиты — из ЕГРЮЛ, создатель становится signatory | сессия |
 | PATCH | `/api/company` | Изменить редактируемые поля (реквизиты из реестра не редактируются) | сессия |
 | GET | `/api/company/members` | Сотрудники компании и их роли | сессия |
-| POST | `/api/company/members` | Добавить сотрудника по логину (только signatory) | сессия |
 | DELETE | `/api/company/members/{member_id}` | Убрать сотрудника (только signatory; себя убрать нельзя) | сессия |
+| GET | `/api/company/invitations` | Приглашения компании, ждущие ответа | сессия |
+| POST | `/api/company/invitations` | Пригласить сотрудника по логину (только signatory); ответ одинаков для любого логина | сессия |
+| DELETE | `/api/company/invitations/{invitation_id}` | Отозвать приглашение (только signatory) | сессия |
+| GET | `/api/invitations` | Приглашения, адресованные текущему пользователю | сессия |
+| POST | `/api/invitations/{invitation_id}/accept` | Принять приглашение и войти в компанию | сессия |
+| POST | `/api/invitations/{invitation_id}/decline` | Отклонить приглашение | сессия |
 | GET | `/api/company/metrics` | Последний финансовый снимок и ключевые метрики с пояснениями | сессия |
 | POST | `/api/company/integrations/{source}/connect` | Подключить источник данных (симулятор; данные помечены «демо») | сессия |
 

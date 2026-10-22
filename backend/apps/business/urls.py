@@ -17,4 +17,21 @@ urlpatterns = [
         views.MemberDetailView.as_view(),
         name="company-member",
     ),
+    path("company/invitations", views.InvitationListView.as_view(), name="company-invitations"),
+    path(
+        "company/invitations/<int:invitation_id>",
+        views.InvitationDetailView.as_view(),
+        name="company-invitation",
+    ),
+    path("invitations", views.MyInvitationListView.as_view(), name="my-invitations"),
+    path(
+        "invitations/<int:invitation_id>/accept",
+        views.InvitationAcceptView.as_view(),
+        name="invitation-accept",
+    ),
+    path(
+        "invitations/<int:invitation_id>/decline",
+        views.InvitationDeclineView.as_view(),
+        name="invitation-decline",
+    ),
 ]
