@@ -47,14 +47,14 @@ def decide(application: Application, inp: ScoringInput) -> Decision:
     if product is None:
         raise ValueError("decision needs a product")
     result = score(inp, min_dscr=_decimal(product.params.get("min_dscr"), "1.25"))
-    unavailable = [
-        source for source in SOURCES if (check := inp.check(source)) and check.is_unavailable
-    ]
+    # No data is not a decline (SRC2): unavailable, restricted or consent_missing → an officer.
+    # Only a source that did not answer raises source_unavailable (the queue's outage mark).
+    no_data = [source for source in SOURCES if (check := inp.check(source)) and check.has_no_data]
     reasons = [_factor_reason(factor) for factor in result.factors]
     reasons.append(_score_reason(result))
-    source_unavailable = bool(unavailable)
-    for source in unavailable:
-        reasons.append(_row(f"source_{source}", None, None, False, _unavailable_text(inp, source)))
+    source_unavailable = any(inp.check(source).is_unavailable for source in no_data)
+    for source in no_data:
+        reasons.append(_row(f"source_{source}", None, None, False, _no_data_text(inp, source)))
 
     def pack(
         outcome: str,
@@ -73,7 +73,7 @@ def decide(application: Application, inp: ScoringInput) -> Decision:
             policy_version=policy.policy_version or CURRENT_POLICY_VERSION,
         )
 
-    if source_unavailable or inp.registered_at is None:
+    if no_data or inp.registered_at is None:
         return pack(DecisionOutcome.MANUAL_REVIEW)
     if result.grade == "E":
         texts: list[str] = []
@@ -331,12 +331,16 @@ def _score_reason(result: ScoreResult) -> dict:
     }
 
 
-def _unavailable_text(inp: ScoringInput, source: str) -> str:
+def _no_data_text(inp: ScoringInput, source: str) -> str:
     check = inp.check(source)
     if source == "bank_account" and check is not None and check.data.get("not_connected"):
         return "Счёт не подключён — данные по счёту проверит сотрудник. Это не отказ"
-    if check is not None and check.data.get("consent_missing"):
+    if check is not None and (
+        check.status == "consent_missing" or check.data.get("consent_missing")
+    ):
         return "Нет согласия на запрос в бюро — кредитную историю проверит сотрудник. Это не отказ"
+    if check is not None and check.status == "restricted":
+        return f"{SOURCE_NAME[source]}: сведения скрыты — заявку проверит сотрудник. Это не отказ"
     return f"{SOURCE_NAME[source]} сейчас не отвечает — заявку проверит сотрудник. Это не отказ"
 
 

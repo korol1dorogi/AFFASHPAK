@@ -20,6 +20,18 @@ BKI_UNAVAILABLE = "БКИ не ответило — историю провер�
 TRANSPARENT_BUSINESS_UNAVAILABLE = (
     "«Прозрачный бизнес» сейчас не отвечает — заявку проверит сотрудник банка. Это не отказ"
 )
+# No data of another kind (SRC2): the same neutral points, a text that says why.
+BKI_NO_DATA = {
+    "unavailable": BKI_UNAVAILABLE,
+    "restricted": "Сведения в БКИ скрыты — историю проверит сотрудник",
+    "consent_missing": "Нет согласия на запрос в БКИ — историю проверит сотрудник",
+}
+TRANSPARENT_BUSINESS_NO_DATA = {
+    "unavailable": TRANSPARENT_BUSINESS_UNAVAILABLE,
+    "restricted": (
+        "Сведения «Прозрачного бизнеса» скрыты — заявку проверит сотрудник банка. Это не отказ"
+    ),
+}
 BKI_CLEAN = "Кредитная история без серьёзных просрочек"
 TRANSPARENT_BUSINESS_CLEAN = "Признаков риска в ФНС нет"
 
