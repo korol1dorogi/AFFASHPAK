@@ -2045,7 +2045,8 @@ components:
       properties:
         name: { type: string, examples: [dscr] }
         value:
-          oneOf: [{ $ref: "#/components/schemas/DecimalString" }, { type: string }, { type: "null" }]
+          description: Значение фактора числом-строкой; null — посчитать нельзя (причина в message)
+          oneOf: [{ $ref: "#/components/schemas/DecimalString" }, { type: "null" }]
         points: { type: integer }
         message: { type: string }
 

@@ -1462,7 +1462,8 @@ export interface components {
         ScoreFactor: {
             /** @example dscr */
             name: string;
-            value: components["schemas"]["DecimalString"] | string | null;
+            /** @description Значение фактора числом-строкой; null — посчитать нельзя (причина в message) */
+            value: components["schemas"]["DecimalString"] | null;
             points: number;
             message: string;
         };
