@@ -12,7 +12,7 @@ from datetime import timedelta
 from decimal import ROUND_HALF_UP, Decimal
 
 from django.core.files.base import ContentFile
-from django.utils import timezone
+from django.db.models import F
 
 from apps.accounts.demo import load_companies
 from apps.applications import services
@@ -21,10 +21,11 @@ from apps.applications.models import (
     BKI_CONSENT_VERSION,
     ActorKind,
     Application,
+    ApplicationEvent,
     ApplicationStatus,
-    BkiConsent,
 )
 from apps.business.models import Company, FinancialSnapshot, MemberRole, Membership
+from apps.credit_math import factoring_advance, overdraft_limit
 from apps.documents.models import Document
 from apps.integrations.simulator_data import dataset
 from apps.pipeline.runner import execute
@@ -52,7 +53,6 @@ def seed_queue(size: int = DEFAULT_SIZE) -> int:
     data = dataset()
     population = [c for c in data["companies"] if c["_key"] in data["_latent"]][:size]
     load_companies(data, {c["_key"] for c in population})
-    now = timezone.now()
     created = 0
     for index, record in enumerate(population):
         company = Company.objects.get(inn=record["inn"])
@@ -64,15 +64,22 @@ def seed_queue(size: int = DEFAULT_SIZE) -> int:
         if signatory is None:
             continue
         application = _apply(index, company, signatory.user)
+        # Through the state machine, like a client: consent, submit event, notifications.
+        services.submit(application, _actor(signatory), consent_version=BKI_CONSENT_VERSION)
         execute(application.pk)
         application.refresh_from_db()
         if application.status == ApplicationStatus.OFFER and index % ISSUE_EVERY == 0:
             _issue(application, signatory)
-        hours = (index * 7) % 61  # 0…60 h: some rows are past the 24 h mark
+        # Age the whole application by the same shift, journal included: the card's history,
+        # the queue's hours in status / SLA and the dashboard then tell one story.
+        shift = timedelta(hours=(index * 7) % 61)  # 0…60 h: some rows are past the norm
         Application.objects.filter(pk=application.pk).update(
-            status_changed_at=now - timedelta(hours=hours),
-            submitted_at=now - timedelta(hours=hours + 1),
-            created_at=now - timedelta(hours=hours + 2),  # drafted before it was sent
+            status_changed_at=F("status_changed_at") - shift,
+            submitted_at=F("submitted_at") - shift,
+            created_at=F("created_at") - shift - timedelta(hours=1),  # drafted before sending
+        )
+        ApplicationEvent.objects.filter(application=application).update(
+            created_at=F("created_at") - shift
         )
         created += 1
     return created
@@ -97,11 +104,8 @@ def _apply(index: int, company: Company, user) -> Application:
             if code == "investment_loan_basic" and index % 2
             else None
         ),
-        status=ApplicationStatus.SUBMITTED,
-        submitted_at=timezone.now(),
         prefill_source="manual",
     )
-    BkiConsent.objects.create(application=application, user=user, text_version=BKI_CONSENT_VERSION)
     if index % NO_DOCUMENTS_EVERY != 3:
         for kind in product.required_documents:
             Document.objects.create(
@@ -124,10 +128,10 @@ def _amounts(index: int, product: Product, snapshot) -> tuple[Decimal, Decimal |
     stretch = Decimal("1.6") if index % 3 == 1 else Decimal(1)
     invoice = None
     if product.kind == "overdraft":
-        raw = turnover * Decimal("0.3") * stretch
+        raw = overdraft_limit(turnover, Decimal(product.params["alpha"])) * stretch
     elif product.kind == "factoring":
         invoice = _round(turnover * Decimal("0.6"))
-        raw = invoice * Decimal("0.9") * stretch
+        raw = factoring_advance(invoice, Decimal(product.params["beta"])) * stretch
     elif product.kind == "working_capital_loan":
         raw = cfads * 8 * stretch
     else:
@@ -140,8 +144,12 @@ def _round(value: Decimal) -> Decimal:
     return (value / 10_000).quantize(Decimal(1), rounding=ROUND_HALF_UP) * 10_000
 
 
+def _actor(membership: Membership) -> Actor:
+    return Actor(kind=ActorKind.CLIENT, user=membership.user, role=membership.role)
+
+
 def _issue(application: Application, membership: Membership) -> None:
-    actor = Actor(kind=ActorKind.CLIENT, user=membership.user, role=membership.role)
+    actor = _actor(membership)
     services.accept_offer(application, actor)
     application.refresh_from_db()
     _signature, code = services.start_signature(application, actor)
