@@ -173,7 +173,7 @@ REST_FRAMEWORK = {
     ],
     "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],
     "DEFAULT_PARSER_CLASSES": [
-        "rest_framework.parsers.JSONParser",
+        "apps.core.parsers.JSONParser",
         "rest_framework.parsers.MultiPartParser",
     ],
     "DEFAULT_THROTTLE_CLASSES": [
