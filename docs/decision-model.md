@@ -11,7 +11,7 @@
 | Шаг | Вход (поля [data-model.md](data-model.md)) | Что делает | Выход |
 |---|---|---|---|
 | validation | `Application`: `need_type`, `purpose`, `product`, `requested_amount`, `term_months`, `invoice_amount`, `collateral_description`; `Company`: `legal_form`, `inn`, `registered_at`, `registry_status`; `Document.kind` заявки; `Product`: `term_min_months`, `term_max_months`, `amount_min`, `required_documents`, `kind` | стоп-факторы по анкете (раздел 2, С1); полнота и корректность (раздел 3) | стоп → `declined`; пробелы → `info_requested`; иначе дальше |
-| enrichment | `Company.inn` | параллельно, с таймаутами: `Check` по `egrul`, `transparent_business`, `bki`, `bank_account`; счёт даёт `FinancialSnapshot` (`source = simulator`); стоп-факторы по проверкам (С2–С5) | `Check.status` ∈ `ok`/`warning`/`failed`/`unavailable`; последний по `period` снимок |
+| enrichment | `Company.inn` | параллельно, с таймаутами: `Check` по `egrul`, `transparent_business`, `bki`, `bank_account`; счёт даёт `FinancialSnapshot` (`source = simulator`); стоп-факторы по проверкам (С2–С6) | `Check.status` ∈ `ok`/`warning`/`failed`/`unavailable`; последний по `period` снимок |
 | scoring | `FinancialSnapshot`: `cfads`, `debt_service`, `debt`, `ebitda`, `cash`, `revenue_trend`, `counterparty_concentration`; `Check(bki).data`, `Check(transparent_business).data`, `Check.status`; `Company.registered_at`, `Application.submitted_at` | балльная карта (раздел 4) | `Score`: `grade`, `total`, `factors[name, value, points, message]`, `model_version` |
 | decision | `Score.grade`, `Score.factors`; `Product`: `rate_min`, `rate_max`, `amount_min`, `amount_max`, `term_*_months`, `requirements`, `collateral_required`, `is_revolving`, `params`; `Application`; `FinancialSnapshot`: `cleaned_credit_turnover`, `cfads`, `debt_service`, `receivables`, `inventory`, `payables`; `Check.status` | правила решения (раздел 5), суммы — `credit_math` | аргументы `record_auto_decision`: `outcome`, `grade`, `policy_version`, `reasons`, `improvements`, `offer {product, amount, term_months, rate}`, `info_request {message, fields, document_kinds}`, `source_unavailable` |
 
@@ -29,8 +29,12 @@
 | `transparent_business` | `mass_address` | bool | массовый адрес регистрации |
 | `transparent_business` | `mass_director` | bool | массовый руководитель |
 | `transparent_business` | `tax_arrears` | Money | налоговая задолженность, ₽ (0 — нет) |
+| `transparent_business` | `accounts_suspended` | bool | ФНС приостановила операции по счетам (стоп-фактор С6; SRC5) |
+| `egrul` | `unreliable_address` | bool | отметка о недостоверности адреса (→ П3; SRC5) |
+| `egrul` | `unreliable_director` | bool | отметка о недостоверности сведений о руководителе, только ООО (→ П3; SRC5) |
+| `egrul` | `pending_exclusion` | bool | ФНС готовит исключение из ЕГРЮЛ (→ П3; SRC5) |
 
-`egrul` со `status = failed` — компания не найдена в реестре.
+`egrul` со `status = not_found` — компания не найдена в реестре (до SRC2 — `failed`, такие записи читаются так же). Остальные ключи симуляторов (КПП, численность, налоговый режим, категория МСП, уплаченные налоги) модель не читает — они для интерфейса ([data-spec.md](data-spec.md), раздел 5.1).
 
 ## 2. Стоп-факторы
 Сразу `declined`, `grade = null`, скоринг не запускается. Проверяются раньше всего остального, в т. ч. раньше полноты и недоступности источников: если компания в ликвидации, уточнения и ручное рассмотрение ничего не изменят.
@@ -38,10 +42,11 @@
 | # | Признак | Источник | Шаг | Порог (параметр) | `improvements` |
 |---|---|---|---|---|---|
 | С1 | компания ликвидируется или ликвидирована (персона 6) | `Company.registry_status`, затем `Check(egrul).data.registry_status` | validation, повторно enrichment | `registry_status` ∈ `liquidating`, `liquidated` | — (кредит компании в ликвидации невозможен) |
-| С2 | компания не найдена в ЕГРЮЛ/ЕГРИП | `Check(egrul).status = failed` | enrichment | — | «Проверьте ИНН компании» |
+| С2 | компания не найдена в ЕГРЮЛ/ЕГРИП | `Check(egrul).status = not_found` (прежние записи — `failed`) | enrichment | — | «Проверьте ИНН компании» |
 | С3 | EBITDA ≤ 0 | `FinancialSnapshot.ebitda` (не `null`) | enrichment | `ebitda ≤ 0` — `debt_to_ebitda` возвращает None с пометкой «стоп-фактор» | «Подайте заявку, когда бизнес выйдет на операционную прибыль» |
 | С4 | текущая просрочка в БКИ больше 30 дней | `Check(bki).data.current_overdue_days` | enrichment | `stop_current_overdue_days` = 30 | «Погасите текущую просрочку и подайте заявку снова» |
 | С5 | бизнесу меньше 6 мес | `Company.registered_at` → `Application.submitted_at` | validation | `stop_min_business_age_months` = 6 (минимум `min_business_age_months` по каталогу) | «Вернитесь, когда бизнесу будет 6 месяцев: с даты регистрации прошло N мес». Пустая `registered_at` — С5 не проверить: не отказ, а `manual_review` (П3) |
+| С6 | ФНС приостановила операции по счетам (НК РФ, ст. 76) — выдать кредит на такой счёт нельзя | `Check(transparent_business).data.accounts_suspended` | enrichment | `true`; при `restricted` / `unavailable` не читается — «нет данных» не отказ | «Снимите приостановку операций по счетам в ФНС и подайте заявку снова» |
 
 `ebitda = null` (у ИП нет отчётности) — не стоп-фактор: метрика просто не считается (раздел 4). Требования конкретного продукта (возраст 12 мес у КПО, правовая форма, залог) — не стоп-факторы, а фильтр продукта (раздел 5, П6).
 
@@ -101,9 +106,9 @@
 
 | # | Условие | `outcome` | Статус (переход) | Что ещё |
 |---|---|---|---|---|
-| П1 | любой стоп-фактор С1–С5 | `declined` | `declined` (3) | `grade = null`; `improvements` из таблицы раздела 2 |
+| П1 | любой стоп-фактор С1–С6 | `declined` | `declined` (3) | `grade = null`; `improvements` из таблицы раздела 2 |
 | П2 | есть пробелы полноты (раздел 3) | `info_requested` | `info_requested` (4a) | `info_request {message, fields, document_kinds}`, `grade = null` |
-| П3 | хотя бы один `Check.status = unavailable`; **или** пустая `Company.registered_at` (возраст бизнеса и С5 не проверить) | `manual_review` | `manual_review` (5) | при **любом** грейде, включая E: на неполных данных не отказываем (сценарий 7); `source_unavailable = true` — только при `unavailable`-источнике |
+| П3 | хотя бы один `Check.status = unavailable`; **или** пустая `Company.registered_at` (возраст бизнеса и С5 не проверить); **или** отметка ЕГРЮЛ: недостоверность адреса или руководителя, предстоящее исключение (SRC5, reasons `egrul_unreliable_address`, `egrul_unreliable_director`, `egrul_pending_exclusion`) | `manual_review` | `manual_review` (5) | при **любом** грейде, включая E: на неполных данных не отказываем (сценарий 7); `source_unavailable = true` — только при `unavailable`-источнике |
 | П4 | грейд E | `declined` | `declined` (6) | `improvements` — все факторы с `passed = false`, по убыванию потерянных баллов |
 | П5 | грейд C или D; **или** пропущены ≥ 2 ключевые метрики (раздел 4); **или** невозобновляемый продукт и `debt_to_ebitda` > `max_debt_to_ebitda` | `manual_review` | `manual_review` (5) | в `reasons` — допустимая сумма по П7, ставка по грейду: заготовка решения для сотрудника |
 | П6 | продукт заявки не проходит своё требование: `requirements.legal_forms`, `requirements.min_business_age_months`, или `collateral_required` при пустом `collateral_description` | `alternative_product`, если подходит продукт из `alternatives`; иначе `declined` | `offer` (4) / `declined` (6) | альтернатива должна пройти свои требования и П7 с суммой ≥ её `amount_min`; срок — `term_months`, прижатый к её диапазону; сумма — min(запрошенная, допустимая для альтернативы) |
