@@ -17,8 +17,10 @@ from rest_framework.exceptions import NotFound, ValidationError
 
 from apps.applications.access import SYSTEM, Actor, current_membership
 from apps.applications.models import (
+    BKI_CONSENT_VERSION,
     Application,
     ApplicationStatus,
+    BkiConsent,
     DecidedBy,
     Decision,
     DecisionOutcome,
@@ -98,9 +100,30 @@ def update_draft(application: Application, actor: Actor, data: dict[str, Any]) -
         return app
 
 
-def submit(application: Application, actor: Actor) -> Application:
+BKI_CONSENT_MESSAGE = "Согласие на запрос в БКИ"
+
+
+def submit(application: Application, actor: Actor, *, consent_version: str) -> Application:
+    """Consent to the credit bureau request goes with the submit, in the same transaction:
+    an application in the bank always has it (218-FZ)."""
+    if consent_version != BKI_CONSENT_VERSION:
+        raise ValidationError(
+            {"bki_consent": ["Текст согласия обновился. Обновите страницу и подтвердите снова."]}
+        )
     with transaction.atomic():
         app = lock_application(application.pk)
+        check_action(app, "submit", actor)
+        BkiConsent.objects.update_or_create(
+            application=app,
+            defaults={"user": actor.user, "text_version": consent_version},
+        )
+        record_event(
+            app,
+            actor,
+            EventKind.CONSENT_GIVEN,
+            BKI_CONSENT_MESSAGE,
+            payload={"text_version": consent_version},
+        )
         apply_transition(
             app,
             "submit",

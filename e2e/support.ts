@@ -111,6 +111,8 @@ export async function acceptAndSign(page: Page, id: number) {
 /** The client sends the draft from the wizard's last step, as a person does. */
 export async function submitFromWizard(page: Page, id: number) {
   await page.goto(`/app/applications/${id}/edit/review`);
+  // SRC1: consent to the credit bureau request goes with the submit
+  await page.getByRole("checkbox", { name: /Согласен на запрос кредитной истории/ }).check();
   await page.getByRole("button", { name: "Отправить в банк" }).click();
   await expect(page).toHaveURL(new RegExp(`/app/applications/${id}$`));
 }

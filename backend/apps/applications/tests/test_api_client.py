@@ -7,8 +7,10 @@ import pytest
 
 from apps.applications import services
 from apps.applications.models import (
+    BKI_CONSENT_VERSION,
     ApplicationEvent,
     ApplicationStatus,
+    BkiConsent,
     DecisionOutcome,
     InfoRequest,
     Signature,
@@ -20,9 +22,13 @@ from apps.notifications.models import Notification
 S = ApplicationStatus
 
 
-def submit(client, pk: int, key: str | None = None):
+CONSENT = {"bki_consent": True, "consent_version": BKI_CONSENT_VERSION}
+
+
+def submit(client, pk: int, key: str | None = None, body: dict | None = None):
     headers = {"HTTP_IDEMPOTENCY_KEY": key or str(uuid.uuid4())}
-    return client.post(f"/api/applications/{pk}/submit", **headers)
+    data = CONSENT if body is None else body
+    return client.post(f"/api/applications/{pk}/submit", data, format="json", **headers)
 
 
 def offer_terms(product, amount="100000.00", term=12, rate="0.20"):
@@ -142,11 +148,62 @@ def test_submit_is_idempotent_by_key(world):
     assert first.json() == retry.json()
     assert first.json()["status"] == "submitted"
     assert_matches_contract(first, method="post", path=f"/api/applications/{application.pk}/submit")
-    assert ApplicationEvent.objects.filter(application=application).count() == 1
+    # consent + status change, once: the retry adds nothing
+    assert ApplicationEvent.objects.filter(application=application).count() == 2
 
     another_key = submit(world["as_signatory"], application.pk)
     assert another_key.status_code == 409
     assert another_key.json()["error"]["code"] == "invalid_transition"
+
+
+# ───────────────────────── SRC1: consent to the credit bureau request ─────────────────────────
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {},
+        {"bki_consent": False, "consent_version": BKI_CONSENT_VERSION},
+        {"bki_consent": True},
+        {"bki_consent": True, "consent_version": "bki-2020-01"},  # an outdated text
+    ],
+)
+def test_submit_without_a_valid_consent_is_400(world, body):
+    application = make_application(world["company"])
+    response = submit(world["as_signatory"], application.pk, body=body)
+    assert response.status_code == 400
+    error = response.json()["error"]
+    assert error["code"] == "invalid"
+    assert set(error["details"]) & {"bki_consent", "consent_version"}
+    application.refresh_from_db()
+    assert application.status == S.DRAFT
+    assert not BkiConsent.objects.filter(application=application).exists()
+    assert not ApplicationEvent.objects.filter(application=application).exists()
+
+
+def test_consent_is_stored_and_written_to_the_journal(world):
+    application = make_application(world["company"])
+    response = submit(world["as_signatory"], application.pk)
+    assert response.status_code == 200
+
+    consent = BkiConsent.objects.get(application=application)
+    assert consent.user == world["signatory"]
+    assert consent.text_version == BKI_CONSENT_VERSION
+    event = ApplicationEvent.objects.get(application=application, kind="consent_given")
+    assert event.message == "Согласие на запрос в БКИ"
+    assert event.is_internal is False  # the client sees it in the history, the bank too
+    assert event.actor == world["signatory"]
+
+    events = world["as_signatory"].get(f"/api/applications/{application.pk}/events")
+    assert [e["kind"] for e in events.json()] == ["consent_given", "status_changed"]
+    assert_matches_contract(events, method="get", path=f"/api/applications/{application.pk}/events")
+
+
+def test_preparer_cannot_give_the_consent(world):
+    application = make_application(world["company"])
+    response = submit(world["as_preparer"], application.pk)
+    assert response.status_code == 403
+    assert not BkiConsent.objects.filter(application=application).exists()
 
 
 def test_preparer_cannot_submit(world):

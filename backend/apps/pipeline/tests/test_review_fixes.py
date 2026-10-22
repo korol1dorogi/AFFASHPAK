@@ -7,7 +7,7 @@ from decimal import Decimal
 import pytest
 from rest_framework.test import APIClient
 
-from apps.applications.models import Application, ApplicationStatus
+from apps.applications.models import BKI_CONSENT_VERSION, Application, ApplicationStatus
 from apps.business import registry
 from apps.business.models import Company
 from apps.core.factories import make_user
@@ -188,7 +188,10 @@ def test_submit_answers_200_even_if_the_pipeline_breaks(
     app_id = client.post("/api/applications", body, format="json").json()["id"]
     with django_capture_on_commit_callbacks(execute=True):  # the pipeline runs on commit
         response = client.post(
-            f"/api/applications/{app_id}/submit", HTTP_IDEMPOTENCY_KEY=str(uuid.uuid4())
+            f"/api/applications/{app_id}/submit",
+            {"bki_consent": True, "consent_version": BKI_CONSENT_VERSION},
+            format="json",
+            HTTP_IDEMPOTENCY_KEY=str(uuid.uuid4()),
         )
     assert response.status_code == 200
     assert client.get(f"/api/applications/{app_id}").json()["status"] == "manual_review"

@@ -467,8 +467,17 @@ paths:
       tags: [applications]
       operationId: submitApplication
       summary: Отправить (draft → submitted). Идемпотентно по Idempotency-Key
+      description: >-
+        Вместе с отправкой подписант даёт согласие на запрос в бюро кредитных историй (218-ФЗ):
+        без `bki_consent: true` и актуальной `consent_version` — 400, заявка остаётся черновиком.
+        Согласие сохраняется и пишется в журнал событием `consent_given`.
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SubmitRequest" }
       responses:
         "200":
           description: Отправлена (или повтор с тем же ключом — тот же ответ)
@@ -1836,6 +1845,7 @@ components:
         - comment
         - signed
         - issued
+        - consent_given
 
     ApplicationEvent:
       type: object
@@ -1913,6 +1923,21 @@ components:
         created_at: { type: string, format: date-time }
         answered_at:
           oneOf: [{ type: string, format: date-time }, { type: "null" }]
+
+    SubmitRequest:
+      type: object
+      required: [bki_consent, consent_version]
+      additionalProperties: false
+      properties:
+        bki_consent:
+          type: boolean
+          const: true
+          description: Галочка «Согласен на запрос в бюро кредитных историй» на шаге «Проверка и отправка»
+        consent_version:
+          type: string
+          maxLength: 32
+          example: bki-2026-10
+          description: Версия текста согласия, который видел клиент (frontend/src/texts). Устаревшая — 400
 
     InfoRequestResponse:
       type: object

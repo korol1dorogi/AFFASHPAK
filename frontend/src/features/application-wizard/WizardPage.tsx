@@ -32,7 +32,7 @@ import { DocumentList, DocumentUpload, RequiredDocuments } from "@/features/appl
 import { applyFieldErrors, errorMessage, isConflict } from "@/lib/errors";
 import { formatDateTime } from "@/lib/format";
 import { useIdempotencyKey } from "@/lib/idempotency";
-import { ACTION, DOCUMENT_KIND, NEED } from "@/texts";
+import { ACTION, BKI_CONSENT, DOCUMENT_KIND, NEED } from "@/texts";
 
 const AUTOSAVE_MS = 800;
 const ALL_KINDS = Object.keys(DOCUMENT_KIND) as Schemas["DocumentKind"][];
@@ -219,6 +219,8 @@ function ReviewStep({ application }: { application: ApplicationDetail }) {
     (kind) => !documents.data?.some((document) => document.kind === kind),
   );
   const canSubmit = application.available_actions.includes("submit");
+  const [consent, setConsent] = useState(false);
+  const [consentMissing, setConsentMissing] = useState(false);
 
   return (
     <Card>
@@ -256,22 +258,52 @@ function ReviewStep({ application }: { application: ApplicationDetail }) {
         </p>
       ) : null}
       {canSubmit ? (
-        <Button
-          size="lg"
-          className="self-start"
-          loading={submit.isPending}
-          onClick={() =>
-            submit.mutate(idempotency.current(), {
-              onSuccess: () => {
-                idempotency.renew();
-                toast.success("Заявка отправлена в банк");
-                navigate(routes.application(application.id));
-              },
-            })
-          }
-        >
-          {ACTION.submit}
-        </Button>
+        <>
+          <div className="flex flex-col gap-2 rounded-md border border-line p-3">
+            <label className="flex cursor-pointer items-start gap-3">
+              <input
+                type="checkbox"
+                checked={consent}
+                onChange={(event) => {
+                  setConsent(event.target.checked);
+                  if (event.target.checked) setConsentMissing(false);
+                }}
+                aria-describedby="bki-consent-text"
+                aria-invalid={consentMissing}
+                className="mt-1 size-4 shrink-0"
+              />
+              <span className="font-semibold">{BKI_CONSENT.label}</span>
+            </label>
+            <p id="bki-consent-text" className="m-0 pl-7 text-sm text-ink-muted">
+              {BKI_CONSENT.text}
+            </p>
+            {consentMissing ? (
+              <p role="alert" className="m-0 pl-7 text-sm text-status-danger">
+                {BKI_CONSENT.required}
+              </p>
+            ) : null}
+          </div>
+          <Button
+            size="lg"
+            className="self-start"
+            loading={submit.isPending}
+            onClick={() => {
+              if (!consent) {
+                setConsentMissing(true);
+                return;
+              }
+              submit.mutate(idempotency.current(), {
+                onSuccess: () => {
+                  idempotency.renew();
+                  toast.success("Заявка отправлена в банк");
+                  navigate(routes.application(application.id));
+                },
+              });
+            }}
+          >
+            {ACTION.submit}
+          </Button>
+        </>
       ) : (
         <p className="m-0 rounded-md bg-sunken p-3">
           Отправить заявку может подписант{signatory ? `: ${signatory.user.full_name}` : ""}.

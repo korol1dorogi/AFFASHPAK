@@ -347,7 +347,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Отправить (draft → submitted). Идемпотентно по Idempotency-Key */
+        /**
+         * Отправить (draft → submitted). Идемпотентно по Idempotency-Key
+         * @description Вместе с отправкой подписант даёт согласие на запрос в бюро кредитных историй (218-ФЗ): без `bki_consent: true` и актуальной `consent_version` — 400, заявка остаётся черновиком. Согласие сохраняется и пишется в журнал событием `consent_given`.
+         */
         post: operations["submitApplication"];
         delete?: never;
         options?: never;
@@ -1286,7 +1289,7 @@ export interface components {
         /** @enum {string} */
         ActorKind: "client" | "bank" | "system";
         /** @enum {string} */
-        EventKind: "status_changed" | "document_uploaded" | "info_requested" | "info_responded" | "assigned" | "check_completed" | "score_calculated" | "decision" | "comment" | "signed" | "issued";
+        EventKind: "status_changed" | "document_uploaded" | "info_requested" | "info_responded" | "assigned" | "check_completed" | "score_calculated" | "decision" | "comment" | "signed" | "issued" | "consent_given";
         ApplicationEvent: {
             /** @example 1 */
             id: number;
@@ -1358,6 +1361,18 @@ export interface components {
             /** Format: date-time */
             created_at: string;
             answered_at: string | null;
+        };
+        SubmitRequest: {
+            /**
+             * @description Галочка «Согласен на запрос в бюро кредитных историй» на шаге «Проверка и отправка»
+             * @constant
+             */
+            bki_consent: true;
+            /**
+             * @description Версия текста согласия, который видел клиент (frontend/src/texts). Устаревшая — 400
+             * @example bki-2026-10
+             */
+            consent_version: string;
         };
         InfoRequestResponse: {
             message: string;
@@ -2394,7 +2409,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubmitRequest"];
+            };
+        };
         responses: {
             /** @description Отправлена (или повтор с тем же ключом — тот же ответ) */
             200: {

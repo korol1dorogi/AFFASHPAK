@@ -428,6 +428,50 @@
       ]
     },
     {
+      "name": "Submit without the consent to the credit bureau request → 400 (SRC1)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('no consent, no submit', function () {",
+              "    pm.response.to.have.status(400);",
+              "    pm.expect(pm.response.json().error.details).to.have.property('bki_consent');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "X-CSRFToken",
+            "value": "{{csrf}}"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "{{$guid}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"bki_consent\": false, \"consent_version\": \"bki-2026-10\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{baseUrl}}/api/applications/{{applicationId}}/submit"
+      }
+    },
+    {
       "name": "Submit",
       "event": [
         {
@@ -464,9 +508,22 @@
           {
             "key": "Idempotency-Key",
             "value": "{{idempotencyKey}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
           }
         ],
-        "url": "{{baseUrl}}/api/applications/{{applicationId}}/submit"
+        "url": "{{baseUrl}}/api/applications/{{applicationId}}/submit",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"bki_consent\": true, \"consent_version\": \"bki-2026-10\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
       }
     },
     {
@@ -481,9 +538,22 @@
           {
             "key": "Idempotency-Key",
             "value": "{{idempotencyKey}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
           }
         ],
-        "url": "{{baseUrl}}/api/applications/{{applicationId}}/submit"
+        "url": "{{baseUrl}}/api/applications/{{applicationId}}/submit",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"bki_consent\": true, \"consent_version\": \"bki-2026-10\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
       },
       "event": [
         {
@@ -832,9 +902,22 @@
               {
                 "key": "Idempotency-Key",
                 "value": "{{preparerKey}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
               }
             ],
-            "url": "{{baseUrl}}/api/applications/{{preparerApplicationId}}/submit"
+            "url": "{{baseUrl}}/api/applications/{{preparerApplicationId}}/submit",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"bki_consent\": true, \"consent_version\": \"bki-2026-10\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
           }
         },
         {
@@ -1397,9 +1480,22 @@
               {
                 "key": "Idempotency-Key",
                 "value": "{{reviewKey}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
               }
             ],
-            "url": "{{baseUrl}}/api/applications/{{reviewApplicationId}}/submit"
+            "url": "{{baseUrl}}/api/applications/{{reviewApplicationId}}/submit",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"bki_consent\": true, \"consent_version\": \"bki-2026-10\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
           }
         },
         {

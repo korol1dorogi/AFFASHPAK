@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { api, type Schemas } from "@/api/client";
 import { unwrap } from "@/lib/errors";
+import { BKI_CONSENT } from "@/texts";
 
 export type ApplicationDetail = Schemas["ApplicationDetail"];
 type Status = Schemas["ApplicationStatus"];
@@ -102,6 +103,8 @@ export function useSubmit(id: number) {
     unwrap(
       await api.POST("/api/applications/{id}/submit", {
         params: { path: { id }, header: { "Idempotency-Key": key } },
+        // The button is only enabled once the signatory ticked the consent (SRC1).
+        body: { bki_consent: true, consent_version: BKI_CONSENT.version },
       }),
     ),
   );

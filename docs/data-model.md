@@ -72,8 +72,12 @@ erDiagram
 
 **IdempotencyKey** — `key` (UUID), `user`, `endpoint`, `response_status`, `response_body`, `created_at`; уникальная пара (user, key). Повтор `submit` с тем же ключом отдаёт сохранённый ответ.
 
+**BkiConsent** — согласие на запрос кредитной истории в БКИ (218-ФЗ, ст. 6), SRC1
+- `application` (1:1), `user` → User (подписант, который отправил заявку), `text_version` (версия текста согласия, `bki-2026-10`), `given_at`
+- Даётся галочкой на шаге «Проверка и отправка» вместе с `submit`. Нет согласия — конвейер не запрашивает БКИ: проверка `bki` получает `unavailable` с `data.consent_missing = true`, заявка уходит сотруднику, а не в отказ.
+
 **ApplicationEvent** — журнал аудита (append-only)
-- `application`, `kind`: `status_changed` | `document_uploaded` | `info_requested` | `info_responded` | `assigned` | `check_completed` | `score_calculated` | `decision` | `comment` | `signed` | `issued`
+- `application`, `kind`: `status_changed` | `document_uploaded` | `info_requested` | `info_responded` | `assigned` | `check_completed` | `score_calculated` | `decision` | `comment` | `signed` | `issued` | `consent_given`
 - `from_status`, `to_status` | null; `actor_kind`: `client` | `bank` | `system`; `actor` → User | null
 - `message`; `payload` (JSON); `is_internal` (true — клиенту не показываем); `created_at`
 

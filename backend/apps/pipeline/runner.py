@@ -14,6 +14,7 @@ from apps.applications.access import SYSTEM
 from apps.applications.models import (
     Application,
     ApplicationStatus,
+    BkiConsent,
     Check,
     DecisionOutcome,
     EventKind,
@@ -35,6 +36,7 @@ CHECK_TEXT = {
     "failed": "компания не найдена",
     "unavailable": "источник не ответил — проверит сотрудник",
 }
+NO_CONSENT_TEXT = "не запрашивали — нет согласия клиента"
 PIPELINE_FAILED = (
     "Автоматическая проверка не завершилась — заявку проверит сотрудник банка. Это не отказ"
 )
@@ -101,7 +103,11 @@ def _run(application: Application) -> None:
         _decline(application.pk, early_stops)
         return
 
-    answers = fetch_all(company.inn, has_account=snapshot is not None)
+    answers = fetch_all(
+        company.inn,
+        has_account=snapshot is not None,
+        bki_consent=BkiConsent.objects.filter(application=application).exists(),
+    )
     _store_checks(application, answers)
     checks = {
         source: {"status": answer["status"], "data": answer["data"]}
@@ -163,20 +169,23 @@ def _store_checks(application: Application, answers: dict[str, dict]) -> None:
                 application=application,
                 source=source,
                 status=answer["status"],
-                summary=_summary(source, answer["status"]),
+                summary=_summary(source, answer),
                 data=data,
             )
             record_event(
                 application,
                 SYSTEM,
                 EventKind.CHECK_COMPLETED,
-                _summary(source, answer["status"]),
+                _summary(source, answer),
                 payload={"source": source, "status": answer["status"]},
             )
 
 
-def _summary(source: str, status: str) -> str:
+def _summary(source: str, answer: dict) -> str:
     """«БКИ: данные получены» — what the client reads in the history, never a source code."""
+    if answer["data"].get("consent_missing"):
+        return f"{SOURCE_NAME[source]}: {NO_CONSENT_TEXT}"
+    status = answer["status"]
     return f"{SOURCE_NAME[source]}: {CHECK_TEXT.get(status, status)}"
 
 
