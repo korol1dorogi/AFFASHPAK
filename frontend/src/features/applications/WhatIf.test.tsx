@@ -209,6 +209,24 @@ describe("WhatIf — the calculation comes from the backend", () => {
     expect(sent.at(-1)).toEqual({ amount: "2009314.00", term_months: 18 });
   });
 
+  it("the answer for the old terms is marked busy until the new one arrives", async () => {
+    stubApi(detail());
+    open();
+    const block = await region();
+    const results = (await within(block).findByText("Допустимо на 12 мес")).closest(
+      "[aria-live]",
+    ) as HTMLElement;
+    expect(results).not.toHaveAttribute("aria-busy");
+
+    fireEvent.change(within(block).getByRole("slider", { name: "Срок" }), {
+      target: { value: "18" },
+    });
+    expect(results).toHaveAttribute("aria-busy", "true"); // the slider says 18, the answer 12
+
+    await within(block).findByText("Допустимо на 18 мес");
+    await waitFor(() => expect(results).not.toHaveAttribute("aria-busy"));
+  });
+
   it("waits for the slider to stop: one request for a quick run of changes", async () => {
     const sent = stubApi(detail());
     open();

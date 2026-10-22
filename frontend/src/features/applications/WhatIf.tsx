@@ -10,6 +10,7 @@ import { Card, CardDescription, CardTitle } from "@/components/ui/card";
 import { type ApplicationDetail, useWhatIf } from "@/features/applications/api";
 import { errorMessage } from "@/lib/errors";
 import { formatDecimal, formatMoney } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import { WHAT_IF as T } from "@/texts";
 
 type Offer = Schemas["Offer"];
@@ -60,6 +61,10 @@ export function WhatIf({ application, offer }: { application: ApplicationDetail;
     enabled: settledAmount !== "",
   });
   const result = whatIf.data;
+  // The answer on screen is for other terms while the slider settles or the request runs.
+  const stale =
+    whatIf.isFetching ||
+    (result !== undefined && (result.amount !== amount || result.term_months !== term));
 
   const low = wholeRubles(product.amount_min);
   // Up to what the client asked for (capped by the product), never below the offer itself.
@@ -116,8 +121,11 @@ export function WhatIf({ application, offer }: { application: ApplicationDetail;
 
       <div
         aria-live="polite"
-        aria-busy={whatIf.isFetching || undefined}
-        className="flex flex-col gap-4 border-t border-line pt-4"
+        aria-busy={stale || undefined}
+        className={cn(
+          "flex flex-col gap-4 border-t border-line pt-4 transition-opacity",
+          stale && "opacity-60",
+        )}
       >
         {whatIf.isError ? (
           <p role="alert" className="m-0 text-sm text-status-danger">
