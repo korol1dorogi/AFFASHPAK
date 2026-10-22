@@ -15,7 +15,7 @@ from apps.credit_math import (
     working_capital_need_metric,
 )
 from apps.products.models import Product
-from apps.scoring import ScoringInput, business_age_months, get_scorecard, score
+from apps.scoring import ScoringInput, business_age_months, get_scorecard, review_reasons, score
 from apps.scoring.inputs import SOURCES
 from apps.scoring.policy import CURRENT_POLICY_VERSION, get_policy
 from apps.scoring.scorecard import ScoreResult
@@ -55,6 +55,10 @@ def decide(application: Application, inp: ScoringInput) -> Decision:
     source_unavailable = any(inp.check(source).is_unavailable for source in no_data)
     for source in no_data:
         reasons.append(_row(f"source_{source}", None, None, False, _no_data_text(inp, source)))
+    # ЕГРЮЛ marks (SRC5): unreliable address or director, pending exclusion → an officer.
+    marks = review_reasons(inp)
+    for mark in marks:
+        reasons.append(_row(mark.metric, mark.value, mark.threshold, mark.passed, mark.message))
 
     def pack(
         outcome: str,
@@ -73,7 +77,7 @@ def decide(application: Application, inp: ScoringInput) -> Decision:
             policy_version=policy.policy_version or CURRENT_POLICY_VERSION,
         )
 
-    if no_data or inp.registered_at is None:
+    if no_data or marks or inp.registered_at is None:
         return pack(DecisionOutcome.MANUAL_REVIEW)
     if result.grade == "E":
         texts: list[str] = []
