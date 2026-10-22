@@ -58,3 +58,28 @@ class RecommendationResultSerializer(serializers.Serializer):
     offers = RecommendedOfferSerializer(many=True)
     stop_factors = ReasonSerializer(many=True)
     is_preliminary = serializers.BooleanField()
+
+
+class WhatIfRequestSerializer(serializers.Serializer):
+    """WhatIfRequest: the term range of the product is checked by the service (400 term_months)."""
+
+    amount = serializers.DecimalField(**MONEY)
+    term_months = serializers.IntegerField(min_value=1, max_value=360)
+
+    def validate(self, attrs: dict) -> dict:
+        unknown = sorted(set(self.initial_data) - set(self.fields))
+        if unknown:  # contract: additionalProperties: false
+            raise serializers.ValidationError({name: [UNKNOWN_FIELD] for name in unknown})
+        return attrs
+
+
+class WhatIfResultSerializer(serializers.Serializer):
+    amount = DecimalStringField()
+    term_months = serializers.IntegerField()
+    rate = DecimalStringField()
+    monthly_payment = DecimalStringField()
+    max_amount = DecimalStringField(allow_null=True)
+    dscr_after = DecimalStringField(allow_null=True)
+    min_dscr = DecimalStringField()
+    fits = serializers.BooleanField()
+    reasons = ReasonSerializer(many=True)
