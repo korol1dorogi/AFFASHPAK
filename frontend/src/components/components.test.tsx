@@ -82,6 +82,31 @@ describe("ReasonList", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("overdraft_limit")).toBeInTheDocument();
   });
+
+  it("a failed yes/no check is a failure, not «нет данных» (С1, С2, С6, П6)", () => {
+    const stop: Schemas["Reason"] = {
+      metric: "registry_status",
+      value: null,
+      threshold: null,
+      passed: false,
+      message: "Компания в процессе ликвидации",
+    };
+    render(<ReasonList reasons={[stop]} />);
+    expect(screen.getByRole("img", { name: "не пройдено" })).toBeInTheDocument();
+    expect(screen.queryByRole("img", { name: "нет данных" })).toBeNull();
+  });
+
+  it("shows shares to the tenth of a percent, like rates", () => {
+    const share: Schemas["Reason"] = {
+      metric: "counterparty_concentration",
+      value: "0.235",
+      threshold: "0.6",
+      passed: true,
+      message: "Один покупатель — меньше половины выручки",
+    };
+    render(<ReasonList reasons={[share]} />);
+    expect(screen.getByText(/^23,5\s%$/)).toBeInTheDocument();
+  });
 });
 
 describe("OfferCard", () => {

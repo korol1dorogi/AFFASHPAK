@@ -116,8 +116,18 @@ def available_actions(application: Application, actor: Actor) -> list[str]:
     for name in UI_ACTIONS:
         rule = TRANSITIONS.get(name) or NON_TRANSITION_ACTIONS[name]
         if application.status in rule.sources and allowed(rule.who, actor):
+            if name == "accept_offer" and _offer_expired(application):
+                continue  # an expired offer is shown, but can no longer be accepted
             result.append(name)
     return result
+
+
+def _offer_expired(application: Application) -> bool:
+    from apps.applications.models import OfferStatus
+
+    return application.offers.filter(
+        status=OfferStatus.ACTIVE, expires_at__lte=timezone.now()
+    ).exists()
 
 
 def lock_application(application_id: int) -> Application:

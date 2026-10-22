@@ -446,7 +446,7 @@ export interface paths {
         put?: never;
         /**
          * Отправить (draft → submitted). Идемпотентно по Idempotency-Key
-         * @description Вместе с отправкой подписант даёт согласие на запрос в бюро кредитных историй (218-ФЗ): без `bki_consent: true` и актуальной `consent_version` — 400, заявка остаётся черновиком. Согласие сохраняется и пишется в журнал событием `consent_given`.
+         * @description Вместе с отправкой подписант даёт согласие на запрос в бюро кредитных историй (218-ФЗ): без `bki_consent: true` и актуальной `consent_version` — 400, заявка остаётся черновиком. Согласие сохраняется и пишется в журнал событием `consent_given`. Поля, без которых банк не начнёт проверку (продукт, цель от 10 символов, сумма и срок в границах продукта, сумма отгрузки у факторинга), проверяются здесь же — 400 с ошибкой по полю: после отправки их уже не изменить. Документы можно догрузить и после отправки.
          */
         post: operations["submitApplication"];
         delete?: never;
@@ -523,7 +523,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Принять активный оффер или контроффер (offer → signing; signatory) */
+        /** Принять активный оффер или контроффер (offer → signing; signatory); истёкший оффер — 409 */
         post: operations["acceptOffer"];
         delete?: never;
         options?: never;
@@ -1547,6 +1547,12 @@ export interface components {
              * @example bki-2026-10
              */
             consent_version: string;
+            /**
+             * @description Версия черновика, который подписант видел на шаге «Проверка и отправка». Если черновик
+             *     успели изменить (бухгалтер в другой вкладке) — 409 version_conflict. Кабинет передаёт
+             *     всегда; без поля версия не проверяется
+             */
+            version?: components["schemas"]["Version"];
         };
         InfoRequestResponse: {
             message: string;

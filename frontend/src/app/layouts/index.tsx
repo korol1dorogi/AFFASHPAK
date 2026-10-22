@@ -162,6 +162,12 @@ export function ClientLayout() {
 }
 
 export function BankLayout() {
+  // /api/demo/* exists only on the stand (DEMO_MODE=1): no panel item where it answers 404.
+  const demo = useQuery({
+    queryKey: ["demo", "failures"],
+    queryFn: async () => unwrap(await api.GET("/api/demo/failures")),
+    retry: false,
+  });
   return (
     <Shell
       header={
@@ -180,7 +186,7 @@ export function BankLayout() {
             Очередь
           </NavItem>
           <NavItem to={routes.bankDashboard}>Дашборд</NavItem>
-          <NavItem to={routes.bankDemo}>Демо-панель</NavItem>
+          {demo.isSuccess ? <NavItem to={routes.bankDemo}>Демо-панель</NavItem> : null}
         </>
       }
     >

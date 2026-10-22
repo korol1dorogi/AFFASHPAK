@@ -78,7 +78,9 @@ def decide(application: Application, inp: ScoringInput) -> Decision:
         )
 
     if no_data or marks or inp.registered_at is None:
-        return pack(DecisionOutcome.MANUAL_REVIEW)
+        # The officer still gets the amount the data allows (decision-model.md §5, П3 and П5).
+        _cap, extra = _size(product, application, inp, result.grade, application.term_months)
+        return pack(DecisionOutcome.MANUAL_REVIEW, extra=extra)
     if result.grade == "E":
         texts: list[str] = []
         for factor in sorted(result.factors, key=lambda item: item.lost_points, reverse=True):
@@ -203,8 +205,9 @@ def _size(
     if product.kind == "factoring":
         return _factoring_size(product, application, requested)
     by_dscr = _dscr_cap(product, inp, rate, term)
-    if by_dscr is None:
-        return None, []
+    if by_dscr is None:  # None and a reason, never a silent gap (AGENTS.md)
+        text = "Не хватает данных о денежном потоке, чтобы посчитать сумму — посчитает сотрудник"
+        return None, [_row("max_loan_by_dscr", None, requested, False, text)]
     reasons = [_dscr_reason(by_dscr, requested, rate, term)]
     limit = min(by_dscr, product.amount_max)
     if product.kind == "working_capital_loan":
@@ -222,7 +225,8 @@ def _overdraft_size(
 ) -> tuple[Decimal | None, list[dict]]:
     turnover = inp.metric("cleaned_credit_turnover")
     if turnover is None:
-        return None, []
+        text = "Нет данных об оборотах по счёту, чтобы посчитать лимит — посчитает сотрудник"
+        return None, [_row("overdraft_limit", None, requested, False, text)]
     alpha = _decimal(product.params.get("alpha"), "0.3")
     limit = min(overdraft_limit(turnover, alpha), product.amount_max)
     passed = limit >= requested
@@ -239,7 +243,8 @@ def _factoring_size(
 ) -> tuple[Decimal | None, list[dict]]:
     invoice = application.invoice_amount
     if invoice is None:
-        return None, []
+        text = "Нет суммы отгрузки, чтобы посчитать аванс"
+        return None, [_row("factoring_advance", None, requested, False, text)]
     beta = _decimal(product.params.get("beta"), "0.9")
     limit = min(factoring_advance(invoice, beta), product.amount_max)
     passed = limit >= requested

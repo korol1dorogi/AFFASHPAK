@@ -62,6 +62,21 @@
 Тесты API в main на эти данные не опираются. Каждый тест строит свой мир: фикстура `world` в `backend/apps/applications/tests/conftest.py` и фабрики `apps/core/factories.py`. В этом мире пользователи `director` (signatory), `accountant` (preparer), `outsider` (signatory чужой компании) и `manager` (банк), продукты фабрики `overdraft_demo` и `working_capital_demo`, заявка по умолчанию на 100 000.00 ₽ и 12 мес. Поэтому числа персон в них не проверяются (см. «есть частично»).
 
 ## 3. Сценарии 1–7
+
+> **Сводка на 23.10 (аудит).** Статусы «заготовка», «план: L4», «план: S4» в таблицах ниже устарели: все сценарии 1–8 автоматизированы, `test.fixme` в e2e нет. Где проверяется каждый:
+>
+> | Сценарий | Конвейер (pytest) | e2e | Postman |
+> |---|---|---|---|
+> | 1 | `pipeline/tests/test_personas.py` | `journey.spec.ts` › scenario 1 | есть |
+> | 2 | `pipeline/tests/test_review_fixes.py` | › scenario 2 | — |
+> | 3 | `test_personas.py` | › scenario 3 | — |
+> | 4 | `test_review_fixes.py` | › scenario 4 | есть |
+> | 5 | `test_review_fixes.py` | › scenario 5 | — |
+> | 6 | `test_personas.py`, `pipeline/tests/test_audit_fixes.py` (стоп-фактор раньше полноты) | › scenario 6 | — |
+> | 7 | `test_personas.py`, `test_review_fixes.py`, `test_audit_fixes.py` (заготовка суммы при П3) | › scenario 7 (сбой включается через API) | — |
+> | 8 | `test_personas.py` | › scenario 8 | — |
+>
+> Реальные пробелы: исходы граничных случаев Г1–Г10 через `decide()` (сейчас проверены только баллы), сценарий 7 через экран демо-панели.
 Сценарий 8 («другой продукт», D15) — в разделе 5.
 
 Путь по переходам каждого сценария — [state-machine.md](state-machine.md#сценарии-плана--переходы). Номера переходов ниже взяты из таблицы «Переходы» того же файла.
@@ -399,7 +414,7 @@
 | `e_all_unavailable` | Все 4 источника `unavailable` | персона 1 | снимка нет: 53 → D; П3 `manual_review`, `source_unavailable = true` | план: D5, L4 |
 | `e_short_history` | Выписка 9 мес | персона 1, возраст 10 мес | тренд — последние 3 мес к предыдущим 3, пометка «сезонность не учтена»; возраст 1 балл | есть частично: `test_revenue_trend_short_history_has_note` (пометка); баллы — план: D5 |
 | `e_over_amount_max` | Сумма больше `amount_max` | персона 1, `requested_amount` 12 000 000.00 | пробелом полноты не считается; П7 → `counteroffer` на 900 000 ₽ | план: L4 |
-| `e_no_invoice` | Факторинг без `invoice_amount` | персона 2, `invoice_amount` null | П2 → `info_requested`, `fields = ["invoice_amount"]` | план: L4 (механику ответа и перезапуска уже проверяет `test_completeness_check_asks_and_reruns_the_pipeline`) |
+| `e_no_invoice` | Факторинг без `invoice_amount` | персона 2, `invoice_amount` null | с D25 — 400 при `submit` по полю `invoice_amount`, заявка остаётся черновиком (`apps/applications/tests/test_audit_fixes.py`); в конвейере — страховка П2 → `info_requested` | план: L4 (механику ответа и перезапуска уже проверяет `test_completeness_check_asks_and_reruns_the_pipeline`) |
 | `e_young_wcl` | КПО, бизнесу 8 мес | персона 3, возраст 8 мес | 83 → B; П6 → `alternative_product`, `overdraft_basic`, сумма = min(5 300 000, `overdraft_limit(cleaned_credit_turnover, 0.3)`) | план: D5, L4 |
 
 Проверки самого генератора (детерминизм, персоны до копейки, коридор грейдов, Gini, метка «демо», типы; data-spec, раздел 11) — план: S2, `backend/apps/demo_data/tests/`.

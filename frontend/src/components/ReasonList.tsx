@@ -1,7 +1,7 @@
 import { Check, Minus, X } from "lucide-react";
 
 import type { Schemas } from "@/api/client";
-import { formatDecimal, formatMoney } from "@/lib/format";
+import { formatDecimal, formatMoney, formatRate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { METRIC, type MetricText, metricTitle } from "@/texts";
 
@@ -13,7 +13,7 @@ function formatValue(value: string | null, format: MetricText["format"] | undefi
     case "money":
       return formatMoney(value);
     case "percent":
-      return `${formatDecimal(String(Math.round(Number(value) * 100)))} %`;
+      return formatRate(value);
     case "months":
       return `${formatDecimal(value)} мес`;
     case "days":
@@ -25,8 +25,22 @@ function formatValue(value: string | null, format: MetricText["format"] | undefi
   }
 }
 
+/**
+ * Yes/no checks: their value is always null and the verdict is in `passed` — a failed one is a
+ * failure (liquidation, not in the registry, suspended accounts), not «нет данных».
+ */
+const VERDICTS = new Set([
+  "registry_status",
+  "egrul_found",
+  "accounts_suspended",
+  "egrul_unreliable_address",
+  "egrul_unreliable_director",
+  "egrul_pending_exclusion",
+  "product_requirements",
+]);
+
 function mark(reason: Reason) {
-  if (reason.value === null && !reason.passed)
+  if (reason.value === null && !reason.passed && !VERDICTS.has(reason.metric))
     return { tone: "none", Icon: Minus, label: "нет данных" } as const;
   return reason.passed
     ? ({ tone: "pass", Icon: Check, label: "пройдено" } as const)

@@ -33,6 +33,7 @@ import { ACTION, DECISION_OUTCOME, DOCUMENT_KIND, NEED } from "@/texts";
 
 const FIELD_LABEL: Record<string, string> = {
   purpose: "цель",
+  product_code: "продукт",
   requested_amount: "сумма",
   term_months: "срок",
   invoice_amount: "сумма отгрузки",

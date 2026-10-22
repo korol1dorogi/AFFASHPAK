@@ -101,12 +101,13 @@ export function useUpdateApplication(id: number) {
 }
 
 export function useSubmit(id: number) {
-  return useDetailMutation(id, async (key: string) =>
+  return useDetailMutation(id, async ({ key, version }: { key: string; version: number }) =>
     unwrap(
       await api.POST("/api/applications/{id}/submit", {
         params: { path: { id }, header: { "Idempotency-Key": key } },
-        // The button is only enabled once the signatory ticked the consent (SRC1).
-        body: { bki_consent: true, consent_version: BKI_CONSENT.version },
+        // The button is only enabled once the signatory ticked the consent (SRC1); `version` is
+        // the draft they reviewed — a preparer's edit meanwhile answers 409.
+        body: { bki_consent: true, consent_version: BKI_CONSENT.version, version },
       }),
     ),
   );

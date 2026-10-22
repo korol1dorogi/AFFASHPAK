@@ -1,6 +1,7 @@
 import { z } from "zod";
+import type { Schemas } from "@/api/client";
 import { percentToFraction } from "@/lib/format";
-import { BANK_ACTIONS, BANK_CARD } from "@/texts";
+import { BANK_ACTIONS, BANK_CARD, DOCUMENT_KIND } from "@/texts";
 
 /** CommentCreate (docs/openapi.yaml): message 1–2000 characters. */
 export const commentSchema = z.object({
@@ -50,8 +51,16 @@ export function counterofferSchema(changeProduct: boolean) {
 export type CounterofferValues = z.input<ReturnType<typeof counterofferSchema>>;
 export type CounterofferOutput = z.output<ReturnType<typeof counterofferSchema>>;
 
-/** RequestInfoAction: what the client has to answer or upload. */
-export const requestInfoSchema = z.object({ message: text(2000).min(1, E.message) });
+const DOCUMENT_KINDS = Object.keys(DOCUMENT_KIND) as [
+  Schemas["DocumentKind"],
+  ...Schemas["DocumentKind"][],
+];
+
+/** RequestInfoAction: what the client has to answer, and which documents to upload (if any). */
+export const requestInfoSchema = z.object({
+  message: text(2000).min(1, E.message),
+  document_kinds: z.array(z.enum(DOCUMENT_KINDS)),
+});
 
 export type RequestInfoValues = z.infer<typeof requestInfoSchema>;
 

@@ -226,10 +226,15 @@ describe("ActionPanel — dialogs send what the contract asks", () => {
       within(dialog).getByLabelText("Что нужно от клиента"),
       "Загрузите бухгалтерскую отчётность за 2025 год",
     );
+    fireEvent.click(within(dialog).getByLabelText("Бухгалтерская отчётность"));
     fireEvent.click(confirm);
     await dialogClosed();
     expect(await sent(fetchMock, "request-info")).toEqual([
-      { version: 3, message: "Загрузите бухгалтерскую отчётность за 2025 год" },
+      {
+        version: 3,
+        message: "Загрузите бухгалтерскую отчётность за 2025 год",
+        document_kinds: ["financial_report"],
+      },
     ]);
   });
 
