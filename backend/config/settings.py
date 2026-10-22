@@ -59,6 +59,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    "apps.core.middleware.RequestIdMiddleware",  # first: every log line carries the request_id
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -245,9 +246,28 @@ CASE_DATA_DIR = Path(env("CASE_DATA_DIR", "/case-data"))
 # --- Contract (docs/openapi.yaml) used by tests to validate responses ---
 OPENAPI_SPEC_PATH = Path(env("OPENAPI_SPEC_PATH", str(BASE_DIR.parent / "docs" / "openapi.yaml")))
 
+# --- Logs (OPS5): JSON lines by default, `LOG_FORMAT=text` for a human at a terminal. Every line,
+# the worker's too (config/celery.py), carries request_id / application_id / user_id; the access
+# log is one line per request from apps/core/middleware.py. ---
+LOG_FORMAT = "text" if env("LOG_FORMAT", "json").lower() == "text" else "json"
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
-    "handlers": {"console": {"class": "logging.StreamHandler"}},
+    "filters": {"context": {"()": "apps.core.logs.ContextFilter"}},
+    "formatters": {
+        "json": {"()": "apps.core.logs.JsonFormatter"},
+        "text": {"()": "apps.core.logs.TextFormatter"},
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "filters": ["context"],
+            "formatter": LOG_FORMAT,
+        }
+    },
     "root": {"handlers": ["console"], "level": env("DJANGO_LOG_LEVEL", "INFO")},
+    "loggers": {
+        # runserver's own access line repeats ours, with the query string
+        "django.server": {"level": "WARNING"},
+    },
 }
