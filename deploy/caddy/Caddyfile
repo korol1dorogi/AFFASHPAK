@@ -3,6 +3,12 @@
 {$DOMAIN} {
 	encode zstd gzip
 
+	# The largest legitimate body is one document: 10 MiB (UPLOAD_MAX_FILE_BYTES) + multipart
+	# overhead. Anything bigger is cut here with 413 before it reaches gunicorn (docs/security.md).
+	request_body {
+		max_size 11MiB
+	}
+
 	header {
 		Strict-Transport-Security "max-age=31536000; includeSubDomains"
 		X-Content-Type-Options "nosniff"
