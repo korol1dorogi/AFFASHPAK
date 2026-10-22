@@ -11,12 +11,12 @@
 | Шаг | Вход (поля [data-model.md](data-model.md)) | Что делает | Выход |
 |---|---|---|---|
 | validation | `Application`: `need_type`, `purpose`, `product`, `requested_amount`, `term_months`, `invoice_amount`, `collateral_description`; `Company`: `legal_form`, `inn`, `registered_at`, `registry_status`; `Document.kind` заявки; `Product`: `term_min_months`, `term_max_months`, `amount_min`, `required_documents`, `kind` | стоп-факторы по анкете (раздел 2, С1); полнота и корректность (раздел 3) | стоп → `declined`; пробелы → `info_requested`; иначе дальше |
-| enrichment | `Company.inn` | параллельно, с таймаутами: `Check` по `egrul`, `transparent_business`, `bki`, `bank_account`; счёт даёт `FinancialSnapshot` (`source = simulator`); стоп-факторы по проверкам (С2–С6) | `Check.status` ∈ `ok`/`warning`/`failed`/`unavailable`; последний по `period` снимок |
+| enrichment | `Company.inn` | параллельно, с таймаутами: `Check` по `egrul`, `transparent_business`, `bki`, `bank_account`; счёт даёт `FinancialSnapshot` (`source = simulator`); стоп-факторы по проверкам (С2–С6) | `Check.status` ∈ `ok`/`warning`/`failed`/`unavailable`/`not_found`/`restricted`/`consent_missing` (что ведёт к какому исходу — раздел 5, «Нет данных — не отказ»); последний по `period` снимок |
 | scoring | `FinancialSnapshot`: `cfads`, `debt_service`, `debt`, `ebitda`, `cash`, `revenue_trend`, `counterparty_concentration`; `Check(bki).data`, `Check(transparent_business).data`, `Check.status`; `Company.registered_at`, `Application.submitted_at` | балльная карта (раздел 4) | `Score`: `grade`, `total`, `factors[name, value, points, message]`, `model_version` |
 | decision | `Score.grade`, `Score.factors`; `Product`: `rate_min`, `rate_max`, `amount_min`, `amount_max`, `term_*_months`, `requirements`, `collateral_required`, `is_revolving`, `params`; `Application`; `FinancialSnapshot`: `cleaned_credit_turnover`, `cfads`, `debt_service`, `receivables`, `inventory`, `payables`; `Check.status` | правила решения (раздел 5), суммы — `credit_math` | аргументы `record_auto_decision`: `outcome`, `grade`, `policy_version`, `reasons`, `improvements`, `offer {product, amount, term_months, rate}`, `info_request {message, fields, document_kinds}`, `source_unavailable` |
 
 - Стоп-фактор и неполные данные дают решение до скоринга: `Decision.grade = null`, `Score` не создаётся.
-- Источник `unavailable` не останавливает конвейер: скоринг считается с нейтральными баллами по этому источнику, решение — `manual_review` (сценарий 7).
+- Источник без данных (`unavailable`, `restricted`, `consent_missing`) не останавливает конвейер: скоринг считается с нейтральными баллами по этому источнику, решение — `manual_review` (сценарий 7; раздел 5, «Нет данных — не отказ»).
 - Ответ клиента на `InfoRequest(origin=validation)` → `submitted` → конвейер целиком заново (переход 10a).
 
 **Ключи `Check.data`, которые читает модель** (в data-model.md и openapi.yaml не описаны — **предложение лиду** зафиксировать их в контракте симуляторов S1):
@@ -81,8 +81,8 @@
 | `debt_to_ebitda` | `.debt`, `.ebitda`, `.cash` | `debt_to_ebitda(debt, ebitda, cash)` | ≤ 2.0 → 15 · (2.0; 3.5] → 10 · (3.5; 5.0] → 4 · > 5.0 → 0 | ≤ `max_debt_to_ebitda` 3.5 | `ebitda` или `debt` = `null` (нет отчётности, обычно ИП) → **7**, «Отчётности нет — долговую нагрузку оценили по счёту»; `ebitda ≤ 0` — стоп-фактор С3 | 15 |
 | `revenue_trend` | `.revenue_trend` (считает S2/адаптер счёта функцией `revenue_trend`, год к году) | `revenue_trend` | ≥ 1.0 → 15 · [0.9; 1.0) → 10 · [0.8; 0.9) → 4 · < 0.8 → 0 | ≥ 0.9 | `null` → **7**, ключевая метрика пропущена | 15 |
 | `counterparty_concentration` | `.counterparty_concentration` (функцией `counterparty_concentration`) | `counterparty_concentration` | ≤ 0.3 → 10 · (0.3; 0.5] → 7 · (0.5; 0.7] → 3 · > 0.7 → 0 | ≤ 0.5 | `null` → **5**, ключевая метрика пропущена | 10 |
-| `bki_history` | `Check(bki).data`: `current_overdue_days`, `past_overdue_max_days` | — (сравнение с порогами) | текущей нет, прошлой нет → 20 · прошлая ≤ 30 дн. → 8 · прошлая > 30 дн. → 3 · текущая 1–30 дн. → 0 · текущая > 30 — стоп-фактор С4 | текущей нет и прошлая ≤ 30 дн. | `Check.status = unavailable` → **10**, «БКИ не ответило — историю проверит сотрудник» | 20 |
-| `transparent_business` | `Check(transparent_business).data`: `mass_address`, `mass_director`, `tax_arrears` | — | флагов нет → 5 · один из `mass_address`/`mass_director` → 2 · `tax_arrears > 0` или оба флага → 0 | флагов нет | `unavailable` → **2** | 5 |
+| `bki_history` | `Check(bki).data`: `current_overdue_days`, `past_overdue_max_days` | — (сравнение с порогами) | текущей нет, прошлой нет → 20 · прошлая ≤ 30 дн. → 8 · прошлая > 30 дн. → 3 · текущая 1–30 дн. → 0 · текущая > 30 — стоп-фактор С4 | текущей нет и прошлая ≤ 30 дн. | нет данных → **10**, текст по причине: `unavailable` — «БКИ не ответило — историю проверит сотрудник», `restricted` — «Сведения в БКИ скрыты — историю проверит сотрудник», `consent_missing` — «Нет согласия на запрос в БКИ — историю проверит сотрудник» | 20 |
+| `transparent_business` | `Check(transparent_business).data`: `mass_address`, `mass_director`, `tax_arrears` | — | флагов нет → 5 · один из `mass_address`/`mass_director` → 2 · `tax_arrears > 0` или оба флага → 0 | флагов нет | нет данных (`unavailable`, `restricted`) → **2** | 5 |
 | **Итого** | | | | | | **100** |
 
 - Нейтральные баллы для None — около середины шкалы: «не знаем» не равно ни «хорошо», ни «плохо» (AGENTS.md: None и причина, не 0). `ScoreFactor.value = null`, `message` — текст `Metric.note` из `credit_math`.
@@ -108,7 +108,7 @@
 |---|---|---|---|---|
 | П1 | любой стоп-фактор С1–С6 | `declined` | `declined` (3) | `grade = null`; `improvements` из таблицы раздела 2 |
 | П2 | есть пробелы полноты (раздел 3) | `info_requested` | `info_requested` (4a) | `info_request {message, fields, document_kinds}`, `grade = null` |
-| П3 | хотя бы один `Check.status = unavailable`; **или** пустая `Company.registered_at` (возраст бизнеса и С5 не проверить); **или** отметка ЕГРЮЛ: недостоверность адреса или руководителя, предстоящее исключение (SRC5, reasons `egrul_unreliable_address`, `egrul_unreliable_director`, `egrul_pending_exclusion`) | `manual_review` | `manual_review` (5) | при **любом** грейде, включая E: на неполных данных не отказываем (сценарий 7); `source_unavailable = true` — только при `unavailable`-источнике |
+| П3 | хотя бы один источник без данных: `Check.status` ∈ `unavailable`, `restricted`, `consent_missing`; **или** пустая `Company.registered_at` (возраст бизнеса и С5 не проверить); **или** отметка ЕГРЮЛ: недостоверность адреса или руководителя, предстоящее исключение (SRC5, reasons `egrul_unreliable_address`, `egrul_unreliable_director`, `egrul_pending_exclusion`) | `manual_review` | `manual_review` (5) | при **любом** грейде, включая E: на неполных данных не отказываем (сценарий 7; «Нет данных — не отказ» ниже); `source_unavailable = true` — только при `unavailable`-источнике |
 | П4 | грейд E | `declined` | `declined` (6) | `improvements` — все факторы с `passed = false`, по убыванию потерянных баллов |
 | П5 | грейд C или D; **или** пропущены ≥ 2 ключевые метрики (раздел 4); **или** невозобновляемый продукт и `debt_to_ebitda` > `max_debt_to_ebitda` | `manual_review` | `manual_review` (5) | в `reasons` — допустимая сумма по П7, ставка по грейду: заготовка решения для сотрудника |
 | П6 | продукт заявки не проходит своё требование: `requirements.legal_forms`, `requirements.min_business_age_months`, или `collateral_required` при пустом `collateral_description` | `alternative_product`, если подходит продукт из `alternatives`; иначе `declined` | `offer` (4) / `declined` (6) | альтернатива должна пройти свои требования и П7 с суммой ≥ её `amount_min`; срок — `term_months`, прижатый к её диапазону; сумма — min(запрошенная, допустимая для альтернативы) |
@@ -116,6 +116,33 @@
 | П8 | всё прошло | `offer` | `offer` (4) | `offer.amount = requested_amount` |
 
 **Альтернативы** (`alternatives`, политика): `investment_loan` → `leasing` (нет залога — лизингу он не нужен); `leasing` → `investment_loan` (только если залог описан); `working_capital_loan` → `overdraft` (бизнесу 6–11 мес: КПО требует 12, овердрафт — 6). Факторинг и овердрафт без альтернатив. Если сработали и П6, и уменьшение суммы, исход `alternative_product`, а `Offer.is_counteroffer` и `Offer.product_changed` оба `true` (их считает `create_offer`).
+
+### Нет данных — не отказ (SRC3)
+Отсутствие данных — не признак плохого заёмщика. Если чего-то нет, банк уточняет или смотрит сам, а не отказывает: пробелы в анкете и документах — запрос клиенту (П2), данные источника не получены — ручное рассмотрение (П3), не хватает ключевых метрик по счёту — ручное рассмотрение (П5). Фактор без данных получает **нейтральные** баллы (раздел 4), а не ноль. Отказ остаётся только там, где данные **есть** и говорят «нельзя»: стоп-факторы С1–С6 (П1) и грейд E на полных данных (П4).
+
+**Статус проверки → исход** (`Check.status`, [openapi.yaml](openapi.yaml); стоп-факторы проверяются раньше, поэтому при стоп-факторе исход — П1 при любом статусе других источников, Г5):
+
+| `Check.status` | Что значит | Исход | `source_unavailable` | Баллы фактора | reason для клиента |
+|---|---|---|---|---|---|
+| `ok` | источник ответил, замечаний нет | по правилам П1–П8 | — | по данным | по фактору |
+| `warning` | ответил, есть замечания (флаги ФНС, прошлая просрочка, ликвидация, отметки ЕГРЮЛ) | по правилам: ликвидация — С1, отметки ЕГРЮЛ — П3 (SRC5), остальное — баллы | — | по данным | по фактору |
+| `failed` | ответил, проверка не пройдена: текущая просрочка в БКИ > 30 дн. | П1, `declined` (С4) | — | — | «Сейчас есть просрочка по кредиту больше 30 дней» |
+| `not_found` | ИНН нет в ЕГРЮЛ/ЕГРИП (до SRC2 — `failed`) | П1, `declined` (С2) | — | — | «Компанию не нашли в ЕГРЮЛ/ЕГРИП», совет «Проверьте ИНН компании» |
+| `unavailable` | источник не ответил: сбой, таймаут, открытый circuit breaker (сценарий 7); у `bank_account` — ещё и «счёт не подключён» | П3, `manual_review` | **да** | нейтральные | «{Источник} сейчас не отвечает — заявку проверит сотрудник банка. Это не отказ» |
+| `restricted` | источник ответил, но сведения скрыты | П3, `manual_review` | нет — источник ответил | нейтральные | «{Источник}: сведения скрыты — заявку проверит сотрудник. Это не отказ» |
+| `consent_missing` | БКИ не запрашивали: нет согласия клиента (218-ФЗ, SRC1) | П3, `manual_review` | нет — это не сбой | нейтральные (БКИ — 10) | «Нет согласия на запрос в бюро — кредитную историю проверит сотрудник. Это не отказ» |
+
+- При `restricted` документы **не запрашиваются автоматически**: ответ на запрос проверки полноты (`InfoRequest(origin=validation)`) снова запускает конвейер, источник снова вернёт `restricted` — заявка зациклится. Что запросить, решает сотрудник (`request_info`, переход 8).
+- `consent_missing` после SRC1 почти не встречается: без согласия заявку не отправить. Статус остаётся для заявок, отправленных раньше, и как страховка.
+- Флаги источника без данных не читаются: С1 (статус из ЕГРЮЛ), С4, С6 и отметки ЕГРЮЛ (SRC5) смотрят `Check.data` только у ответившего источника.
+
+**Другие «нет данных»** — тоже не отказ: пустая `Company.registered_at` → П3 (Г10); `ebitda` = null (у ИП нет отчётности) → не стоп-фактор, `debt_to_ebitda` — нейтральные 7 баллов; пропущены ≥ 2 ключевые метрики → П5 (Г4); снимка нет совсем и все источники молчат → П3 (`e_all_unavailable`); пробелы полноты анкеты и документов → П2 `info_requested`.
+
+**Тесты** (каждый статус → исход):
+- `apps/pipeline/tests/test_check_statuses.py`: `test_not_found_in_the_registry_declines_with_the_reason`, `test_restricted_data_goes_to_an_officer_not_to_a_decline` (по каждому из ЕГРЮЛ, «Прозрачного бизнеса», БКИ), `test_restricted_bureau_scores_neutral_points_with_its_own_text`, `test_consent_missing_goes_to_an_officer_without_an_outage_mark`, `test_an_outage_still_raises_source_unavailable`, `test_the_bank_card_with_new_statuses_matches_the_contract`; адаптеры — `test_an_inn_missing_from_the_registry_is_not_found`, `test_without_consent_the_bureau_is_consent_missing_and_not_asked`, `test_a_restricted_record_of_the_simulator_passes_as_is`;
+- `apps/pipeline/tests/test_consent.py` — `test_no_consent_no_bureau_request`; `apps/pipeline/tests/test_personas.py` — `test_bki_outage_sends_the_application_to_manual_review`; `apps/pipeline/tests/test_review_fixes.py` — `test_scenario_7_outage_switched_on_through_the_demo_api`, `test_gaps_ask_for_data_with_formatted_amounts` (П2);
+- `apps/scoring/tests/test_edges.py` — `test_g4_two_missing_key_metrics`, `test_g6_grade_e_with_bki_outage`, `test_g10_empty_registration_date`, `test_e_all_unavailable`; `apps/scoring/tests/test_stop_factors.py` — `test_g5_stop_wins_over_outage`;
+- SRC5: `apps/scoring/tests/test_src5_rules.py` — `test_c6_does_not_read_hidden_or_missing_data`, `test_registry_marks_are_not_read_without_registry_data`; `apps/pipeline/tests/test_src5_outcomes.py`.
 
 ### Допустимая сумма (П6, П7)
 Ставка и срок — те, что пойдут в оффер: ставка по грейду (ниже), срок из заявки.
@@ -173,7 +200,9 @@
 | `counterparty_concentration` | доля | 0.5 | «Крупнейший покупатель приносит {%} поступлений» / «{%} денег приходит от одного покупателя: если он уйдёт, бизнес останется без выручки» | «Снизьте долю крупнейшего покупателя до 50% и меньше» |
 | `bki_history` | дни прошлой просрочки | 30 | «Кредитная история без серьёзных просрочек» / «В кредитной истории была просрочка {N} дней» | «Подтвердите, что просрочка погашена; новых просрочек не допускайте» |
 | `transparent_business` | null | null | «Признаков риска в ФНС нет» / «ФНС: {массовый адрес / массовый руководитель / налоговый долг N ₽}» | «Погасите налоговый долг» / «Подтвердите фактический адрес» |
-| `source_{egrul\|transparent_business\|bki\|bank_account}` | null | null | — / «{Источник} сейчас не отвечает — заявку проверит сотрудник банка. Это не отказ» | — |
+| `source_{egrul\|transparent_business\|bki\|bank_account}` | null | null | — / по статусу: `unavailable` — «{Источник} сейчас не отвечает — заявку проверит сотрудник банка. Это не отказ» (у счёта без подключения — «Счёт не подключён — данные по счёту проверит сотрудник. Это не отказ»); `restricted` — «{Источник}: сведения скрыты — заявку проверит сотрудник. Это не отказ»; `consent_missing` — «Нет согласия на запрос в бюро — кредитную историю проверит сотрудник. Это не отказ» | — |
+| `accounts_suspended` | null | null | — / «ФНС приостановила операции по счетам компании — кредит оформить нельзя» (С6, SRC5) | «Снимите приостановку операций по счетам в ФНС и подайте заявку снова» |
+| `egrul_unreliable_address`, `egrul_unreliable_director`, `egrul_pending_exclusion` | null | null | — / «В ЕГРЮЛ отметка о недостоверности адреса компании» / «…сведений о руководителе» / «ФНС готовит исключение компании из ЕГРЮЛ» + « — заявку проверит сотрудник банка. Это не отказ» (П3, SRC5) | — |
 | `missing_key_metrics` | число пропущенных | 1 | — / «Не хватает данных по счёту для автоматической оценки — заявку посмотрит сотрудник» | — |
 | `overdraft_limit` | лимит | `requested_amount` | «Лимит — 30% среднемесячных поступлений: {x} ₽» / «По оборотам доступно {x} ₽ — меньше запрошенного» | «Лимит вырастет вместе с поступлениями на счёт» |
 | `factoring_advance` | аванс | `requested_amount` | «Сразу — 90% суммы отгрузки: {x} ₽» / «Под эту отгрузку доступно {x} ₽» | — |
