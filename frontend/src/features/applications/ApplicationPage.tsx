@@ -26,6 +26,7 @@ import {
   useRespondInfo,
 } from "@/features/applications/api";
 import { DocumentList, DocumentUpload } from "@/features/applications/Documents";
+import { showsWhatIf, WhatIf } from "@/features/applications/WhatIf";
 import { ApiError, errorMessage } from "@/lib/errors";
 import { formatDate, formatMoney } from "@/lib/format";
 import { ACTION, DECISION_OUTCOME, DOCUMENT_KIND, NEED } from "@/texts";
@@ -235,6 +236,10 @@ export function ApplicationPage() {
               }
               onDecline={() => setConfirm("decline")}
             />
+          ) : null}
+          {data.offer && showsWhatIf(data) ? (
+            // A new offer starts the calculation from its own terms.
+            <WhatIf key={data.offer.id} application={data} offer={data.offer} />
           ) : null}
           {data.open_info_requests.map((request) => (
             <InfoRequestCard key={request.id} application={data} request={request} />

@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { api, type Schemas } from "@/api/client";
 import { unwrap } from "@/lib/errors";
@@ -15,6 +15,8 @@ export const keys = {
   one: (id: number) => ["application", id] as const,
   events: (id: number) => ["application", id, "events"] as const,
   documents: (id: number) => ["application", id, "documents"] as const,
+  whatIf: (id: number, amount: string, term: number) =>
+    ["application", id, "what-if", amount, term] as const,
 };
 
 export function useApplications() {
@@ -176,5 +178,26 @@ export function useUploadDocument(id: number) {
       void queryClient.invalidateQueries({ queryKey: keys.documents(id) });
       void queryClient.invalidateQueries({ queryKey: keys.events(id) });
     },
+  });
+}
+
+/**
+ * XP1: payment, DSCR and the allowed amount for other terms of the active offer. A calculation
+ * with no side effects, so a query: the previous answer stays on screen while the next one loads.
+ */
+export function useWhatIf(id: number, amount: string, term: number, { enabled = true } = {}) {
+  return useQuery({
+    queryKey: keys.whatIf(id, amount, term),
+    enabled,
+    queryFn: async () =>
+      unwrap(
+        await api.POST("/api/applications/{id}/what-if", {
+          ...path(id),
+          body: { amount, term_months: term },
+        }),
+      ),
+    placeholderData: keepPreviousData,
+    staleTime: 60_000,
+    retry: false,
   });
 }
