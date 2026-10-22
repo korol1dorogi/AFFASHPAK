@@ -35,6 +35,23 @@ def test_password_login_stays_strict(production_rates):
     assert set(statuses[10:]) == {429}
 
 
+def test_a_spoofed_forwarded_for_does_not_reset_the_limit(production_rates):
+    """Caddy appends the real client IP; whatever the client put before it is not the identity."""
+    client = APIClient()
+    body = {"username": "nobody", "password": "wrong-password"}
+    statuses = [
+        client.post(
+            "/api/auth/login",
+            body,
+            format="json",
+            HTTP_X_FORWARDED_FOR=f"10.0.0.{attempt}, 203.0.113.7",
+        ).status_code
+        for attempt in range(30)
+    ]
+    assert statuses[:10] == [401] * 10
+    assert set(statuses[10:]) == {429}
+
+
 def test_demo_login_has_its_own_ceiling(settings, production_rates, monkeypatch):
     settings.DEMO_MODE = True
     seed()

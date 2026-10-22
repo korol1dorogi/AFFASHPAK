@@ -8,10 +8,16 @@ def _fast_password_hashing(settings):
 
 
 @pytest.fixture(autouse=True)
-def _fresh_cache():
-    """Throttle counters live in the cache: one test must not throttle the next."""
+def _fresh_cache(settings):
+    """Throttle counters live in the cache: one test must not throttle the next.
+
+    The stand keeps them in a database table (settings.CACHES); tests use process memory, so
+    clearing works in tests without the database too (apps/core/tests/test_cache.py checks the
+    real setting).
+    """
     from django.core.cache import cache
 
+    settings.CACHES = {"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}}
     cache.clear()
     yield
     cache.clear()

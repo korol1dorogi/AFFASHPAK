@@ -154,9 +154,23 @@ if not DEBUG:
     # Preload needs a manual submission to browser lists; not for a hackathon stand.
     SILENCED_SYSTEM_CHECKS = ["security.W021"]
 
+# --- Cache ---
+# Throttle counters must be shared by all gunicorn workers: LocMemCache keeps one per process,
+# so 3 workers let 3× the limit through. The table is created by a migration
+# (apps/core/migrations), so `migrate` alone is enough; no Redis in the stack yet (OPS4).
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.db.DatabaseCache",
+        "LOCATION": "django_cache",
+    }
+}
+
 # --- DRF ---
-# Per-IP for anonymous, per-user otherwise. demo_login is separate from login: on the stand the
-# jury switches personas from one IP, while password login stays strict (docs/deploy.md).
+# Per-IP for anonymous, per-user otherwise. The client IP is the last X-Forwarded-For hop,
+# the one Caddy appends (NUM_PROXIES); without the header DRF falls back to REMOTE_ADDR.
+# Caddy drops a client-sent X-Forwarded-For, and the stand publishes no backend port.
+# demo_login is separate from login: on the stand the jury switches personas from one IP,
+# while password login stays strict (docs/deploy.md).
 THROTTLE_DEFAULTS = {
     "anon": "60/min",
     "user": "600/min",
@@ -184,6 +198,7 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_RATES": {
         scope: env(f"THROTTLE_{scope.upper()}", rate) for scope, rate in THROTTLE_DEFAULTS.items()
     },
+    "NUM_PROXIES": env_int("DRF_NUM_PROXIES", 1),
     "EXCEPTION_HANDLER": "apps.core.exceptions.api_exception_handler",
     "COERCE_DECIMAL_TO_STRING": True,
 }

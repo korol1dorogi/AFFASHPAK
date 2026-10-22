@@ -15,7 +15,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardTitle } from "@/components/ui/card";
 import { Input, NativeSelect } from "@/components/ui/input";
 import {
-  useAddMember,
+  useCancelInvitation,
+  useInvitations,
+  useInvite,
   useMembers,
   useRemoveMember,
   useUpdateCompany,
@@ -23,8 +25,8 @@ import {
 import { NotActiveWarning, RegistryFacts } from "@/features/company/RegistryFacts";
 import { Integrations, Metrics } from "@/features/company/Sources";
 import {
-  type MemberValues,
-  memberSchema,
+  type InviteValues,
+  inviteSchema,
   type NameValues,
   nameSchema,
 } from "@/features/company/schema";
@@ -36,6 +38,7 @@ const M = COMPANY.members;
 
 type Company = Schemas["Company"];
 type Member = Schemas["Member"];
+type Invitation = Schemas["Invitation"];
 
 function Requisites({ company }: { company: Company }) {
   return (
@@ -109,25 +112,26 @@ function ShortNameForm({ company }: { company: Company }) {
   );
 }
 
-function AddMemberForm() {
-  const add = useAddMember();
+/** The login is only invited: the person joins after accepting in their own cabinet. */
+function InviteForm() {
+  const invite = useInvite();
   const [rest, setRest] = useState<string | null>(null);
-  const form = useForm<MemberValues>({
-    resolver: zodResolver(memberSchema),
+  const form = useForm<InviteValues>({
+    resolver: zodResolver(inviteSchema),
     defaultValues: { username: "", position: "", role: "preparer" },
   });
   const { errors } = form.formState;
 
   const submit = form.handleSubmit((values) => {
     setRest(null);
-    add.mutate(values, {
+    invite.mutate(values, {
       onSuccess: () => {
         form.reset({ username: "", position: "", role: "preparer" });
-        toast.success(M.added);
+        toast.success(M.invited);
       },
       onError: (error) => {
-        // 404 «логин не найден» and 409 «уже в компании» are about the login field.
-        if (error instanceof ApiError && (error.status === 404 || error.status === 409)) {
+        // 409 «уже в компании» / «уже приглашён» is about the login field.
+        if (error instanceof ApiError && error.status === 409) {
           form.setError("username", { type: "server", message: error.message });
           return;
         }
@@ -139,8 +143,8 @@ function AddMemberForm() {
   return (
     <form noValidate onSubmit={submit} className="flex flex-col gap-4 border-t border-line pt-4">
       <div className="flex flex-col gap-1">
-        <h3 className="m-0 text-base font-semibold">{M.add}</h3>
-        <p className="m-0 text-sm text-ink-muted">{M.addHint}</p>
+        <h3 className="m-0 text-base font-semibold">{M.invite}</h3>
+        <p className="m-0 text-sm text-ink-muted">{M.inviteHint}</p>
       </div>
       <div className="grid gap-4 sm:grid-cols-3">
         <Field label={M.username} error={errors.username?.message}>
@@ -166,15 +170,74 @@ function AddMemberForm() {
         </p>
       ) : null}
       <div>
-        <Button type="submit" variant="secondary" loading={add.isPending}>
-          {M.add}
+        <Button type="submit" variant="secondary" loading={invite.isPending}>
+          {M.invite}
         </Button>
       </div>
     </form>
   );
 }
 
-/** Everyone sees who is in the company; only a signatory adds and removes (never themselves). */
+/** Invitations nobody has answered yet; the signatory can take one back. Hidden when empty. */
+function PendingInvitations({ canManage }: { canManage: boolean }) {
+  const invitations = useInvitations();
+  const cancel = useCancelInvitation();
+  const [cancelling, setCancelling] = useState<Invitation | null>(null);
+
+  if (invitations.isPending) {
+    return (
+      <div role="status" aria-busy="true" aria-label={M.pendingLoading}>
+        <Skeleton className="h-12 w-full" />
+      </div>
+    );
+  }
+  if (invitations.isError) {
+    return <ErrorState error={invitations.error} onRetry={() => void invitations.refetch()} />;
+  }
+  if (invitations.data.length === 0) return null;
+
+  return (
+    <div className="flex flex-col gap-2">
+      <h3 className="m-0 text-base font-semibold">{M.pending}</h3>
+      <ul aria-label={M.pending} className="m-0 flex list-none flex-col gap-2 p-0">
+        {invitations.data.map((invitation) => (
+          <li
+            key={invitation.id}
+            className="flex flex-wrap items-center gap-3 rounded-md border border-dashed border-line p-3"
+          >
+            <div className="flex min-w-0 flex-1 flex-col">
+              <span className="font-semibold">{invitation.username}</span>
+              <span className="text-sm text-ink-muted">
+                {M.invitedAs(ROLE_LABEL[invitation.role], invitation.position)}
+              </span>
+            </div>
+            <Badge variant="neutral">{M.pending}</Badge>
+            {canManage ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                aria-label={M.cancel(invitation.username)}
+                loading={cancel.isPending && cancelling?.id === invitation.id}
+                onClick={() => {
+                  setCancelling(invitation);
+                  cancel.mutate(invitation.id, {
+                    onSuccess: () => toast.success(M.cancelled),
+                    onError: (error) => toast.error(errorMessage(error)),
+                    onSettled: () => setCancelling(null),
+                  });
+                }}
+              >
+                {M.cancelShort}
+              </Button>
+            ) : null}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/** Everyone sees who is in the company; only a signatory invites and removes (never themselves). */
 function Members({ canManage, meId }: { canManage: boolean; meId: number | undefined }) {
   const members = useMembers();
   const remove = useRemoveMember();
@@ -227,7 +290,8 @@ function Members({ canManage, meId }: { canManage: boolean; meId: number | undef
           })}
         </ul>
       )}
-      {canManage ? <AddMemberForm /> : <p className="m-0 text-sm text-ink-muted">{M.readOnly}</p>}
+      <PendingInvitations canManage={canManage} />
+      {canManage ? <InviteForm /> : <p className="m-0 text-sm text-ink-muted">{M.readOnly}</p>}
       <ConfirmDialog
         open={removing !== null}
         onOpenChange={(open) => {

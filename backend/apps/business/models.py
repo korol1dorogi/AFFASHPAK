@@ -1,10 +1,11 @@
-"""Company, its members and financial snapshots (docs/data-model.md).
+"""Company, its members, invitations and financial snapshots (docs/data-model.md).
 
 The app label stays `business` (migrations already on the stand); the entity is Company.
 """
 
 from django.conf import settings
 from django.db import models
+from django.db.models.functions import Lower
 from django.utils import timezone
 
 
@@ -95,6 +96,48 @@ class Membership(models.Model):
 
     def __str__(self) -> str:
         return f"{self.user} @ {self.company} ({self.role})"
+
+
+class InvitationStatus(models.TextChoices):
+    PENDING = "pending", "Ждёт ответа"
+    ACCEPTED = "accepted", "Принято"
+    DECLINED = "declined", "Отклонено"
+    CANCELLED = "cancelled", "Отозвано"
+
+
+class Invitation(models.Model):
+    """A signatory invites a login into the company; Membership appears only on accept.
+
+    The login is stored as typed and is not resolved to a user here: inviting answers the same
+    whether such a client exists, works elsewhere or is a bank user (docs/security.md).
+    """
+
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name="invitations")
+    username = models.CharField(max_length=150)
+    role = models.CharField(max_length=16, choices=MemberRole.choices)
+    position = models.CharField(max_length=100)
+    invited_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+"
+    )
+    status = models.CharField(
+        max_length=16, choices=InvitationStatus.choices, default=InvitationStatus.PENDING
+    )
+    created_at = models.DateTimeField(default=timezone.now)
+    responded_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        constraints = (
+            models.UniqueConstraint(
+                Lower("username"),
+                "company",
+                condition=models.Q(status="pending"),
+                name="invitation_pending_company_username",
+            ),
+        )
+        ordering = ("created_at", "id")
+
+    def __str__(self) -> str:
+        return f"{self.username} → {self.company} ({self.status})"
 
 
 class SnapshotSource(models.TextChoices):

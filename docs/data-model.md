@@ -8,6 +8,7 @@
 erDiagram
     User ||--o{ Membership : "состоит в"
     Company ||--o{ Membership : "сотрудники"
+    Company ||--o{ Invitation : "приглашения"
     Company ||--o{ FinancialSnapshot : "снимки"
     Company ||--o{ Application : "заявки"
     Product ||--o{ Application : "выбран"
@@ -43,6 +44,12 @@ erDiagram
 **Membership** — пользователь в компании
 - `user` → User, `company` → Company, `role`: `signatory` | `preparer`; `position` (должность текстом: «Генеральный директор», «Главный бухгалтер»…); уникальная пара (user, company)
 - Права — [state-machine.md](state-machine.md#роли). Scoping клиента: все queryset — через `company__memberships__user = request.user`.
+- Появляется только при создании компании (создатель — `signatory`) или когда пользователь сам принял приглашение (`Invitation`, D23).
+
+**Invitation** — приглашение в компанию по логину
+- `company` → Company, `username` (логин как его ввёл подписант, не ссылка на User), `role`, `position`, `invited_by` → User | null
+- `status`: `pending` | `accepted` | `declined` | `cancelled`; `created_at`, `responded_at`
+- Одно ожидающее приглашение на пару (компания, логин без учёта регистра). Адресат видит приглашения по своему логину; принять можно, только если он ещё не работает в компании.
 
 **FinancialSnapshot** — финансовый снимок компании за период
 - `company`, `period` (YYYY-MM), `source`: `case` | `demo` | `simulator` | `manual`

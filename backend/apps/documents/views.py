@@ -4,6 +4,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.core.permissions import IsBankUser
 from apps.documents.names import attachment_filename
 from apps.documents.serializers import DocumentSerializer, DocumentUploadSerializer
 from apps.documents.services import (
@@ -59,7 +60,13 @@ class ApplicationDocumentDownloadView(APIView):
 
 
 class BankApplicationDocumentDownloadView(APIView):
-    """GET /api/bank/applications/{id}/documents/{document_id} — bank user, attachment."""
+    """GET /api/bank/applications/{id}/documents/{document_id} — bank user, attachment.
+
+    A client gets 403 like on the rest of /api/bank/*: the role is checked before any lookup,
+    so the answer says nothing about the document.
+    """
+
+    permission_classes = (IsBankUser,)
 
     def get(self, request: Request, application_id: int, document_id: int) -> FileResponse:
         return _attachment(get_bank_document(request.user, application_id, document_id))
