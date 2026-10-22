@@ -17,7 +17,13 @@ from django.utils import timezone
 from apps.accounts.demo import load_companies
 from apps.applications import services
 from apps.applications.access import Actor
-from apps.applications.models import ActorKind, Application, ApplicationStatus
+from apps.applications.models import (
+    BKI_CONSENT_VERSION,
+    ActorKind,
+    Application,
+    ApplicationStatus,
+    BkiConsent,
+)
 from apps.business.models import Company, FinancialSnapshot, MemberRole, Membership
 from apps.documents.models import Document
 from apps.integrations.simulator_data import dataset
@@ -95,6 +101,7 @@ def _apply(index: int, company: Company, user) -> Application:
         submitted_at=timezone.now(),
         prefill_source="manual",
     )
+    BkiConsent.objects.create(application=application, user=user, text_version=BKI_CONSENT_VERSION)
     if index % NO_DOCUMENTS_EVERY != 3:
         for kind in product.required_documents:
             Document.objects.create(

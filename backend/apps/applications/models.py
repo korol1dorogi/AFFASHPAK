@@ -109,6 +109,26 @@ class IdempotencyKey(models.Model):
         return f"{self.endpoint} {self.key}"
 
 
+# Version of the consent text the client saw (frontend/src/texts BKI_CONSENT). A new wording →
+# a new version here and in texts; an old version on submit is a 400.
+BKI_CONSENT_VERSION = "bki-2026-10"
+
+
+class BkiConsent(models.Model):
+    """Consent to request the credit history from a credit bureau (218-FZ, art. 6). Given by the
+    signatory on submit; without it the pipeline does not call the bureau."""
+
+    application = models.OneToOneField(
+        Application, on_delete=models.CASCADE, related_name="bki_consent"
+    )
+    user = models.ForeignKey(USER, on_delete=models.PROTECT, related_name="+")
+    text_version = models.CharField(max_length=32)
+    given_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self) -> str:
+        return f"{self.application_id}: {self.text_version}"
+
+
 class ActorKind(models.TextChoices):
     CLIENT = "client", "Клиент"
     BANK = "bank", "Банк"
@@ -127,6 +147,7 @@ class EventKind(models.TextChoices):
     COMMENT = "comment", "Комментарий"
     SIGNED = "signed", "Подписано"
     ISSUED = "issued", "Выдано"
+    CONSENT_GIVEN = "consent_given", "Согласие на запрос в БКИ"
 
 
 class ApplicationEvent(models.Model):

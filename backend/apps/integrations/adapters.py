@@ -14,6 +14,8 @@ ATTEMPTS = 3
 UNAVAILABLE = {"status": "unavailable", "data": {}}
 NOT_CONNECTED = {"status": "unavailable", "data": {"not_connected": True}}
 NOT_IN_REGISTRY = {"status": "failed", "data": {}}
+# No consent from the client: the bureau is not asked at all (218-FZ).
+NO_CONSENT = {"status": "unavailable", "data": {"consent_missing": True}}
 SOURCE_TIMEOUT_SECONDS = 2
 logger = logging.getLogger(__name__)
 
@@ -46,19 +48,23 @@ def fetch(source: str, inn: str, *, has_account: bool, failing: bool = False) ->
     return dict(UNAVAILABLE)
 
 
-def fetch_all(inn: str, *, has_account: bool) -> dict[str, dict]:
+def fetch_all(inn: str, *, has_account: bool, bki_consent: bool = True) -> dict[str, dict]:
     """All four sources at once. A source slower than the timeout counts as unavailable and
-    the pipeline does not wait for it (no `with`: its exit would join the slow thread)."""
+    the pipeline does not wait for it (no `with`: its exit would join the slow thread).
+    Without the client's consent the credit bureau is never called."""
     failing = failing_sources()  # read once, in the request thread (DemoState lives in the DB)
     simulators()  # build the cached dataset here, once: inside the threads it would hit the timeout
     results: dict[str, dict] = {}
-    pool = ThreadPoolExecutor(max_workers=len(SOURCES))
+    asked = SOURCES if bki_consent else tuple(s for s in SOURCES if s != "bki")
+    if not bki_consent:
+        results["bki"] = dict(NO_CONSENT)
+    pool = ThreadPoolExecutor(max_workers=len(asked))
     try:
         futures = {
             source: pool.submit(
                 fetch, source, inn, has_account=has_account, failing=source in failing
             )
-            for source in SOURCES
+            for source in asked
         }
         for source, future in futures.items():
             try:

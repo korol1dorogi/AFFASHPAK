@@ -30,6 +30,7 @@ from apps.applications.serializers import (
     DecisionSerializer,
     InfoRequestResponseSerializer,
     SignatureConfirmSerializer,
+    SubmitSerializer,
 )
 from apps.applications.transitions import lock_application
 
@@ -107,7 +108,11 @@ class ApplicationSubmitView(APIView):
                         {"Idempotency-Key": ["Этот ключ уже использован для другого запроса."]}
                     )
                 return Response(stored.response_body, status=stored.response_status)
-            application = services.submit(application, actor)
+            consent = SubmitSerializer(data=request.data)
+            consent.is_valid(raise_exception=True)
+            application = services.submit(
+                application, actor, consent_version=consent.validated_data["consent_version"]
+            )
             body = _detail(request, application, actor)
             IdempotencyKey.objects.create(
                 user=request.user,

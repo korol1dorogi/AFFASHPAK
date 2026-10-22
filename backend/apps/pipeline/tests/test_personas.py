@@ -8,7 +8,13 @@ from django.core.files.base import ContentFile
 from django.utils import timezone
 
 from apps.accounts.demo import seed
-from apps.applications.models import Application, ApplicationStatus, Score
+from apps.applications.models import (
+    BKI_CONSENT_VERSION,
+    Application,
+    ApplicationStatus,
+    BkiConsent,
+    Score,
+)
 from apps.business.models import Membership
 from apps.documents.models import Document
 from apps.integrations.flags import reset, set_failing
@@ -36,7 +42,7 @@ def _application(
     invoice_amount: str | None = None,
 ) -> Application:
     membership = Membership.objects.get(user__username=username)
-    return Application.objects.create(
+    application = Application.objects.create(
         company=membership.company,
         created_by=membership.user,
         need_type=need_type,
@@ -50,6 +56,11 @@ def _application(
         submitted_at=timezone.now(),
         prefill_source="recommendation",
     )
+    # Submitted through the API it would carry the consent; here it is created directly.
+    BkiConsent.objects.create(
+        application=application, user=membership.user, text_version=BKI_CONSENT_VERSION
+    )
+    return application
 
 
 def _documents(application: Application, kinds: tuple[str, ...]) -> None:

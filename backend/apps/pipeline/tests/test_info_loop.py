@@ -6,6 +6,7 @@ import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
 from rest_framework.test import APIClient
 
+from apps.applications.models import BKI_CONSENT_VERSION
 from apps.documents.tests.test_signatures import PDF_BYTES
 
 
@@ -20,7 +21,12 @@ def garden(seeded, settings):
 def submit(client, capture, body):
     app_id = client.post("/api/applications", body, format="json").json()["id"]
     with capture(execute=True):
-        client.post(f"/api/applications/{app_id}/submit", HTTP_IDEMPOTENCY_KEY=str(uuid.uuid4()))
+        client.post(
+            f"/api/applications/{app_id}/submit",
+            {"bki_consent": True, "consent_version": BKI_CONSENT_VERSION},
+            format="json",
+            HTTP_IDEMPOTENCY_KEY=str(uuid.uuid4()),
+        )
     return app_id
 
 

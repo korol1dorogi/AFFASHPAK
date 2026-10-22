@@ -324,6 +324,20 @@ class ApplicationUpdateSerializer(serializers.Serializer):
         return attrs
 
 
+class SubmitSerializer(serializers.Serializer):
+    """The signatory ticks the consent to the credit bureau request on the last wizard step."""
+
+    bki_consent = serializers.BooleanField()
+    consent_version = serializers.CharField(max_length=32)
+
+    def validate_bki_consent(self, value: bool) -> bool:
+        if not value:
+            raise serializers.ValidationError(
+                "Без согласия на запрос в бюро кредитных историй заявку не отправить."
+            )
+        return value
+
+
 class InfoRequestResponseSerializer(serializers.Serializer):
     message = serializers.CharField(max_length=2000)
 

@@ -335,6 +335,8 @@ def _unavailable_text(inp: ScoringInput, source: str) -> str:
     check = inp.check(source)
     if source == "bank_account" and check is not None and check.data.get("not_connected"):
         return "Счёт не подключён — данные по счёту проверит сотрудник. Это не отказ"
+    if check is not None and check.data.get("consent_missing"):
+        return "Нет согласия на запрос в бюро — кредитную историю проверит сотрудник. Это не отказ"
     return f"{SOURCE_NAME[source]} сейчас не отвечает — заявку проверит сотрудник. Это не отказ"
 
 
