@@ -142,7 +142,7 @@ export function ParamsFields({
         render={({ field }) => (
           <Field
             label="Продукт"
-            hint="Можно оставить выбор банку"
+            hint="Нужен, чтобы отправить заявку. Не знаете какой — откройте подбор"
             error={errors.product_code?.message}
           >
             <NativeSelect
@@ -152,7 +152,7 @@ export function ParamsFields({
               onChange={field.onChange}
               onBlur={field.onBlur}
             >
-              <option value="">Подберёт банк</option>
+              <option value="">Выберите продукт</option>
               {suitable.map((product) => (
                 <option key={product.code} value={product.code}>
                   {product.name}

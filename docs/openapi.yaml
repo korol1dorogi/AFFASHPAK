@@ -561,6 +561,9 @@ paths:
         Вместе с отправкой подписант даёт согласие на запрос в бюро кредитных историй (218-ФЗ):
         без `bki_consent: true` и актуальной `consent_version` — 400, заявка остаётся черновиком.
         Согласие сохраняется и пишется в журнал событием `consent_given`.
+        Поля, без которых банк не начнёт проверку (продукт, цель от 10 символов, сумма и срок в
+        границах продукта, сумма отгрузки у факторинга), проверяются здесь же — 400 с ошибкой по
+        полю: после отправки их уже не изменить. Документы можно догрузить и после отправки.
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -638,7 +641,7 @@ paths:
     post:
       tags: [applications]
       operationId: acceptOffer
-      summary: Принять активный оффер или контроффер (offer → signing; signatory)
+      summary: Принять активный оффер или контроффер (offer → signing; signatory); истёкший оффер — 409
       responses:
         "200":
           description: Оффер принят
@@ -2126,6 +2129,12 @@ components:
           maxLength: 32
           example: bki-2026-10
           description: Версия текста согласия, который видел клиент (frontend/src/texts). Устаревшая — 400
+        version:
+          allOf: [{ $ref: "#/components/schemas/Version" }]
+          description: |
+            Версия черновика, который подписант видел на шаге «Проверка и отправка». Если черновик
+            успели изменить (бухгалтер в другой вкладке) — 409 version_conflict. Кабинет передаёт
+            всегда; без поля версия не проверяется
 
     InfoRequestResponse:
       type: object

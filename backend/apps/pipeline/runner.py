@@ -11,6 +11,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.applications.access import SYSTEM
+from apps.applications.completeness import field_gaps
 from apps.applications.models import (
     Application,
     ApplicationStatus,
@@ -22,10 +23,10 @@ from apps.applications.models import (
 )
 from apps.applications.services import record_auto_decision, start_processing
 from apps.applications.transitions import record_event
+from apps.documents.models import DocumentKind
 from apps.integrations.adapters import fetch_all
 from apps.pipeline.decide import SOURCE_NAME, decide
 from apps.scoring import CURRENT_POLICY_VERSION, build_input
-from apps.scoring.texts import rubles
 
 S = ApplicationStatus
 logger = logging.getLogger(__name__)
@@ -79,18 +80,8 @@ def _to_officer(application_id: int) -> None:
 
 
 def _run(application: Application) -> None:
-    gaps = _gaps(application)
-    if gaps is not None:
-        record_auto_decision(
-            application.pk,
-            outcome=DecisionOutcome.INFO_REQUESTED,
-            grade=None,
-            policy_version=CURRENT_POLICY_VERSION,
-            reasons=[],
-            info_request=gaps,
-        )
-        return
-
+    # Stop factors come before completeness (decision-model.md §2): a liquidated company is
+    # declined, not asked for documents it could never use.
     company = application.company
     snapshot = company.snapshots.order_by("-period", "-id").first()
     early = build_input(
@@ -104,6 +95,18 @@ def _run(application: Application) -> None:
     early_stops = stop_factors(early)
     if early_stops:
         _decline(application.pk, early_stops)
+        return
+
+    gaps = _gaps(application)
+    if gaps is not None:
+        record_auto_decision(
+            application.pk,
+            outcome=DecisionOutcome.INFO_REQUESTED,
+            grade=None,
+            policy_version=CURRENT_POLICY_VERSION,
+            reasons=[],
+            info_request=gaps,
+        )
         return
 
     answers = fetch_all(
@@ -225,39 +228,22 @@ def _snapshot_dict(snapshot) -> dict | None:
 
 
 def _gaps(application: Application) -> dict | None:
-    from apps.scoring.policy import get_policy
-
-    policy = get_policy()
-    fields: list[str] = []
+    """Fields are checked on submit (completeness.py); here they are only a safety net, so in
+    practice the pipeline asks for documents — the one thing the client can add after sending."""
+    gaps = field_gaps(application)
+    fields = [field for field, _message in gaps]
+    messages = [message for _field, message in gaps]
     documents: list[str] = []
-    messages: list[str] = []
     product = application.product
-    if len((application.purpose or "").strip()) < policy.purpose_min_length:
-        fields.append("purpose")
-        messages.append("Опишите цель подробнее: на что именно пойдут деньги")
-    if product is None:
-        fields.append("product_code")
-        messages.append("Выберите продукт или воспользуйтесь подбором")
-    else:
-        if application.requested_amount < product.amount_min:
-            fields.append("requested_amount")
-            messages.append(f"Минимальная сумма по продукту — {rubles(product.amount_min)}")
-        if not product.term_min_months <= application.term_months <= product.term_max_months:
-            fields.append("term_months")
-            messages.append(
-                f"Срок по продукту — от {product.term_min_months} до {product.term_max_months} мес"
-            )
-        if product.kind == "factoring" and application.invoice_amount is None:
-            fields.append("invoice_amount")
-            messages.append("Укажите сумму отгрузки по документу")
+    if product is not None:
         present = set(application.documents.values_list("kind", flat=True))
-        missing = [kind for kind in product.required_documents if kind not in present]
-        if missing:
-            documents.extend(missing)
-            messages.append("Загрузите недостающие документы")
+        documents = [kind for kind in product.required_documents if kind not in present]
+        if documents:
+            names = ", ".join(DocumentKind(kind).label.lower() for kind in documents)
+            messages.append(f"Загрузите: {names}")
     if not fields and not documents:
         return None
-    return {"message": " ".join(messages), "fields": fields, "document_kinds": documents}
+    return {"message": ". ".join(messages), "fields": fields, "document_kinds": documents}
 
 
 def _reason(reason) -> dict:

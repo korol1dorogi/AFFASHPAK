@@ -75,4 +75,9 @@ def make_application(
         "term_months": 12,
         "prefill_source": "manual",
     }
+    if "product" not in fields and "product_id" not in fields:
+        # Complete by default: submit checks the product and its limits (completeness.py).
+        defaults["product"] = (
+            Product.objects.filter(code="overdraft_demo").first() or make_product()
+        )
     return Application.objects.create(company=company, status=status, **{**defaults, **fields})

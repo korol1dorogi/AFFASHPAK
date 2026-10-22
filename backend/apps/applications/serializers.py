@@ -329,6 +329,9 @@ class SubmitSerializer(serializers.Serializer):
 
     bki_consent = serializers.BooleanField()
     consent_version = serializers.CharField(max_length=32)
+    # The draft version the signatory reviewed: a preparer's later edit → 409 (optional for
+    # older clients; the cabinet always sends it).
+    version = serializers.IntegerField(min_value=0, required=False)
 
     def validate_bki_consent(self, value: bool) -> bool:
         if not value:

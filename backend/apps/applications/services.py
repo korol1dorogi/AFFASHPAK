@@ -16,6 +16,7 @@ from django.utils import timezone
 from rest_framework.exceptions import NotFound, ValidationError
 
 from apps.applications.access import SYSTEM, Actor, current_membership
+from apps.applications.completeness import field_gaps
 from apps.applications.models import (
     BKI_CONSENT_VERSION,
     Application,
@@ -34,6 +35,7 @@ from apps.applications.models import (
 )
 from apps.applications.offers import create_offer, current_offer, rate_for
 from apps.applications.transitions import (
+    InvalidTransition,
     apply_transition,
     check_action,
     check_version,
@@ -43,6 +45,7 @@ from apps.applications.transitions import (
 )
 from apps.products.models import Product
 from apps.scoring.policy import CURRENT_POLICY_VERSION
+from apps.scoring.texts import percent, rubles
 
 S = ApplicationStatus
 SIGNATURE_TTL = timedelta(minutes=10)
@@ -103,16 +106,35 @@ def update_draft(application: Application, actor: Actor, data: dict[str, Any]) -
 BKI_CONSENT_MESSAGE = "Согласие на запрос в БКИ"
 
 
-def submit(application: Application, actor: Actor, *, consent_version: str) -> Application:
+def submit(
+    application: Application,
+    actor: Actor,
+    *,
+    consent_version: str,
+    version: int | None = None,
+) -> Application:
     """Consent to the credit bureau request goes with the submit, in the same transaction:
-    an application in the bank always has it (218-FZ)."""
-    if consent_version != BKI_CONSENT_VERSION:
-        raise ValidationError(
-            {"bki_consent": ["Текст согласия обновился. Обновите страницу и подтвердите снова."]}
-        )
+    an application in the bank always has it (218-FZ).
+
+    Order: rights (403) and state (409), the version the signatory saw (409 — a preparer may have
+    changed the draft meanwhile), the consent text, then the fields the bank needs (400): after
+    sending they can no longer be changed, so a gap would loop through info_requested.
+    """
     with transaction.atomic():
         app = lock_application(application.pk)
         check_action(app, "submit", actor)
+        check_version(app, version)
+        if consent_version != BKI_CONSENT_VERSION:
+            raise ValidationError(
+                {
+                    "consent_version": [
+                        "Текст согласия обновился. Обновите страницу и подтвердите снова."
+                    ]
+                }
+            )
+        gaps = field_gaps(app)
+        if gaps:
+            raise ValidationError({field: [message] for field, message in gaps})
         BkiConsent.objects.update_or_create(
             application=app,
             defaults={"user": actor.user, "text_version": consent_version},
@@ -148,7 +170,7 @@ def accept_offer(application: Application, actor: Actor) -> Application:
         offer = app.offers.filter(status=OfferStatus.ACTIVE).first()
         check_action(app, "accept_offer", actor)
         if offer is None or offer.expires_at <= timezone.now():
-            raise ValidationError({"offer": ["Предложение истекло. Обратитесь в банк."]})
+            raise InvalidTransition("Предложение истекло. Обратитесь в банк.")
         apply_transition(app, "accept_offer", actor, message="Предложение принято.")
         offer.status = OfferStatus.ACCEPTED
         offer.save(update_fields=["status"])
@@ -293,6 +315,27 @@ def _officer_decision(app: Application, actor: Actor, outcome: str, **fields: An
     )
 
 
+def _check_product_terms(
+    product: Product, *, amount: Decimal, term_months: int, rate: Decimal | None = None
+) -> None:
+    """An officer's offer stays inside the product's limits (catalog, docs/products.md)."""
+    errors: dict[str, list[str]] = {}
+    if not product.amount_min <= amount <= product.amount_max:
+        errors["amount"] = [
+            f"Сумма по продукту — от {rubles(product.amount_min)} до {rubles(product.amount_max)}"
+        ]
+    if not product.term_min_months <= term_months <= product.term_max_months:
+        errors["term_months"] = [
+            f"Срок по продукту — от {product.term_min_months} до {product.term_max_months} мес"
+        ]
+    if rate is not None and not product.rate_min <= rate <= product.rate_max:
+        errors["rate"] = [
+            f"Ставка по продукту — от {percent(product.rate_min)} до {percent(product.rate_max)}"
+        ]
+    if errors:
+        raise ValidationError(errors)
+
+
 def bank_approve(
     application: Application, actor: Actor, version: int, comment: str | None = None
 ) -> Application:
@@ -304,6 +347,7 @@ def bank_approve(
             raise ValidationError(
                 {"product_code": ["В заявке не выбран продукт — сделайте контрпредложение."]}
             )
+        _check_product_terms(app.product, amount=app.requested_amount, term_months=app.term_months)
         decision = _officer_decision(app, actor, DecisionOutcome.OFFER, comment=comment)
         create_offer(
             app,
@@ -343,6 +387,7 @@ def bank_counteroffer(
         product = _product(product_code) or app.product
         if product is None:
             raise ValidationError({"product_code": ["Укажите продукт."]})
+        _check_product_terms(product, amount=amount, term_months=term_months, rate=rate)
         changed = app.product_id is not None and product.pk != app.product_id
         outcome = DecisionOutcome.ALTERNATIVE_PRODUCT if changed else DecisionOutcome.COUNTEROFFER
         decision = _officer_decision(app, actor, outcome, comment=comment)
@@ -416,7 +461,7 @@ def bank_decline(
             version=version,
             event_kind=EventKind.DECISION,
             message=reasons_text,
-            notify=("Банк отказал", reasons_text),
+            notify=("Предварительная оценка: отказ", reasons_text),
         )
         return app
 
@@ -468,7 +513,10 @@ def record_auto_decision(
         S.OFFER: ("Готово предложение", "Посмотрите условия и примите решение."),
         S.MANUAL_REVIEW: ("Заявку смотрит сотрудник банка", "Обычно это занимает до одного дня."),
         S.INFO_REQUESTED: ("Уточните данные", "Без этого мы не сможем продолжить проверку."),
-        S.DECLINED: ("Банк отказал", "Посмотрите причины и что можно улучшить."),
+        S.DECLINED: (
+            "Предварительная оценка: отказ",
+            "Посмотрите причины и что можно улучшить.",
+        ),
     }[target]
     with transaction.atomic():
         app = lock_application(application_id)
@@ -517,6 +565,6 @@ def mark_issued(application_id: int, account_masked: str = "") -> Application:
             SYSTEM,
             event_kind=EventKind.ISSUED,
             message="Деньги выданы.",
-            notify=("Деньги выданы", f"Сумма {disbursement.amount} ₽ отправлена на счёт."),
+            notify=("Деньги выданы", f"Сумма {rubles(disbursement.amount)} отправлена на счёт."),
         )
         return app
