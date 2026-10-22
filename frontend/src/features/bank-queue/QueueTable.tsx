@@ -52,14 +52,19 @@ function Head() {
 
 /** Hours in status; past the status norm (server, XP4) — an icon and words, not colour alone. */
 function InStatus({ item }: { item: Item }) {
-  const hours = <span className="tabular">{BANK_QUEUE.hoursInStatus(item.hours_in_status)}</span>;
+  const hours = (
+    <span className="tabular whitespace-nowrap">
+      {BANK_QUEUE.hoursInStatus(item.hours_in_status)}
+    </span>
+  );
   if (!item.is_overdue) return hours;
+  // Narrow on purpose: the words wrap inside the column instead of widening the 1280 px table.
   return (
-    <span className="inline-flex flex-col items-end leading-4">
+    <span className="inline-flex flex-col items-end gap-0.5 leading-4">
       {hours}
-      <span className="inline-flex items-center gap-1 text-xs font-semibold text-status-danger">
-        <AlarmClock className="size-3.5" aria-hidden="true" />
-        {BANK_QUEUE.overdue(item.overdue_hours)}
+      <span className="flex max-w-24 items-start justify-end gap-1 text-xs font-semibold text-status-danger">
+        <AlarmClock className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+        <span>{BANK_QUEUE.overdue(item.overdue_hours)}</span>
       </span>
     </span>
   );
@@ -129,7 +134,7 @@ function Row({ item }: { item: Item }) {
           <span className="text-ink-muted">{BANK_QUEUE.unassigned}</span>
         )}
       </td>
-      <td className={cn(td, "text-right whitespace-nowrap")}>
+      <td className={cn(td, "text-right")}>
         <InStatus item={item} />
       </td>
     </tr>
