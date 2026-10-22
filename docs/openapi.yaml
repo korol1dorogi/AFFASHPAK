@@ -668,6 +668,34 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/Conflict" }
 
+  /api/applications/{id}/what-if:
+    parameters:
+      - $ref: "#/components/parameters/ApplicationId"
+    post:
+      tags: [applications]
+      operationId: calculateWhatIf
+      summary: «Что если» под оффером — платёж, DSCR и допустимая сумма на другой срок (расчёт, не решение)
+      description: |
+        Только расчёт: оффер банка не меняется. Ставка — из действующего оффера, допустимая сумма —
+        те же правила, что у подбора (credit_math: max_loan_by_dscr, лимиты продукта). Доступно при
+        действующем оффере на продукт с фиксированным платежом (КПО, инвестиционный кредит, лизинг);
+        сумма вне лимитов продукта не ошибка, а fits = false с причиной. Заявки чужой компании — 404.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WhatIfRequest" }
+      responses:
+        "200":
+          description: Расчёт
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WhatIfResult" }
+        "400": { $ref: "#/components/responses/ValidationError" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
   /api/applications/{id}/signature:
     parameters:
       - $ref: "#/components/parameters/ApplicationId"
@@ -1802,6 +1830,38 @@ components:
           type: array
           items: { $ref: "#/components/schemas/Reason" }
         is_preliminary: { type: boolean, const: true }
+
+    WhatIfRequest:
+      type: object
+      required: [amount, term_months]
+      additionalProperties: false
+      properties:
+        amount: { $ref: "#/components/schemas/Money" }
+        term_months:
+          type: integer
+          minimum: 1
+          maximum: 360
+          description: В пределах срока продукта оффера, иначе 400
+
+    WhatIfResult:
+      type: object
+      required: [amount, term_months, rate, monthly_payment, max_amount, dscr_after, min_dscr, fits, reasons]
+      properties:
+        amount: { $ref: "#/components/schemas/Money" }
+        term_months: { type: integer, minimum: 1 }
+        rate: { $ref: "#/components/schemas/Rate" }
+        monthly_payment: { $ref: "#/components/schemas/Money" }
+        max_amount:
+          description: Допустимая сумма на этот срок; null — посчитать нельзя (причина в reasons)
+          oneOf: [{ $ref: "#/components/schemas/Money" }, { type: "null" }]
+        dscr_after:
+          description: DSCR с новым платежом; null — посчитать нельзя
+          oneOf: [{ $ref: "#/components/schemas/DecimalString" }, { type: "null" }]
+        min_dscr: { $ref: "#/components/schemas/DecimalString" }
+        fits: { type: boolean, description: Все проверки пройдены — такие условия прошли бы }
+        reasons:
+          type: array
+          items: { $ref: "#/components/schemas/Reason" }
 
     AnnuityRequest:
       type: object
