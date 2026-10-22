@@ -380,7 +380,9 @@ export const BANK_QUEUE = {
   openApplication: (id: number) => `Заявка №${id}`,
   inn: (inn: string) => `ИНН ${inn}`,
   hoursInStatus: (hours: number) => `${hours} ч`,
-  overdue: "дольше суток",
+  /** Past the status norm (XP4): shown as text next to the icon, not by colour alone. */
+  overdue: (hours: number) => (hours > 0 ? `просрочено на ${hours} ч` : "просрочено, меньше часа"),
+  overdueOnly: "Только просроченные",
   sourceUnavailable: "Источник недоступен",
   unassigned: "Не назначен",
   noValue: "—",
@@ -866,6 +868,12 @@ export const BANK_DASHBOARD = {
   hours: "Среднее время в статусе",
   hoursValue: (value: string) => `${value} ч`,
   noData: "Данных пока нет.",
+  overdue: "Просрочено по нормативу",
+  overdueValue: (count: number, total: number) => `${count} из ${total}`,
+  overdueNone: "Сейчас нет заявок, которые ждут банк",
+  norms: "Нормативы",
+  normValue: (status: string, hours: number) => `${status} — ${hours} ч`,
+  overdueLink: "Показать просроченные в очереди",
 } as const;
 
 /** B7: demo panel. */

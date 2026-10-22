@@ -1621,6 +1621,12 @@ export interface components {
             /** Format: date-time */
             status_changed_at: string;
             hours_in_status: number;
+            /** @description До какого момента заявка должна уйти из статуса по нормативу; null — у статуса нет норматива (ждём клиента или финал) */
+            sla_due_at: string | null;
+            /** @description Срок по нормативу прошёл */
+            is_overdue: boolean;
+            /** @description Сколько полных часов прошло после срока; 0 — не просрочено или меньше часа */
+            overdue_hours: number;
             version: components["schemas"]["Version"];
         };
         BankQueuePage: components["schemas"]["Page"] & {
@@ -1693,6 +1699,24 @@ export interface components {
             };
             /** @description Доля решений без участия сотрудника (0..1); null — решений ещё нет */
             auto_decision_share: components["schemas"]["DecimalString"] | null;
+            /**
+             * @description Норматив в часах для статусов, где действует банк
+             * @example {
+             *       "submitted": 1,
+             *       "processing": 1,
+             *       "manual_review": 24,
+             *       "signed": 1
+             *     }
+             */
+            sla_hours: {
+                [key: string]: number;
+            };
+            /** @description Заявок периода сейчас в статусах с нормативом */
+            sla_open_count: number;
+            /** @description Из них просрочено по нормативу */
+            overdue_count: number;
+            /** @description Доля просроченных среди sla_open_count (0..1); null — таких заявок нет */
+            overdue_share: components["schemas"]["DecimalString"] | null;
         };
         AssistantMessageRequest: {
             text: string;
@@ -3059,6 +3083,8 @@ export interface operations {
                 /** @description me — мои, none — никому не назначены, или id сотрудника */
                 assignee?: string;
                 min_hours_in_status?: number;
+                /** @description true — только заявки, просроченные по нормативу статуса (SLA) */
+                overdue?: boolean;
                 /** @description ИНН или название компании */
                 search?: string;
                 ordering?: "status_changed_at" | "-status_changed_at" | "requested_amount" | "-requested_amount" | "created_at" | "-created_at";

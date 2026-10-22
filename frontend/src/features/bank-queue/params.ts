@@ -14,7 +14,6 @@ type Grade = Schemas["Grade"];
 export const PAGE_SIZE = 20;
 export const GRADES = ["A", "B", "C", "D", "E"] as const satisfies readonly Grade[];
 export const HOUR_PRESETS = [4, 24, 72] as const;
-export const OVERDUE_HOURS = 24;
 const SEARCH_MAX = 100;
 
 export const STATUSES = Object.keys(STATUS) as Status[];
@@ -30,6 +29,8 @@ export interface QueueFilters {
   /** "me", "none" or an employee id; absent = everyone. */
   assignee?: string;
   min_hours_in_status?: number;
+  /** Only applications past their status norm (XP4); the server decides what is overdue. */
+  overdue?: true;
   search?: string;
   ordering?: QueueOrdering;
   page: number;
@@ -41,6 +42,7 @@ const FILTER_KEYS = [
   "grade",
   "assignee",
   "min_hours_in_status",
+  "overdue",
   "search",
 ] as const;
 
@@ -69,6 +71,7 @@ export function parseFilters(params: URLSearchParams): QueueFilters {
     grade: oneOf(params.get("grade"), GRADES),
     assignee: assignee && /^(me|none|\d+)$/.test(assignee) ? assignee : undefined,
     min_hours_in_status: nonNegativeInt(params.get("min_hours_in_status"), 0),
+    overdue: params.get("overdue") === "1" ? true : undefined,
     search: search || undefined,
     ordering: oneOf(params.get("ordering"), ORDERINGS),
     page: nonNegativeInt(params.get("page"), 1) ?? 1,
@@ -84,6 +87,7 @@ export function toQuery(filters: QueueFilters): QueueQuery {
   if (filters.assignee) query.assignee = filters.assignee;
   if (filters.min_hours_in_status !== undefined)
     query.min_hours_in_status = filters.min_hours_in_status;
+  if (filters.overdue) query.overdue = true;
   if (filters.search) query.search = filters.search;
   if (filters.ordering) query.ordering = filters.ordering;
   return query;
@@ -98,6 +102,7 @@ export function toSearchParams(filters: QueueFilters): URLSearchParams {
     grade: filters.grade,
     assignee: filters.assignee,
     min_hours_in_status: filters.min_hours_in_status,
+    overdue: filters.overdue ? "1" : undefined,
     search: filters.search?.trim(),
     ordering: filters.ordering,
     page: filters.page > 1 ? filters.page : undefined,

@@ -203,6 +203,12 @@ REST_FRAMEWORK = {
     "COERCE_DECIMAL_TO_STRING": True,
 }
 
+# --- Bank queue SLA (XP4, apps/applications/sla.py) ---
+# Hours an application may stay in a status where the bank acts. Overrides of the defaults in
+# sla.py, e.g. SLA_HOURS="manual_review=24,submitted=1"; statuses not listed keep the default.
+# Kept as text and parsed in sla.py: a broken item is ignored with a warning, never a crash.
+APPLICATION_SLA_HOURS = env("SLA_HOURS", "")
+
 # --- AI assistant (see apps/assistant/llm) ---
 LLM_PROVIDER = env("LLM_PROVIDER", "mock")
 LLM_BASE_URL = env("LLM_BASE_URL", "")
