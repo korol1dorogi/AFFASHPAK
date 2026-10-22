@@ -45,6 +45,7 @@ from apps.applications.serializers import (
     VersionedActionSerializer,
     user_ref,
 )
+from apps.applications.sla import open_q, overdue_q, sla_hours, sla_state
 from apps.core.permissions import IsBankUser
 from apps.documents.serializers import DocumentSerializer
 from apps.products.models import ProductKind
@@ -107,13 +108,14 @@ class BankQueueParamsSerializer(serializers.Serializer):
     grade = serializers.ChoiceField(choices=Grade.choices, required=False)
     assignee = serializers.RegexField(r"^(me|none|\d+)$", required=False)
     min_hours_in_status = serializers.IntegerField(min_value=0, required=False)
+    overdue = serializers.BooleanField(required=False)
     search = serializers.CharField(max_length=100, required=False)
     ordering = serializers.ChoiceField(choices=QUEUE_ORDERING, default="status_changed_at")
     page = serializers.IntegerField(min_value=1, default=1)
     page_size = serializers.IntegerField(min_value=1, max_value=100, default=20)
 
 
-def _queue_filters(request: Request, params: dict) -> QuerySet[Application]:
+def _queue_filters(request: Request, params: dict, now: datetime) -> QuerySet[Application]:
     """Every filter except status: the status counters are computed on this set."""
     applications = Application.objects.filter(status__in=QUEUE_STATUSES)
     if "product_kind" in params:
@@ -128,8 +130,10 @@ def _queue_filters(request: Request, params: dict) -> QuerySet[Application]:
     elif assignee is not None:
         applications = applications.filter(assignee_id=int(assignee))
     if "min_hours_in_status" in params:
-        since = timezone.now() - timedelta(hours=params["min_hours_in_status"])
+        since = now - timedelta(hours=params["min_hours_in_status"])
         applications = applications.filter(status_changed_at__lte=since)
+    if params.get("overdue"):
+        applications = applications.filter(overdue_q(now))
     search = params.get("search", "").strip()
     if search:
         applications = applications.filter(
@@ -144,6 +148,7 @@ def _queue_item(application: Application, now: datetime) -> dict:
     # The product on the table now: an alternative offer (leasing) replaces the requested one.
     product = offer.product if offer else application.product
     in_status = now - application.status_changed_at
+    sla = sla_state(application.status, application.status_changed_at, now)
     return {
         "id": application.pk,
         "company_name": application.company.name,
@@ -158,6 +163,11 @@ def _queue_item(application: Application, now: datetime) -> dict:
             application.status_changed_at
         ),
         "hours_in_status": max(0, int(in_status.total_seconds())) // 3600,
+        "sla_due_at": (
+            serializers.DateTimeField().to_representation(sla.due_at) if sla.due_at else None
+        ),
+        "is_overdue": sla.is_overdue,
+        "overdue_hours": sla.overdue_hours,
         "version": application.version,
     }
 
@@ -165,7 +175,8 @@ def _queue_item(application: Application, now: datetime) -> dict:
 class BankQueueView(_BankView):
     def get(self, request: Request) -> Response:
         params = _valid_params(request)
-        applications = _queue_filters(request, params)
+        now = timezone.now()
+        applications = _queue_filters(request, params, now)
         counts = dict(applications.order_by().values_list("status").annotate(total=Count("id")))
         counters = {value: counts.get(value, 0) for value in QUEUE_STATUSES}
         if params.get("status"):
@@ -177,7 +188,6 @@ class BankQueueView(_BankView):
         page, page_size = params["page"], params["page_size"]
         total = applications.count()
         start = (page - 1) * page_size
-        now = timezone.now()
         return Response(
             {
                 "count": total,
@@ -284,7 +294,8 @@ class BankDashboardView(_BankView):
     """GET /api/bank/dashboard — funnel, average hours in each status, share of auto decisions.
 
     Period: applications submitted in the last `days`. Hours in status come from the status
-    journal (ApplicationEvent.to_status); the current status counts until now.
+    journal (ApplicationEvent.to_status); the current status counts until now. SLA (XP4): of the
+    period's applications now in a status with a norm, how many are past it (apps/applications/sla.py).
     """
 
     def get(self, request: Request) -> Response:
@@ -316,6 +327,9 @@ class BankDashboardView(_BankView):
                 spent = Decimal((left - previous[2]).total_seconds()) / 3600
                 hours.setdefault(previous[1], []).append(spent)
             previous = (app_id, state, at) if app_id is not None else None
+        sla_open = applications.filter(open_q())
+        sla_open_count = sla_open.count()
+        overdue_count = sla_open.filter(overdue_q(now)).count()
         decisions = Decision.objects.filter(application_id__in=ids, outcome__in=FINAL_OUTCOMES)
         total_decisions = decisions.count()
         auto = decisions.filter(decided_by="auto").count()
@@ -331,6 +345,14 @@ class BankDashboardView(_BankView):
                 "auto_decision_share": (
                     str((Decimal(auto) / total_decisions).quantize(Decimal("0.0001")))
                     if total_decisions
+                    else None
+                ),
+                "sla_hours": sla_hours(),
+                "sla_open_count": sla_open_count,
+                "overdue_count": overdue_count,
+                "overdue_share": (
+                    str((Decimal(overdue_count) / sla_open_count).quantize(Decimal("0.0001")))
+                    if sla_open_count
                     else None
                 ),
             }
