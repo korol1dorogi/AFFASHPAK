@@ -54,13 +54,13 @@ POST /api/applications/{id}/signature/confirm   {"code"}              → signed
 
 ## Эндпоинты
 
-Сгенерировано из [openapi.yaml](openapi.yaml): 49 путей, 57 операций. «Вход: нет» — доступно без сессии. Пока не реализованы два пути ассистента (три операции) — помечены ⏳ с номером задачи.
+Сгенерировано из [openapi.yaml](openapi.yaml): 55 путей, 63 операции. «Вход: нет» — доступно без сессии. Пока не реализованы два пути ассистента (три операции) — помечены ⏳ с номером задачи.
 
 ### system
 | Метод | Путь | Что делает | Вход |
 |---|---|---|---|
 | GET | `/api/health` | Живость API и базы | нет |
-| GET | `/api/ready` | Готовность к трафику (база, очередь, симуляторы) | нет |
+| GET | `/api/ready` | Готовность к трафику: база доступна, миграции применены | нет |
 
 ### auth
 | Метод | Путь | Что делает | Вход |
@@ -108,7 +108,8 @@ POST /api/applications/{id}/signature/confirm   {"code"}              → signed
 | POST | `/api/applications/{id}/cancel` | Отозвать заявку | сессия |
 | GET | `/api/applications/{id}/events` | Таймлайн заявки для клиента (без внутренних комментариев банка) | сессия |
 | GET | `/api/applications/{id}/decision` | Последнее решение с причинами и «что улучшить» (404 — решения ещё нет) | сессия |
-| POST | `/api/applications/{id}/offer/accept` | Принять активный оффер или контроффер (offer → signing; signatory) | сессия |
+| POST | `/api/applications/{id}/what-if` | «Что если» под оффером — платёж, DSCR и допустимая сумма на другой срок (расчёт, не решение) | сессия |
+| POST | `/api/applications/{id}/offer/accept` | Принять активный оффер или контроффер (offer → signing; signatory); истёкший оффер — 409 | сессия |
 | POST | `/api/applications/{id}/offer/decline` | Отказаться от оффера (offer → cancelled; signatory) | сессия |
 | POST | `/api/applications/{id}/signature` | Получить код подписания — показывается на экране (не SMS); повтор выдаёт новый код | сессия |
 | POST | `/api/applications/{id}/signature/confirm` | Подтвердить подписание кодом (signing → signed) | сессия |

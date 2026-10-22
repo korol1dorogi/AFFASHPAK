@@ -1,6 +1,6 @@
 # Стейт-машина заявки
 
-Одна стейт-машина на клиента и банк (plan.md, «Целостность важнее широты»). Статус меняется **только** функциями сервисного слоя (`backend/apps/applications/services.py`, L2): каждая проверяет текущий статус, роль и `version`, пишет `ApplicationEvent` (журнал аудита) и, где указано, `Notification`. Недопустимый переход → 409 `invalid_transition`; устаревшая `version` → 409 `version_conflict`.
+Одна стейт-машина на клиента и банк (plan.md, «Целостность важнее широты»). Статус меняется **только** функциями сервисного слоя (`backend/apps/applications/services.py`, L2): каждая проверяет текущий статус и роль, действия банка, правка черновика и `submit` — ещё и `version` (у `submit` поле необязательное для старых клиентов, кабинет передаёт всегда; действия клиента в `offer`/`signing` версию не требуют — в этих статусах заявку меняет только он сам), пишет `ApplicationEvent` (журнал аудита) и, где указано, `Notification`. Недопустимый переход → 409 `invalid_transition`; устаревшая `version` → 409 `version_conflict`.
 
 > v1, сверена с кейсом: F5 (динамика статуса), F6 (проверка полноты → уточнение), F9 (небинарные исходы), F10 (оформление и выдача — смоделированы, O6).
 
@@ -18,6 +18,9 @@
 | `issued` | Деньги выданы | — (финал) |
 | `declined` | Отказ с причинами и советом, что улучшить | — (финал) |
 | `cancelled` | Заявка отозвана клиентом | — (финал) |
+
+### Нормативы времени (SLA)
+Норматив есть только у статусов, где ход за банком или системой: `submitted` — 1 ч, `processing` — 1 ч, `manual_review` — 24 ч, `signed` — 1 ч (`APPLICATION_SLA_HOURS`, `backend/apps/applications/sla.py`; переопределяется `SLA_HOURS` в .env, ошибочное значение оставляет нормативы по умолчанию с предупреждением в логе). У статусов, где ход за клиентом (`draft`, `info_requested`, `offer`, `signing`), и у финальных (`issued`, `declined`, `cancelled`) норматива нет: такие заявки не просрочены, сколько бы ни прошло времени. Отсчёт — от `status_changed_at`; просрочено, когда срок прошёл. Очередь отдаёт `sla_due_at`, `is_overdue`, `overdue_hours` и фильтр `overdue`, дашборд — `sla_hours`, `sla_open_count`, `overdue_count`, `overdue_share`; фронт своих порогов не держит (XP4, D24).
 
 ## Диаграмма
 ```mermaid
@@ -53,14 +56,14 @@ stateDiagram-v2
 ## Переходы
 | # | Из | В | Действие (API) | Кто | Условия | Событие → уведомление клиенту |
 |---|---|---|---|---|---|---|
-| 1 | draft | submitted | `submit` (POST …/submit) | клиент: signatory | обязательные поля заполнены; `Idempotency-Key`; повтор с тем же ключом → тот же ответ без нового перехода; согласие на запрос в БКИ (`bki_consent: true` и актуальная `consent_version`, иначе 400) — сохраняется как BkiConsent в той же транзакции (SRC1) | `consent_given` → «Согласие на запрос в БКИ», затем `status_changed` → «Заявка отправлена» |
+| 1 | draft | submitted | `submit` (POST …/submit) | клиент: signatory | `version`, если передана (черновик, который видел подписант; иначе 409); поля, без которых банк не начнёт проверку, заполнены: продукт, цель от 10 символов, сумма и срок в границах продукта, сумма отгрузки у факторинга (иначе 400 по полю — после отправки поля не изменить; `apps/applications/completeness.py`); `Idempotency-Key`; повтор с тем же ключом → тот же ответ без нового перехода; согласие на запрос в БКИ (`bki_consent: true` и актуальная `consent_version`, иначе 400) — сохраняется как BkiConsent в той же транзакции (SRC1) | `consent_given` → «Согласие на запрос в БКИ», затем `status_changed` → «Заявка отправлена» |
 | 2 | submitted | processing | `pipeline.start` | система (worker) | — | `status_changed` |
 | 3 | processing | declined | `stop_factor` | система | любой стоп-фактор в validation/enrichment | `decision` → «Отказ: …» |
 | 4 | processing | offer | `auto_offer` / `auto_counteroffer` / `auto_alternative_product` | система | грейд и правила decision-model.md (D4); контроффер — если запрошенная сумма или срок не проходят (например, сумма > max_loan_by_dscr); другой продукт — если он лучше закрывает потребность | `decision` → «Готово предложение» |
-| 4a | processing | info_requested | `incomplete` | система | проверка полноты и корректности (validation) нашла пробелы: `InfoRequest(origin=validation, fields=[…])` | `info_requested` → «Уточните данные» |
+| 4a | processing | info_requested | `incomplete` | система | не хватает документов продукта: `InfoRequest(origin=validation, document_kinds=[…])`; поля проверены при `submit`, здесь остаются только как страховка для заявок, отправленных раньше. Клиент догружает документы и отвечает (10a) — петли нет | `info_requested` → «Уточните данные» |
 | 5 | processing | manual_review | `needs_review` | система | грейд в зоне ручного рассмотрения **или** хотя бы один источник `unavailable` (сценарий 7) | `status_changed` → «Заявку смотрит сотрудник» |
 | 6 | processing | declined | `auto_decline` | система | грейд E | `decision` → «Отказ: …» |
-| 7 | manual_review | offer | `approve` / `counteroffer` (POST /api/bank/…/approve, …/counteroffer) | банк | `version`; комментарий обязателен для контроффера | `decision` → «Готово предложение» |
+| 7 | manual_review | offer | `approve` / `counteroffer` (POST /api/bank/…/approve, …/counteroffer) | банк | `version`; комментарий обязателен для контроффера; сумма, срок и ставка — в границах продукта (иначе 400) | `decision` → «Готово предложение» |
 | 8 | manual_review | info_requested | `request_info` | банк | `version`; текст запроса | `info_requested` → «Банк просит документ» |
 | 9 | manual_review | declined | `decline` | банк | `version`; причины обязательны | `decision` → «Отказ: …» |
 | 10 | info_requested | manual_review | `respond` (POST …/info-requests/{id}/respond) | клиент: signatory, preparer | ответ на запрос сотрудника (`origin=officer`) | `info_responded` (в очереди банка) |
@@ -91,10 +94,10 @@ stateDiagram-v2
 `admin` (Django superuser) — техническая админка, в продукте не участвует. Клиент видит только заявки своей компании; банк — все; чужой id → 404.
 
 ## `available_actions`
-Каждый ответ с заявкой содержит `available_actions` — список действий, доступных **текущему пользователю** сейчас (по статусу и роли). Фронт рисует кнопки только по нему и не дублирует правила. Значения: `edit`, `upload_document`, `submit`, `cancel`, `respond_info`, `accept_offer`, `decline_offer`, `sign`, `assign`, `approve`, `counteroffer`, `request_info`, `decline`.
+Каждый ответ с заявкой содержит `available_actions` — список действий, доступных **текущему пользователю** сейчас (по статусу и роли). Фронт рисует кнопки только по нему и не дублирует правила. `accept_offer` не попадает в список, если действующий оффер истёк (сервис в этом случае отвечает 409). `assign` — в `submitted`, `processing`, `manual_review`, `info_requested`. Значения: `edit`, `upload_document`, `submit`, `cancel`, `respond_info`, `accept_offer`, `decline_offer`, `sign`, `assign`, `approve`, `counteroffer`, `request_info`, `decline`.
 
 ## Конвейер (L4)
-`submitted` → worker: **validation** (полнота и корректность; пробелы → `info_requested` с `origin=validation`; стоп-факторы по анкете) → **enrichment** параллельно с таймаутами: ЕГРЮЛ/ЕГРИП, «Прозрачный бизнес», БКИ, счёт (адаптеры с ретраями и circuit breaker) → **scoring** (`apps/scoring`, грейд A–E) → **decision** (правила decision-model.md, суммы — `credit_math`). Источник недоступен → `Check.status = unavailable`, заявка уходит в `manual_review` с пометкой (сценарий 7), а не в отказ.
+`submitted` → конвейер (сейчас синхронно в запросе `submit`: `CELERY_TASK_ALWAYS_EAGER`, пока брокера нет — OPS4): **стоп-факторы по анкете** (ликвидация — раньше полноты, decision-model.md §2) → **validation** (недостающие документы → `info_requested` с `origin=validation`) → **enrichment** параллельно с таймаутами: ЕГРЮЛ/ЕГРИП, «Прозрачный бизнес», БКИ, счёт (адаптеры с ретраями и circuit breaker) → **scoring** (`apps/scoring`, грейд A–E) → **decision** (правила decision-model.md, суммы — `credit_math`). Источник недоступен → `Check.status = unavailable`, заявка уходит в `manual_review` с пометкой (сценарий 7), а не в отказ.
 
 ## Сценарии плана → переходы
 | Сценарий | Путь |
