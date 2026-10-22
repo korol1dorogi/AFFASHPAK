@@ -30,13 +30,16 @@ from apps.scoring.texts import rubles
 S = ApplicationStatus
 logger = logging.getLogger(__name__)
 
+NO_CONSENT_TEXT = "не запрашивали — нет согласия клиента"
 CHECK_TEXT = {
     "ok": "данные получены",
     "warning": "есть замечания",
-    "failed": "компания не найдена",
+    "failed": "проверка не пройдена",
     "unavailable": "источник не ответил — проверит сотрудник",
+    "not_found": "компания не найдена в реестре",
+    "restricted": "сведения скрыты — проверит сотрудник",
+    "consent_missing": NO_CONSENT_TEXT,
 }
-NO_CONSENT_TEXT = "не запрашивали — нет согласия клиента"
 PIPELINE_FAILED = (
     "Автоматическая проверка не завершилась — заявку проверит сотрудник банка. Это не отказ"
 )
@@ -183,8 +186,6 @@ def _store_checks(application: Application, answers: dict[str, dict]) -> None:
 
 def _summary(source: str, answer: dict) -> str:
     """«БКИ: данные получены» — what the client reads in the history, never a source code."""
-    if answer["data"].get("consent_missing"):
-        return f"{SOURCE_NAME[source]}: {NO_CONSENT_TEXT}"
     status = answer["status"]
     return f"{SOURCE_NAME[source]}: {CHECK_TEXT.get(status, status)}"
 

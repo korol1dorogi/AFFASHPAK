@@ -29,7 +29,7 @@ class StopFactor:
 def _liquidation(inp: ScoringInput) -> StopFactor | None:
     egrul = inp.check("egrul")
     statuses = [inp.registry_status]
-    if egrul is not None and not egrul.is_unavailable:
+    if egrul is not None and not egrul.has_no_data:
         statuses.append(egrul.data.get("registry_status"))
     status = next((s for s in statuses if s in LIQUIDATION), None)
     if status is None:
@@ -39,7 +39,8 @@ def _liquidation(inp: ScoringInput) -> StopFactor | None:
 
 def _not_in_registry(inp: ScoringInput) -> StopFactor | None:
     egrul = inp.check("egrul")
-    if egrul is None or egrul.status != "failed":
+    # not_found since SRC2; failed is how the registry said it before (old checks, fixtures).
+    if egrul is None or egrul.status not in {"not_found", "failed"}:
         return None
     reason = Reason("egrul_found", None, None, False, "Компанию не нашли в ЕГРЮЛ/ЕГРИП")
     return StopFactor("С2", reason, "Проверьте ИНН компании")
@@ -58,7 +59,7 @@ def _no_operating_profit(inp: ScoringInput) -> StopFactor | None:
 
 def _current_overdue(inp: ScoringInput, limit: int) -> StopFactor | None:
     bki = inp.check("bki")
-    if bki is None or bki.is_unavailable:
+    if bki is None or bki.has_no_data:
         return None
     current = int(bki.data["current_overdue_days"])
     if current <= limit:
