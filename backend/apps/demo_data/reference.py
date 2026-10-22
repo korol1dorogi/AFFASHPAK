@@ -309,6 +309,35 @@ TB_BUCKETS = ("no_flags", "one_flag", "debt_or_both")
 TAX_ARREARS = (5_000, 500_000)
 MASS_VALUES = 3  # shared addresses / director names
 
+# SRC5: descriptive keys of «Прозрачный бизнес» and ЕГРЮЛ (S1 keys, not read by the scorecard).
+# Drawn from their own stream, so every value above stays as it was. Risk flags (accounts
+# suspended, unreliable address or director, pending exclusion) are off in the population —
+# a share of them would move the D9 stop share; only edge cases switch them on.
+REVENUE_PER_EMPLOYEE = (250_000, 600_000)  # ₽ of monthly turnover per person
+MAX_EMPLOYEES = 250
+# 209-ФЗ, ПП РФ № 265: category by headcount and annual revenue, ₽.
+MSP_LIMITS = (
+    ("micro", 15, 120_000_000),
+    ("small", 100, 800_000_000),
+    ("medium", 250, 2_000_000_000),
+)
+TAX_REGIMES = {
+    "ip": (("psn", "0.20"), ("usn_income", "0.45"), ("usn_income_minus_expenses", "0.25"),
+           ("osn", "0.10")),
+    "ooo": (("usn_income", "0.35"), ("usn_income_minus_expenses", "0.40"), ("osn", "0.25")),
+}  # fmt: skip
+USN_MAX_REVENUE = 450_000_000  # annual; above — ОСН
+PSN_MAX_REVENUE = 60_000_000  # annual; above (or more people) — УСН «доходы»
+PSN_MAX_EMPLOYEES = 15
+# Taxes paid last year as a share of annual turnover, by regime.
+TAX_BURDEN = {
+    "psn": ("0.003", "0.010"),
+    "usn_income": ("0.030", "0.060"),
+    "usn_income_minus_expenses": ("0.015", "0.040"),
+    "osn": ("0.020", "0.050"),
+}
+KPP_SUFFIX = "01001"  # КПП = first 4 digits of the INN (inspection) + reason 01 + 001; ООО only
+
 # §4.4 step 8: debt_service over 1–3 obligations, 0.5 / 0.3 / the last takes the rest.
 OBLIGATION_SHARES = ("0.5", "0.3")
 # §4.4 step 8, §5.1: kinds and opening dates of population debts.

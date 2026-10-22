@@ -4,13 +4,18 @@
 S1-only keys of §5.1. bank_account is not duplicated: S1 reads statements[] and snapshots.
 """
 
+from collections.abc import Mapping
 from datetime import date
 from decimal import Decimal
 
+from apps.demo_data import reference as ref
 from apps.demo_data.amounts import add_months, money, r1
 from apps.demo_data.reference import TAX_ARREARS
 from apps.demo_data.rng import Rng
 from apps.demo_data.statements import Obligation
+
+# SRC5 risk flags of ЕГРЮЛ: each one sends the application to an officer (not a decline).
+EGRUL_FLAGS = ("unreliable_address", "unreliable_director", "pending_exclusion")
 
 BKI_PAST_LE_30 = (1, 30)
 BKI_PAST_GT_30 = (31, 120)
@@ -19,10 +24,19 @@ BKI_CURRENT_GT_30 = (31, 90)
 BKI_PAST_WITH_CURRENT = (0, 60)
 
 
-def egrul(company: dict, founders: list[dict]) -> dict:
+def egrul(company: dict, founders: list[dict], flags: Mapping[str, bool] | None = None) -> dict:
+    """КПП is derived from the INN (an ИП has none); `flags` — SRC5 risk marks, off by default.
+    An ИП has no separate director, so it never gets `unreliable_director`."""
+    marks = {name: bool((flags or {}).get(name)) for name in EGRUL_FLAGS}
+    unknown = set(flags or {}) - set(EGRUL_FLAGS)
+    if unknown:
+        raise ValueError(f"unknown ЕГРЮЛ flags: {sorted(unknown)}")
+    is_ooo = company["legal_form"] == "ooo"
+    if marks["unreliable_director"] and not is_ooo:
+        raise ValueError("an ИП has no separate director to be marked unreliable")
     active = company["registry_status"] == "active"
     return {
-        "status": "ok" if active else "warning",
+        "status": "ok" if active and not any(marks.values()) else "warning",
         "data": {
             "registry_status": company["registry_status"],
             "registered_at": company["registered_at"],
@@ -31,6 +45,8 @@ def egrul(company: dict, founders: list[dict]) -> dict:
             "address": company["address"],
             "director_name": company["director_name"],
             "founders": founders,
+            "kpp": company["inn"][:4] + ref.KPP_SUFFIX if is_ooo else None,
+            **marks,
         },
     }
 
@@ -65,6 +81,45 @@ def tb_answer(mass_address: bool, mass_director: bool, tax_arrears: Decimal) -> 
             "mass_director": mass_director,
             "tax_arrears": money(tax_arrears),
         },
+    }
+
+
+def fns_profile(rng: Rng, legal_form: str, monthly_turnover: Decimal) -> dict:
+    """SRC5 descriptive keys of «Прозрачный бизнес», consistent with the turnover:
+    headcount from turnover per person, МСП category by 209-ФЗ limits, the regime its caps
+    allow, taxes paid as a share of the annual turnover."""
+    annual = monthly_turnover * 12
+    per_person = Decimal(rng.between(*ref.REVENUE_PER_EMPLOYEE))
+    employees = int(min(ref.MAX_EMPLOYEES, r1(monthly_turnover / per_person)))
+    if legal_form == "ooo":
+        employees = max(1, employees)  # an ООО has at least its director on the payroll
+    regimes, weights = zip(*ref.TAX_REGIMES[legal_form], strict=True)
+    regime = rng.weighted(regimes, weights)
+    if regime == "psn" and (annual > ref.PSN_MAX_REVENUE or employees > ref.PSN_MAX_EMPLOYEES):
+        regime = "usn_income"
+    if regime.startswith("usn") and annual > ref.USN_MAX_REVENUE:
+        regime = "osn"
+    low, high = ref.TAX_BURDEN[regime]
+    return {
+        "employees": employees,
+        "tax_regime": regime,
+        "msp_category": msp_category(employees, annual),
+        "taxes_paid": money(r1(annual * rng.decimal_between(low, high, step="0.001"))),
+    }
+
+
+def msp_category(employees: int, annual_revenue: Decimal) -> str:
+    for name, people, revenue in ref.MSP_LIMITS:
+        if employees <= people and annual_revenue <= revenue:
+            return name
+    return "not_msp"
+
+
+def with_fns_profile(answer: dict, profile: dict, *, accounts_suspended: bool = False) -> dict:
+    """A «Прозрачный бизнес» answer with the SRC5 keys; a suspension is a warning (stop С6)."""
+    return {
+        "status": "warning" if accounts_suspended else answer["status"],
+        "data": {**answer["data"], **profile, "accounts_suspended": accounts_suspended},
     }
 
 
