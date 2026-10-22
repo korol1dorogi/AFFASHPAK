@@ -875,6 +875,10 @@ paths:
         - name: min_hours_in_status
           in: query
           schema: { type: integer, minimum: 0 }
+        - name: overdue
+          in: query
+          description: true — только заявки, просроченные по нормативу статуса (SLA)
+          schema: { type: boolean }
         - name: search
           in: query
           description: ИНН или название компании
@@ -2200,6 +2204,9 @@ components:
         - source_unavailable
         - status_changed_at
         - hours_in_status
+        - sla_due_at
+        - is_overdue
+        - overdue_hours
         - version
       properties:
         id: { type: integer, examples: [1] }
@@ -2216,6 +2223,11 @@ components:
         source_unavailable: { type: boolean, description: Хотя бы один источник не ответил }
         status_changed_at: { type: string, format: date-time }
         hours_in_status: { type: integer, minimum: 0 }
+        sla_due_at:
+          description: До какого момента заявка должна уйти из статуса по нормативу; null — у статуса нет норматива (ждём клиента или финал)
+          oneOf: [{ type: string, format: date-time }, { type: "null" }]
+        is_overdue: { type: boolean, description: Срок по нормативу прошёл }
+        overdue_hours: { type: integer, minimum: 0, description: Сколько полных часов прошло после срока; 0 — не просрочено или меньше часа }
         version: { $ref: "#/components/schemas/Version" }
 
     BankQueuePage:
@@ -2319,7 +2331,7 @@ components:
 
     BankDashboard:
       type: object
-      required: [period_days, funnel, avg_hours_in_status, auto_decision_share, total_applications]
+      required: [period_days, funnel, avg_hours_in_status, auto_decision_share, total_applications, sla_hours, sla_open_count, overdue_count, overdue_share]
       properties:
         period_days: { type: integer }
         total_applications: { type: integer, minimum: 0 }
@@ -2337,6 +2349,16 @@ components:
           additionalProperties: { $ref: "#/components/schemas/DecimalString" }
         auto_decision_share:
           description: Доля решений без участия сотрудника (0..1); null — решений ещё нет
+          oneOf: [{ $ref: "#/components/schemas/DecimalString" }, { type: "null" }]
+        sla_hours:
+          type: object
+          description: Норматив в часах для статусов, где действует банк
+          additionalProperties: { type: integer, minimum: 1 }
+          examples: [{ submitted: 1, processing: 1, manual_review: 24, signed: 1 }]
+        sla_open_count: { type: integer, minimum: 0, description: Заявок периода сейчас в статусах с нормативом }
+        overdue_count: { type: integer, minimum: 0, description: Из них просрочено по нормативу }
+        overdue_share:
+          description: Доля просроченных среди sla_open_count (0..1); null — таких заявок нет
           oneOf: [{ $ref: "#/components/schemas/DecimalString" }, { type: "null" }]
 
     # ── assistant ──
