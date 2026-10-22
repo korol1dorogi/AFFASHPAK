@@ -294,8 +294,8 @@ class BankDashboardView(_BankView):
     """GET /api/bank/dashboard — funnel, average hours in each status, share of auto decisions.
 
     Period: applications submitted in the last `days`. Hours in status come from the status
-    journal (ApplicationEvent.to_status); the current status counts until now. SLA (XP4): of the
-    period's applications now in a status with a norm, how many are past it (apps/applications/sla.py).
+    journal (ApplicationEvent.to_status); the current status counts until now. SLA (XP4, sla.py):
+    of the period's applications now in a status with a norm, how many are past it.
     """
 
     def get(self, request: Request) -> Response:
