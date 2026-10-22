@@ -176,6 +176,15 @@ export function QueueFilters({
           </NativeSelect>
         )}
       </LabeledField>
+      <label className="flex h-10 items-center gap-2 text-sm font-medium">
+        <input
+          type="checkbox"
+          className="size-4 accent-status-danger"
+          checked={filters.overdue === true}
+          onChange={(event) => onChange({ overdue: event.target.checked ? true : undefined })}
+        />
+        {BANK_QUEUE.overdueOnly}
+      </label>
       <LabeledField label={BANK_QUEUE.ordering}>
         {(id) => (
           <NativeSelect

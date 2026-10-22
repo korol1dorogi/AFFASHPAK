@@ -20,6 +20,9 @@ function item(id: number, overrides: Record<string, unknown> = {}) {
     source_unavailable: false,
     status_changed_at: "2026-10-21T10:00:00Z",
     hours_in_status: 3,
+    sla_due_at: "2026-10-22T10:00:00Z",
+    is_overdue: false,
+    overdue_hours: 0,
     version: 1,
     ...overrides,
   };
@@ -69,8 +72,10 @@ describe("BankQueuePage", () => {
           source_unavailable: true,
           status: "info_requested",
           grade: null,
+          // waits for the client: no SLA, however long it has been (XP4)
+          sla_due_at: null,
         }),
-        item(42),
+        item(42, { hours_in_status: 26, is_overdue: true, overdue_hours: 2 }),
       ]),
     });
     render();
@@ -91,13 +96,16 @@ describe("BankQueuePage", () => {
     expect(within(first).getByText("Нужны уточнения")).toBeInTheDocument();
     expect(within(first).getByText("Ирина Банкова")).toBeInTheDocument();
     expect(within(first).getByText("30 ч")).toBeInTheDocument();
-    expect(within(first).getByText(/дольше суток/)).toBeInTheDocument();
+    expect(within(first).queryByText(/просрочено/)).not.toBeInTheDocument();
+    expect(first).not.toHaveAttribute("data-overdue");
     expect(within(first).getByRole("img", { name: "Источник недоступен" })).toBeInTheDocument();
 
     const second = rows[2] as HTMLElement;
     expect(within(second).getByText("C")).toBeInTheDocument();
     expect(within(second).getByText("Не назначен")).toBeInTheDocument();
-    expect(within(second).queryByText(/дольше суток/)).not.toBeInTheDocument();
+    expect(within(second).getByText("26 ч")).toBeInTheDocument();
+    expect(within(second).getByText("просрочено на 2 ч")).toBeInTheDocument();
+    expect(second).toHaveAttribute("data-overdue", "true");
     expect(within(second).queryByRole("img", { name: "Источник недоступен" })).toBeNull();
 
     const chips = screen.getByRole("group", { name: "Фильтр по статусу" });
