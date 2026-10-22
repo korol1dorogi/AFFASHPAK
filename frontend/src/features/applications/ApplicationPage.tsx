@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/input";
+import { ApprovalPlan } from "@/features/applications/ApprovalPlan";
 import {
   type ApplicationDetail,
   useAcceptOffer,
@@ -143,6 +144,10 @@ function DecisionCard({
       </div>
       {decision.comment ? <p className="m-0">{decision.comment}</p> : null}
       {withReasons ? <ReasonList reasons={decision.reasons} /> : null}
+      {decision.approval_plan && decision.grade ? (
+        // The shortest way to grade C with targets; all the advice stays below it.
+        <ApprovalPlan plan={decision.approval_plan} grade={decision.grade} />
+      ) : null}
       <ImprovementList items={decision.improvements} />
     </Card>
   );

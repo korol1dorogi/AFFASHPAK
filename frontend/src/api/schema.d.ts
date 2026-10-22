@@ -1512,6 +1512,37 @@ export interface components {
             comment: string | null;
             /** Format: date-time */
             created_at: string;
+            /**
+             * @description «Как получить одобрение» (XP2): для автоматического отказа по грейду ниже C — самый короткий
+             *     набор шагов по факторам балльной карты, после которых грейд стал бы C. null — плана нет:
+             *     отказ по стоп-фактору, решение сотрудника, грейд C и выше или цель недостижима
+             *     изменяемыми факторами. Бэкенд отдаёт поле всегда.
+             */
+            approval_plan?: components["schemas"]["ApprovalPlan"] | null;
+        };
+        ApprovalPlan: {
+            /** @description Баллы сейчас */
+            current_total: number;
+            /** @description Баллы после всех шагов */
+            target_total: number;
+            target_grade: components["schemas"]["Grade"];
+            steps: components["schemas"]["ApprovalStep"][];
+        };
+        ApprovalStep: {
+            /**
+             * @description Фактор балльной карты (ScoreFactor.name)
+             * @example counterparty_concentration
+             */
+            metric: string;
+            current: components["schemas"]["DecimalString"];
+            target: components["schemas"]["DecimalString"];
+            /** @description Сколько баллов добавит шаг */
+            points: number;
+            /**
+             * @description Что сделать — простым языком
+             * @example Снизьте долю крупнейшего покупателя до 50 % и меньше (сейчас 80 %)
+             */
+            message: string;
         };
         InfoRequest: {
             /** @example 1 */
