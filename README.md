@@ -186,3 +186,43 @@ CI ([.github/workflows/ci.yml](.github/workflows/ci.yml)) на каждый PR �
 | `gitleaks` | секреты во всей истории git |
 | `audit` | известные уязвимости: pip-audit, npm audit (не блокирует) |
 | `deploy` | после зелёного мержа в main — автодеплой на стенд ([docs/deploy.md](docs/deploy.md)) |
+
+## Документы
+| Что ищет жюри | Где |
+|---|---|
+| Кейс и чек-лист соответствия (F1–F12, T1–T7, O1–O8) | [docs/case.md](docs/case.md) |
+| Критерии оценки → чем закрыты | [docs/judging.md](docs/judging.md) |
+| Архитектурная схема | [docs/architecture.md](docs/architecture.md) |
+| OpenAPI / Swagger | [docs/openapi.yaml](docs/openapi.yaml); Swagger UI — http://localhost:8080/api/docs |
+| Описание API: правила, роли, все эндпоинты | [docs/api.md](docs/api.md) |
+| Коллекция запросов (Postman, весь путь клиента и банка) | [postman/collection.json](postman/collection.json) + [postman/environment.json](postman/environment.json) |
+| Диаграмма состояний заявки, роли, `available_actions` | [docs/state-machine.md](docs/state-machine.md) |
+| Модель данных | [docs/data-model.md](docs/data-model.md); термины — [docs/domain.md](docs/domain.md) |
+| Тестовые сценарии 1–8 и граничные случаи | [docs/test-scenarios.md](docs/test-scenarios.md) |
+| Синтетические данные и учётки | [docs/data-spec.md](docs/data-spec.md), [data/SCHEMA.md](data/SCHEMA.md) |
+| Модель решения: скоринг отдельно от правил | [docs/decision-model.md](docs/decision-model.md); продукты — [docs/products.md](docs/products.md) |
+| Модель процесса: этапы, участники, данные | [docs/process.md](docs/process.md); границы MVP — [docs/mvp.md](docs/mvp.md) |
+| Исследование потребностей | [docs/research.md](docs/research.md), интервью — [docs/research/interviews/](docs/research/interviews/) |
+| Допущения и упрощения | [docs/assumptions.md](docs/assumptions.md) |
+| Безопасность и red team | [docs/security.md](docs/security.md), [docs/redteam.md](docs/redteam.md) |
+| Принятые решения | [docs/decisions.md](docs/decisions.md) |
+| Сторонние компоненты и смоделированные интеграции | [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) |
+| Стенд и деплой | [docs/deploy.md](docs/deploy.md), [docker-compose.prod.yml](docker-compose.prod.yml) |
+
+## Ограничения и допущения
+- **Данные синтетические.** Данных от организаторов нет: компании, люди, выписки, реестры и кредитные истории создаёт детерминированный генератор команды при старте, всё помечено «демо».
+- **Внешние источники, подписание и выдача смоделированы** (O4, O6). Таблица выше, подробно и с путём в продакшен — [docs/assumptions.md](docs/assumptions.md).
+- **Только внутри продукта** (O5): ни почты, ни SMS, ни мессенджеров. Регистрация без подтверждения, код подписи на экране, уведомления в кабинете.
+- **Логика решения упрощена и описана явно**: прозрачная балльная карта и правила с порогами ([docs/decision-model.md](docs/decision-model.md)). Клиент видит предварительную оценку, а не решение банка.
+- **LLM — только с открытыми весами** (O8). По умолчанию `LLM_PROVIDER=mock` — без сети, ключа и GPU. Проверяемая версия не зависит от платных ресурсов (O2).
+- **ИИ-ассистент в эту версию не входит**: эндпоинты `/api/assistant/*` есть в контракте, но не реализованы ([docs/api.md](docs/api.md)), кнопка ассистента в кабинете — заготовка.
+- Только веб, desktop first (O7). Что сознательно не делали — [docs/mvp.md](docs/mvp.md).
+
+## Команде
+Онбординг — [START_HERE.md](START_HERE.md), правила для ИИ-агентов — [AGENTS.md](AGENTS.md), задачи — [docs/tasks.md](docs/tasks.md).
+
+- Фронт с горячей перезагрузкой: `cd frontend && npm ci && npm run dev` → http://localhost:5173 (API — бэкенд на `127.0.0.1:8000`).
+- Фронт без бэкенда, на моке контракта: `docker compose --profile mock up -d mock` → http://localhost:4010, затем в `frontend/`: `npm run dev:mock`.
+- Клиент API из контракта: в `frontend/`: `npm run gen:api`. Миграции: `docker compose run --rm backend python manage.py migrate`.
+- После правок кода воркера: `docker compose restart worker` (Celery не перезагружается сам).
+- Стенд — [docker-compose.prod.yml](docker-compose.prod.yml) + Caddy (HTTPS), [docs/deploy.md](docs/deploy.md); деплоит CI после мержа в main.
