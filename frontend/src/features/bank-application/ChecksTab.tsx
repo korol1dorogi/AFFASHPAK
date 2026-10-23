@@ -10,8 +10,11 @@ import {
 } from "lucide-react";
 
 import type { Schemas } from "@/api/client";
+import { Facts } from "@/components/Facts";
 import { EmptyState } from "@/components/States";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardTitle } from "@/components/ui/card";
+import { type CheckFact, checkFacts, checkMeaning } from "@/features/bank-application/checkFacts";
 import { formatDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { BANK_CARD, BANK_TAB, CHECK_SOURCE, CHECK_STATUS } from "@/texts";
@@ -31,6 +34,40 @@ const LOOK: Record<Check["status"], { Icon: typeof CircleCheck; tone: string }> 
   restricted: { Icon: EyeOff, tone: "bg-status-neutral-soft text-status-neutral" },
   consent_missing: { Icon: ShieldOff, tone: "bg-status-neutral-soft text-status-neutral" },
 };
+
+function FactValue({ fact }: { fact: CheckFact }) {
+  const value = Array.isArray(fact.value) ? (
+    <ul className="m-0 flex list-none flex-col gap-1 p-0">
+      {fact.value.map((item) => (
+        <li key={item}>{item}</li>
+      ))}
+    </ul>
+  ) : (
+    fact.value
+  );
+  if (!fact.risk) return value;
+  return (
+    <span className="inline-flex flex-wrap items-center gap-2 font-medium text-status-danger">
+      {value}
+      <Badge variant="danger">{T.risk}</Badge>
+    </span>
+  );
+}
+
+/** SRC6: the source's answer with a label for every field — no keys, no codes. */
+function SourceFacts({ check }: { check: Check }) {
+  const facts = checkFacts(check);
+  if (facts.length === 0) return null;
+  return (
+    <div className="mt-1 flex flex-col gap-2">
+      <p className="m-0 text-sm font-medium">{T.facts}</p>
+      <Facts
+        className="text-sm"
+        items={facts.map((fact) => ({ label: fact.label, value: <FactValue fact={fact} /> }))}
+      />
+    </div>
+  );
+}
 
 /** SRC4: when the answer came, which simulator answered and the sha256 of its answer. */
 function Provenance({ check }: { check: Check }) {
@@ -77,11 +114,13 @@ function CheckRow({ source, check }: { source: Schemas["CheckSource"]; check?: C
           </span>
         </div>
         {check?.summary ? <p className="m-0 text-sm">{check.summary}</p> : null}
+        {check ? <p className="m-0 text-sm text-ink-muted">{checkMeaning(check)}</p> : null}
         {check ? (
           <p className="m-0 text-xs text-ink-muted">
             {T.checkedAt} {formatDateTime(check.checked_at)}
           </p>
         ) : null}
+        {check ? <SourceFacts check={check} /> : null}
         {check ? <Provenance check={check} /> : null}
       </div>
     </li>
