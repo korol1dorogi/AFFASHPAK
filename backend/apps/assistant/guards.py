@@ -25,8 +25,11 @@ MAX_TOOL_CALLS_PER_TURN = 6
 UNTRUSTED_LIMIT = 500  # one field of data; the whole context is cut by the engine
 
 # Zero-width and bidi controls hide text from a human reader while the model still reads it.
-_INVISIBLE = re.compile("[​-‏‪-‮⁠-⁤⁦-⁩﻿]")
+_INVISIBLE = re.compile("[\u200b-\u200f\u202a-\u202e\u2060-\u2064\u2066-\u2069\ufeff]")
 _TAG = re.compile(r"<[^>]{0,200}>")
+# Markdown the screen would show as raw symbols: **bold**, __bold__, `code`, «# » headings.
+_MARKDOWN = re.compile(r"\*\*|__|`")
+_HEADING = re.compile(r"^#{1,6}\s+", re.MULTILINE)
 
 
 @dataclass(frozen=True)
@@ -76,7 +79,8 @@ def check_tool_call(allowed: set[str], name: str, calls_so_far: int) -> str | No
 
 
 def check_output(text: str) -> str:
-    """Layer 4. Plain text only: tags removed, entities decoded, nothing the screen would render."""
+    """Layer 4. Plain text only: tags and markdown marks removed, entities decoded."""
     plain = html.unescape(_TAG.sub("", text or ""))
+    plain = _HEADING.sub("", _MARKDOWN.sub("", plain))
     plain = _INVISIBLE.sub("", plain).strip()
     return plain

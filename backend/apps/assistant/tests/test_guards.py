@@ -4,13 +4,13 @@ from apps.assistant import guards
 
 
 def test_input_loses_invisible_and_control_characters():
-    checked = guards.check_input("Под​бери‮ кредит\x07 ")
+    checked = guards.check_input("Под\u200bбери\u202e кредит\x07 ")
     assert checked.refusal is None
     assert checked.text == "Подбери кредит"
 
 
 def test_empty_and_too_long_input_is_refused():
-    assert guards.check_input(" ​\n").refusal
+    assert guards.check_input(" \u200b\n").refusal
     long = guards.check_input("а" * (guards.MAX_INPUT_CHARS + 1))
     assert long.refusal and str(guards.MAX_INPUT_CHARS) in long.refusal
 
@@ -34,3 +34,8 @@ def test_output_is_plain_text():
     assert guards.check_output('<a href="x">Ссылка</a> &amp; <img src=x onerror=alert(1)>') == (
         "Ссылка &"
     )
+
+
+def test_markdown_marks_do_not_reach_the_screen():
+    text = "## Итог\nПодходит **«Овердрафт»** — `900 000 ₽`, __без залога__."
+    assert guards.check_output(text) == "Итог\nПодходит «Овердрафт» — 900 000 ₽, без залога."
