@@ -7,7 +7,7 @@ import { routes } from "@/app/routes";
 import { Field } from "@/components/Field";
 import { MoneyText, RateText } from "@/components/Money";
 import { MoneyInput } from "@/components/MoneyInput";
-import { ErrorState, PageHeader, PageSkeleton } from "@/components/States";
+import { EmptyState, ErrorState, PageHeader, PageSkeleton } from "@/components/States";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
@@ -15,7 +15,7 @@ import { Input, NativeSelect } from "@/components/ui/input";
 import { useProducts } from "@/features/applications/api";
 import { errorMessage, unwrap } from "@/lib/errors";
 import { formatDecimal, formatMoney, percentToFraction } from "@/lib/format";
-import { DOCUMENT_KIND, PRODUCT_KIND, PRODUCTS as T } from "@/texts";
+import { CALCULATOR_ERRORS, DOCUMENT_KIND, EMPTY, PRODUCT_KIND, PRODUCTS as T } from "@/texts";
 
 type Product = Schemas["Product"];
 
@@ -45,6 +45,17 @@ export function ProductsPage() {
           </Button>
         }
       />
+      {list.length === 0 ? (
+        <EmptyState
+          title={EMPTY.productsTitle}
+          text={EMPTY.productsText}
+          action={
+            <Button asChild variant="secondary">
+              <Link to={routes.match}>{T.match}</Link>
+            </Button>
+          }
+        />
+      ) : null}
       <ul aria-label={T.title} className="m-0 grid list-none gap-4 p-0 md:grid-cols-2">
         {list.map((item) => (
           <li key={item.code}>
@@ -131,9 +142,20 @@ function Calculator({
   });
   const fraction = percentToFraction(rate);
   const months = Number.parseInt(term, 10);
-  const valid = Boolean(amount && fraction && months >= 1 && months <= 360);
+  // Shown after the first «Рассчитать»: a disabled button would not say what is wrong.
+  const [tried, setTried] = useState(false);
+  const errors = {
+    amount: amount ? undefined : CALCULATOR_ERRORS.amount,
+    term:
+      /^\d+$/.test(term.trim()) && months >= 1 && months <= 360
+        ? undefined
+        : CALCULATOR_ERRORS.term,
+    rate: fraction && Number(fraction) > 0 ? undefined : CALCULATOR_ERRORS.rate,
+  };
+  const valid = !errors.amount && !errors.term && !errors.rate;
   const submit = (event: FormEvent) => {
     event.preventDefault();
+    setTried(true);
     if (!valid || !amount || !fraction) return;
     calculate.mutate({ principal: amount, annual_rate: fraction, term_months: months });
   };
@@ -142,7 +164,7 @@ function Calculator({
     <Card>
       <CardTitle className="m-0">{T.calculatorTitle}</CardTitle>
       <p className="m-0 text-sm text-ink-muted">{T.calculatorHint}</p>
-      <form onSubmit={submit} className="flex flex-wrap items-end gap-3">
+      <form onSubmit={submit} noValidate className="flex flex-wrap items-start gap-3">
         <Field label={T.product} className="min-w-56 flex-1">
           <NativeSelect value={product.code} onChange={(event) => onProduct(event.target.value)}>
             {products.map((item) => (
@@ -152,24 +174,24 @@ function Calculator({
             ))}
           </NativeSelect>
         </Field>
-        <Field label={T.amount} className="min-w-44">
+        <Field label={T.amount} error={tried ? errors.amount : undefined} className="min-w-44">
           <MoneyInput value={amount ?? ""} onValueChange={setAmount} />
         </Field>
-        <Field label={T.termMonths} className="w-28">
+        <Field label={T.termMonths} error={tried ? errors.term : undefined} className="w-40">
           <Input
             inputMode="numeric"
             value={term}
             onChange={(event) => setTerm(event.target.value)}
           />
         </Field>
-        <Field label={T.ratePercent} className="w-32">
+        <Field label={T.ratePercent} error={tried ? errors.rate : undefined} className="w-40">
           <Input
             inputMode="decimal"
             value={rate}
             onChange={(event) => setRate(event.target.value)}
           />
         </Field>
-        <Button type="submit" disabled={!valid} loading={calculate.isPending}>
+        <Button type="submit" className="mt-7" loading={calculate.isPending}>
           {T.calculate}
         </Button>
       </form>
