@@ -1,6 +1,6 @@
 import { FileText, Lock, SearchX, WifiOff } from "lucide-react";
 import { useCallback, useState } from "react";
-import { Link, useParams } from "react-router";
+import { Link, useParams, useSearchParams } from "react-router";
 
 import { routes } from "@/app/routes";
 import { SourceTag } from "@/components/AmountSource";
@@ -10,6 +10,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { ActionPanel } from "@/features/bank-application/ActionPanel";
 import { ApplicationTab } from "@/features/bank-application/ApplicationTab";
+import { AssistantTab } from "@/features/bank-application/AssistantTab";
 import {
   type BankApplicationDetail,
   useBankApplication,
@@ -101,6 +102,20 @@ function CardView({ card }: { card: BankApplicationDetail }) {
   const product = useProductName(card);
   const [conclusion, setConclusion] = useState(false);
   const closeConclusion = useCallback(() => setConclusion(false), []);
+  // AI9: «Вставить в комментарий» — the draft goes to the journal's field, the officer saves it.
+  const [commentDraft, setCommentDraft] = useState<{ text: string; key: number } | null>(null);
+  const [, setParams] = useSearchParams();
+  const insertComment = (text: string) => {
+    setCommentDraft({ text, key: Date.now() });
+    setParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.set("tab", "journal");
+        return next;
+      },
+      { replace: true },
+    );
+  };
   return (
     <div className="flex flex-col gap-6">
       <Header card={card} product={product} onConclusion={() => setConclusion(true)} />
@@ -113,7 +128,8 @@ function CardView({ card }: { card: BankApplicationDetail }) {
           checks: <ChecksTab checks={card.checks} />,
           scoring: <ScoringTab score={card.score} />,
           documents: <DocumentsTab applicationId={id} documents={card.documents} />,
-          journal: <JournalTab applicationId={id} events={card.events} />,
+          journal: <JournalTab applicationId={id} events={card.events} draft={commentDraft} />,
+          assistant: <AssistantTab applicationId={id} onInsertComment={insertComment} />,
         }}
       />
     </div>
