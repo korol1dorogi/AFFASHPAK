@@ -81,6 +81,9 @@ export function persona4Card(): BankApplicationDetail {
         summary: "Компания действует",
         data: {},
         checked_at: "2026-10-20T09:30:10Z",
+        received_at: "2026-10-20T09:30:10Z",
+        response_sha256: "04ab99570b8f3edb7b58f8898450582b15487f07647f8d53a2f8c9b24b5bd322",
+        simulator_version: "datagen-2026.10-v1",
       },
       {
         source: "transparent_business",
@@ -88,6 +91,9 @@ export function persona4Card(): BankApplicationDetail {
         summary: "Признаков риска нет",
         data: {},
         checked_at: "2026-10-20T09:30:11Z",
+        received_at: "2026-10-20T09:30:11Z",
+        response_sha256: "8285dc33d07f719627b30724ccb96692ea4e135dd149eea84db6b0a66a844f9f",
+        simulator_version: "datagen-2026.10-v1",
       },
       {
         source: "bki",
@@ -95,6 +101,9 @@ export function persona4Card(): BankApplicationDetail {
         summary: "Текущей просрочки нет, прошлая — 10 дн.",
         data: {},
         checked_at: "2026-10-20T09:30:12Z",
+        received_at: "2026-10-20T09:30:12Z",
+        response_sha256: "d994ace4001cac74f248e55fc3df74bc0da0a085a9ee4d527ac0652d63f85824",
+        simulator_version: "datagen-2026.10-v1",
       },
       {
         source: "bank_account",
@@ -102,6 +111,9 @@ export function persona4Card(): BankApplicationDetail {
         summary: "Выписка за 12 мес получена",
         data: {},
         checked_at: "2026-10-20T09:30:13Z",
+        received_at: "2026-10-20T09:30:13Z",
+        response_sha256: "f3828498183adbb9a7867da5539180f7d6553a5c43261a95434517082345a52a",
+        simulator_version: "datagen-2026.10-v1",
       },
     ],
     score: {
