@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { toast } from "sonner";
 
@@ -30,10 +30,11 @@ import {
 import { BlockError, BlockSkeleton } from "@/features/applications/BlockState";
 import { CreditHistory } from "@/features/applications/CreditHistory";
 import { DocumentList, DocumentUpload } from "@/features/applications/Documents";
+import { useReturnFocus } from "@/features/applications/returnFocus";
 import { showsWhatIf, WhatIf } from "@/features/applications/WhatIf";
 import { ApiError, errorMessage } from "@/lib/errors";
 import { formatDate, formatMoney } from "@/lib/format";
-import { ACTION, BLOCK_STATE, DECISION_OUTCOME, DOCUMENT_KIND, NEED } from "@/texts";
+import { ACTION, BLOCK_STATE, DECISION_OUTCOME, DOCUMENT_KIND, LIVE, NEED, STATUS } from "@/texts";
 
 const FIELD_LABEL: Record<string, string> = {
   purpose: "цель",
@@ -182,6 +183,21 @@ export function ApplicationPage() {
   const decline = useDeclineOffer(id);
   const cancel = useCancel(id);
   const [confirm, setConfirm] = useState<"decline" | "cancel" | null>(null);
+  const rememberOpener = useReturnFocus(confirm !== null);
+  const ask = (which: "decline" | "cancel") => {
+    rememberOpener();
+    setConfirm(which);
+  };
+
+  // A status changed by the bank or the pipeline (polling): a toast, read out politely.
+  const status = application.data?.status;
+  const shownStatus = useRef(status);
+  useEffect(() => {
+    if (status && shownStatus.current && shownStatus.current !== status) {
+      toast.info(LIVE.statusChanged(STATUS[status].label));
+    }
+    shownStatus.current = status;
+  }, [status]);
   const productName = useProductName(application.data?.product_code ?? null);
 
   if (application.isPending) return <PageSkeleton />;
@@ -223,7 +239,7 @@ export function ApplicationPage() {
         ].join(" · ")}
         actions={
           actions.includes("cancel") ? (
-            <Button variant="ghost" onClick={() => setConfirm("cancel")}>
+            <Button variant="ghost" onClick={() => ask("cancel")}>
               {ACTION.cancel}
             </Button>
           ) : undefined
@@ -254,7 +270,7 @@ export function ApplicationPage() {
                   onError: (error) => toast.error(errorMessage(error)),
                 })
               }
-              onDecline={() => setConfirm("decline")}
+              onDecline={() => ask("decline")}
             />
           ) : null}
           {data.offer && showsWhatIf(data) ? (

@@ -81,6 +81,9 @@ export function DocumentUpload({
           id={`${id}-file`}
           type="file"
           accept={ACCEPT}
+          // The «Выбрать файл» button opens it: one Tab stop, one name.
+          tabIndex={-1}
+          aria-hidden="true"
           className="sr-only"
           onChange={(event) => send(event.target.files?.[0])}
         />

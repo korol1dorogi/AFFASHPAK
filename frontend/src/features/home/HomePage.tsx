@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
 import { useApplications } from "@/features/applications/api";
 import { greetingName } from "@/lib/format";
-import { NEED, STATUS } from "@/texts";
+import { LIVE, NEED, STATUS } from "@/texts";
 
 /** Home, first version: what needs the client's action first, then the rest (C8 adds metrics). */
 export function HomePage() {
@@ -65,7 +65,9 @@ export function HomePage() {
                 <StatusBadge status={item.status} />
                 {/* One accent (red) button per screen, as in the design book: lists are secondary. */}
                 <Button asChild variant="secondary">
-                  <Link to={routes.application(item.id)}>Открыть</Link>
+                  <Link to={routes.application(item.id)} aria-label={LIVE.openApplication(item.id)}>
+                    Открыть
+                  </Link>
                 </Button>
               </Card>
             ))}

@@ -18,7 +18,7 @@ import { Input } from "@/components/ui/input";
 import { useCreateApplication } from "@/features/applications/api";
 import { errorMessage, unwrap } from "@/lib/errors";
 import { cn } from "@/lib/utils";
-import { NEED } from "@/texts";
+import { LIVE, NEED } from "@/texts";
 
 type Need = Schemas["NeedType"];
 type Offer = Schemas["RecommendedOffer"];
@@ -278,6 +278,13 @@ export function MatchPage() {
         </p>
       ) : null}
 
+      <p aria-live="polite" className="sr-only">
+        {result
+          ? result.offers.length
+            ? LIVE.matchFound(result.offers.length)
+            : LIVE.matchNone
+          : ""}
+      </p>
       {result ? (
         <section aria-labelledby="results-title" className="flex flex-col gap-4">
           <h2 id="results-title" className="m-0 font-display text-[22px] leading-7 font-bold">

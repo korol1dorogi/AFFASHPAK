@@ -1199,3 +1199,11 @@ export const HEALTH = {
   degraded: "База данных недоступна",
   unavailable: "API недоступен",
 } as const;
+
+/** UX2: what screen readers hear when something changes without a click (aria-live, toasts). */
+export const LIVE = {
+  statusChanged: (label: string) => `Статус заявки изменился: ${label}`,
+  openApplication: (id: number) => `Открыть заявку № ${id}`,
+  matchFound: (count: number) => `Подобрали вариантов: ${count}`,
+  matchNone: "Подходящих вариантов нет",
+} as const;
