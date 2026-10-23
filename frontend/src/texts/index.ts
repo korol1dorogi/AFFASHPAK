@@ -581,9 +581,9 @@ export const BANK_TAB: Record<BankTab, string> = {
 
 export const CHECK_SOURCE: Record<Schemas["CheckSource"], string> = {
   egrul: "ЕГРЮЛ / ЕГРИП",
-  transparent_business: "«Прозрачный бизнес» ФНС",
+  transparent_business: "«Прозрачный бизнес» (ФНС)",
   bki: "Бюро кредитных историй",
-  bank_account: "Расчётный счёт",
+  bank_account: "Выписка по счёту",
 };
 
 export const CHECK_STATUS: Record<Schemas["Check"]["status"], string> = {
@@ -646,12 +646,12 @@ export const SNAPSHOT_FIELD: Record<SnapshotMetric, { title: string; format: "mo
       format: "money",
     },
     cfads: { title: "Денежный поток на обслуживание долга (CFADS), в месяц", format: "money" },
-    debt_service: { title: "Платежи по текущим долгам, в месяц", format: "money" },
+    debt_service: { title: "Платежи по долгу, в месяц", format: "money" },
     revenue: { title: "Выручка за 12 мес", format: "money" },
     cogs: { title: "Себестоимость за 12 мес", format: "money" },
     ebitda: { title: "EBITDA за 12 мес", format: "money" },
-    debt: { title: "Долг", format: "money" },
-    cash: { title: "Деньги на счетах", format: "money" },
+    debt: { title: "Финансовый долг", format: "money" },
+    cash: { title: "Денежные средства", format: "money" },
     receivables: { title: "Дебиторская задолженность", format: "money" },
     inventory: { title: "Запасы", format: "money" },
     payables: { title: "Кредиторская задолженность", format: "money" },
@@ -738,7 +738,7 @@ export const BANK_CARD = {
     period: "Период",
     source: "Источник",
     noSnapshot: "Снимка нет",
-    noSnapshotText: "Клиент не подключил счёт — метрики посчитать не из чего.",
+    noSnapshotText: "Клиент не подключил счёт — показатели посчитать не из чего.",
   },
   checks: {
     empty: "Проверки ещё не запускались",
@@ -1041,7 +1041,7 @@ export const BANK_DASHBOARD = {
   total: "Заявок за период",
   autoShare: "Решено автоматически",
   autoShareHint:
-    "Доля итоговых решений (оффер, иные условия, другой продукт, отказ) без сотрудника",
+    "Доля итоговых решений (предложение, иные условия, другой продукт, отказ) без сотрудника",
   issued: "Деньги выданы",
   funnel: "Воронка: сколько заявок дошло до этапа",
   hours: "Среднее время в статусе",
@@ -1064,7 +1064,7 @@ export const BANK_DEMO = {
   outagesHint:
     "Включите сбой — следующие заявки уйдут сотруднику с пометкой «источник не ответил». Это не отказ.",
   sources: {
-    egrul: "ЕГРЮЛ/ЕГРИП",
+    egrul: "ЕГРЮЛ / ЕГРИП",
     transparent_business: "«Прозрачный бизнес» (ФНС)",
     bki: "Бюро кредитных историй",
     bank_account: "Выписка по счёту",
