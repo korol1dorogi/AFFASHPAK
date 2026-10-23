@@ -5,6 +5,7 @@ must pass with it (CI runs that check).
 """
 
 import os
+import sys
 from pathlib import Path
 
 from django.core.exceptions import ImproperlyConfigured
@@ -58,6 +59,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    "apps.core.middleware.RequestIdMiddleware",  # first: every log line carries the request_id
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -157,7 +159,7 @@ if not DEBUG:
 # --- Cache ---
 # Throttle counters must be shared by all gunicorn workers: LocMemCache keeps one per process,
 # so 3 workers let 3× the limit through. The table is created by a migration
-# (apps/core/migrations), so `migrate` alone is enough; no Redis in the stack yet (OPS4).
+# (apps/core/migrations), so `migrate` alone is enough; Redis is only the Celery broker.
 CACHES = {
     "default": {
         "BACKEND": "django.core.cache.backends.db.DatabaseCache",
@@ -219,12 +221,24 @@ LLM_TIMEOUT_SECONDS = env_int("LLM_TIMEOUT_SECONDS", 30)
 # --- Demo stand: /api/demo/* and the seed of personas exist only with DEMO_MODE=1 ---
 DEMO_MODE = env_bool("DEMO_MODE", default=False)
 
-# --- Pipeline. No broker: the task runs in-process (compose has no worker yet). ---
+# --- Pipeline: Celery worker behind Redis when CELERY_BROKER_URL is set (compose), else
+# in-process. pytest always runs in-process, even inside a container that has a broker set,
+# so `docker compose run --rm backend pytest` needs no Redis. ---
+TESTING = "pytest" in sys.modules
 PIPELINE_ENABLED = env_bool("PIPELINE_ENABLED", default=True)
-CELERY_BROKER_URL = env("CELERY_BROKER_URL", "")
-CELERY_RESULT_BACKEND = env("CELERY_RESULT_BACKEND", "")
+CELERY_BROKER_URL = "" if TESTING else env("CELERY_BROKER_URL", "")
 CELERY_TASK_ALWAYS_EAGER = not CELERY_BROKER_URL
 CELERY_TASK_EAGER_PROPAGATES = True
+CELERY_TASK_IGNORE_RESULT = True  # nobody reads task results: the application row is the state
+# A task is acknowledged after it ran; a worker process killed mid-task puts it back.
+CELERY_TASK_ACKS_LATE = True
+CELERY_TASK_REJECT_ON_WORKER_LOST = True
+CELERY_WORKER_PREFETCH_MULTIPLIER = 1
+CELERY_BROKER_TRANSPORT_OPTIONS = {"visibility_timeout": 600}
+# Redis down at submit: fail within ~3 s and fall back to in-process (apps/pipeline/tasks.py).
+CELERY_BROKER_CONNECTION_TIMEOUT = 2
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+CELERY_TASK_PUBLISH_RETRY_POLICY = {"max_retries": 2, "interval_start": 0, "interval_step": 0.5}
 
 # --- Case data: read-only mount, never inside the repo ---
 CASE_DATA_DIR = Path(env("CASE_DATA_DIR", "/case-data"))
@@ -232,9 +246,28 @@ CASE_DATA_DIR = Path(env("CASE_DATA_DIR", "/case-data"))
 # --- Contract (docs/openapi.yaml) used by tests to validate responses ---
 OPENAPI_SPEC_PATH = Path(env("OPENAPI_SPEC_PATH", str(BASE_DIR.parent / "docs" / "openapi.yaml")))
 
+# --- Logs (OPS5): JSON lines by default, `LOG_FORMAT=text` for a human at a terminal. Every line,
+# the worker's too (config/celery.py), carries request_id / application_id / user_id; the access
+# log is one line per request from apps/core/middleware.py. ---
+LOG_FORMAT = "text" if env("LOG_FORMAT", "json").lower() == "text" else "json"
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
-    "handlers": {"console": {"class": "logging.StreamHandler"}},
+    "filters": {"context": {"()": "apps.core.logs.ContextFilter"}},
+    "formatters": {
+        "json": {"()": "apps.core.logs.JsonFormatter"},
+        "text": {"()": "apps.core.logs.TextFormatter"},
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "filters": ["context"],
+            "formatter": LOG_FORMAT,
+        }
+    },
     "root": {"handlers": ["console"], "level": env("DJANGO_LOG_LEVEL", "INFO")},
+    "loggers": {
+        # runserver's own access line repeats ours, with the query string
+        "django.server": {"level": "WARNING"},
+    },
 }

@@ -201,6 +201,11 @@ class Check(models.Model):
     data = models.JSONField(default=dict, blank=True)
     duration_ms = models.PositiveIntegerField(null=True, blank=True)
     checked_at = models.DateTimeField(auto_now_add=True)
+    # Provenance (SRC4): when the answer came, its sha256 and the simulator version.
+    # Null when the source did not answer (unavailable, consent_missing).
+    received_at = models.DateTimeField(null=True, blank=True)
+    response_sha256 = models.CharField(max_length=64, null=True, blank=True)  # noqa: DJ001 - null means «no answer» in the contract
+    simulator_version = models.CharField(max_length=64, null=True, blank=True)  # noqa: DJ001 - null means «no answer» in the contract
 
     class Meta:
         ordering = ("checked_at", "id")

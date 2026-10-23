@@ -1,4 +1,5 @@
 import type { Schemas } from "@/api/client";
+import { type AmountSource, SourceTag } from "@/components/AmountSource";
 import { MoneyText, RateText } from "@/components/Money";
 import { ReasonList } from "@/components/ReasonList";
 import { Badge } from "@/components/ui/badge";
@@ -10,17 +11,20 @@ type Offer = Schemas["Offer"];
 
 /**
  * The bank's offer: the main amount, terms, why (for a counteroffer or another product) and the
- * two client actions. Buttons appear only when available_actions allows them.
+ * two client actions. Buttons appear only when available_actions allows them. Every amount says
+ * where it comes from (SRC7): `amountSource` — «расчёт» or «решение банка» (offerAmountSource).
  */
 export function OfferCard({
   offer,
   actions,
+  amountSource = "calc",
   onAccept,
   onDecline,
   pending,
 }: {
   offer: Offer;
   actions: Schemas["ApplicationAction"][];
+  amountSource?: AmountSource;
   onAccept?: () => void;
   onDecline?: () => void;
   pending?: "accept" | "decline" | null;
@@ -42,10 +46,14 @@ export function OfferCard({
           {offer.product_changed ? <Badge variant="action">Другой продукт</Badge> : null}
           {offer.status === "accepted" ? <Badge variant="success">Принято</Badge> : null}
         </div>
-        <MoneyText value={offer.amount} size="lg" className="text-brass" />
+        <p className="m-0">
+          <MoneyText value={offer.amount} size="lg" className="text-brass" />
+          <SourceTag source={amountSource} />
+        </p>
         {offer.is_counteroffer ? (
           <span className="text-sm text-ink-muted">
             Вы просили {formatMoney(offer.requested_amount)}
+            <SourceTag source="client" />
           </span>
         ) : null}
       </div>
@@ -68,7 +76,10 @@ export function OfferCard({
             {offer.monthly_payment === null ? (
               <span className="text-sm">Зависит от использования</span>
             ) : (
-              <MoneyText value={offer.monthly_payment} size="md" />
+              <>
+                <MoneyText value={offer.monthly_payment} size="md" />
+                <SourceTag source="calc" />
+              </>
             )}
           </dd>
         </div>

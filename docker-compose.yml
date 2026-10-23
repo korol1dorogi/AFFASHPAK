@@ -1,9 +1,22 @@
-# Local development and the jury run: db → init (migrate + seed) → backend → web.
+# Local development and the jury run: db → init (migrate + seed) → redis → worker → backend → web.
 # The frontend runs locally via npm (frontend/: npm run dev) and proxies /api to the backend;
 # `web` serves the built SPA for a clean clone. Prism mock: --profile mock.
 # All ports are bound to 127.0.0.1 only. Every long-running service has a healthcheck, so
 # `docker compose up -d --wait` returns only when the cabinet really works.
 name: alfa-cabinet
+
+x-backend-env: &backend-env
+  CASE_DATA_DIR: /case-data
+  # The pipeline and the disbursement go to the worker through Redis (apps/pipeline/tasks.py).
+  # Empty: they run in the request, as in tests.
+  CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
+  # Demo stand: personas and /api/demo/* (docs/openapi.yaml). 0 in .env turns them off.
+  DEMO_MODE: ${DEMO_MODE:-1}
+  # e2e signs in many times from one IP; the stand keeps the strict defaults (settings.py).
+  THROTTLE_LOGIN: ${THROTTLE_LOGIN:-300/min}
+  THROTTLE_ANON: ${THROTTLE_ANON:-1200/min}
+  # Bind-mount of ./backend hides /app/media; /tmp is writable by the app user.
+  MEDIA_ROOT: /tmp/media
 
 x-backend: &backend
   build:
@@ -12,15 +25,7 @@ x-backend: &backend
     args:
       REQUIREMENTS: requirements-dev.txt
   env_file: .env
-  environment:
-    CASE_DATA_DIR: /case-data
-    # Demo stand: personas and /api/demo/* (docs/openapi.yaml). 0 in .env turns them off.
-    DEMO_MODE: ${DEMO_MODE:-1}
-    # e2e signs in many times from one IP; the stand keeps the strict defaults (settings.py).
-    THROTTLE_LOGIN: ${THROTTLE_LOGIN:-300/min}
-    THROTTLE_ANON: ${THROTTLE_ANON:-1200/min}
-    # Bind-mount of ./backend hides /app/media; /tmp is writable by the app user.
-    MEDIA_ROOT: /tmp/media
+  environment: *backend-env
   volumes:
     - ./backend:/app
     - ./docs:/docs:ro
@@ -46,10 +51,54 @@ services:
   init:
     <<: *backend
     command: sh -c "python manage.py migrate --noinput && python manage.py seed_demo"
+    environment:
+      <<: *backend-env
+      CELERY_BROKER_URL: ""  # the seed runs its pipeline in-process: no worker yet
     restart: "no"
     depends_on:
       db:
         condition: service_healthy
+
+  # Celery broker only: no persistence (the application row is the state; a lost message is
+  # picked up by apps/pipeline/recover.py), a hard memory cap for the 3 GB stand, no ports.
+  redis:
+    image: redis:7.4.2-alpine
+    command:
+      - redis-server
+      - --maxmemory
+      - 32mb
+      - --maxmemory-policy
+      - noeviction
+      - --save
+      - ""
+      - --appendonly
+      - "no"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # The pipeline and the disbursement (apps/pipeline/celery_tasks.py). One worker per stand:
+  # on start it finishes what a lost task left behind (apps/pipeline/recover.py).
+  # Code changes need `docker compose restart worker` — Celery does not autoreload.
+  worker:
+    <<: *backend
+    command: celery -A config worker --loglevel INFO --concurrency 2 --without-gossip --without-mingle
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A config inspect ping --destination celery@$$HOSTNAME --timeout 5 > /dev/null"]
+      interval: 10s
+      timeout: 15s
+      retries: 10
+      start_period: 20s
 
   backend:
     <<: *backend
@@ -61,6 +110,12 @@ services:
         condition: service_healthy
       init:
         condition: service_completed_successfully
+      # `up db backend` (CI e2e) and `run backend` bring the worker along; pytest itself
+      # never needs it (settings.TESTING).
+      redis:
+        condition: service_healthy
+      worker:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=3)"]
       interval: 5s

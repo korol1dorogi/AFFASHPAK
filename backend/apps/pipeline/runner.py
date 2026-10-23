@@ -57,10 +57,10 @@ def execute(application_id: int) -> None:
         _run(application)
     except Exception:
         logger.exception("pipeline failed for application %s", application_id)
-        _to_officer(application_id)
+        to_officer(application_id)
 
 
-def _to_officer(application_id: int) -> None:
+def to_officer(application_id: int) -> None:
     if Application.objects.filter(pk=application_id, status=S.PROCESSING).exists():
         record_auto_decision(
             application_id,
@@ -177,6 +177,7 @@ def _store_checks(application: Application, answers: dict[str, dict]) -> None:
                 status=answer["status"],
                 summary=_summary(source, answer),
                 data=data,
+                **(answer.get("provenance") or {}),
             )
             record_event(
                 application,

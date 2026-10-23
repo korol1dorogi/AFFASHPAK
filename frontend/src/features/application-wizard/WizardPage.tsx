@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { api, type Schemas } from "@/api/client";
 import { routes, WIZARD_STEPS, type WizardStep } from "@/app/routes";
 import { useCompany } from "@/app/session";
+import { SourceTag } from "@/components/AmountSource";
 import { MoneyText } from "@/components/Money";
 import { ReasonList } from "@/components/ReasonList";
 import { DemoBadge, ErrorState, PageHeader, PageSkeleton } from "@/components/States";
@@ -237,8 +238,8 @@ function ReviewStep({ application }: { application: ApplicationDetail }) {
         <div>
           <dt className="text-xs text-ink-muted">Сумма и срок</dt>
           <dd className="m-0">
-            <MoneyText value={application.requested_amount} className="font-semibold" /> на{" "}
-            {application.term_months} мес
+            <MoneyText value={application.requested_amount} className="font-semibold" />
+            <SourceTag source="client" /> на {application.term_months} мес
           </dd>
         </div>
         <div className="col-span-full">

@@ -91,6 +91,7 @@ erDiagram
 **Check** — результат одного источника обогащения
 - `application`, `source`: `egrul` | `transparent_business` | `bki` | `bank_account`
 - `status`: `ok` | `warning` | `failed` | `not_found` | `unavailable` | `restricted` | `consent_missing` (что значит каждый и к какому исходу ведёт — [decision-model.md](decision-model.md), «Нет данных — не отказ»); `summary` (текст); `data` (JSON); `duration_ms`; `checked_at`
+- происхождение (SRC4): `received_at` — когда пришёл ответ, `response_sha256` — sha256 ответа (канонический JSON `{status, data}`), `simulator_version` — версия симулятора; все три null, если источник не ответил (`unavailable`) или его не спрашивали (`consent_missing`)
 
 **Score** — `application` (1:1), `grade`: `A`–`E`, `total` (int), `factors` (JSON-список: `name`, `value`, `points`, `message`), `model_version`, `created_at`
 

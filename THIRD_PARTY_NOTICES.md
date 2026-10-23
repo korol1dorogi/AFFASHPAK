@@ -43,14 +43,18 @@
 | tailwind-merge | 3.7.0 | MIT |
 | lucide-react (иконки) | 1.59.0 | ISC |
 
-### Шрифты
+### Дизайн-бук Альфа-Банка (core-components)
 
-| Шрифт | Пакет | Лицензия |
+Кнопки — компонент открытой дизайн-системы Альфа-Банка [core-components](https://github.com/core-ds/core-components); палитра, радиусы и системный шрифт взяты из её токенов (`@alfalab/core-components-vars`, значения перенесены в `frontend/src/index.css`). Логотип и фирменный шрифт банка не используются; продукт называется «Оборот» (D26).
+
+| Пакет | Версия | Лицензия |
 |---|---|---|
-| Golos Text | @fontsource/golos-text 5.3.0 | SIL Open Font License 1.1 |
-| Manrope | @fontsource-variable/manrope 5.3.0 | SIL Open Font License 1.1 |
+| @alfalab/core-components-button | 13.2.4 | MIT |
+| @alfalab/core-components-config, -mq, -shared, -spinner, -types (зависимости кнопки) | 1.1.0, 6.0.9, 2.3.0, 6.0.9, 2.1.0 | MIT |
+| @alfalab/data, @alfalab/hooks, @alfalab/utils | 1.10.2, 1.18.1, 1.22.0 | MIT |
+| classnames, react-merge-refs | 2.5.1, 1.1.0 | MIT |
 
-Шрифты подключены локальными файлами, без внешних CDN.
+Шрифт — системный (`system-ui`, как `--font-family-system` дизайн-бука): фирменный шрифт банка закрытый.
 
 Только сборка и тесты: vite 8.3.4 (MIT), @vitejs/plugin-react 6.1.2 (MIT), tailwindcss и @tailwindcss/vite 4.3.3 (MIT), tw-animate-css 1.4.0 (MIT), typescript 5.9.3 (Apache-2.0), @biomejs/biome 2.5.15 (MIT OR Apache-2.0), vitest 5.0.5 (MIT), jsdom 30.1.3 (MIT), @testing-library/dom 10.4.2, /react 16.3.3, /jest-dom 7.0.1 (MIT), openapi-typescript 7.13.0 (MIT), @types/* (MIT).
 

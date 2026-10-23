@@ -316,7 +316,16 @@ class FinancialSnapshotSerializer(serializers.ModelSerializer):
 class CheckSerializer(serializers.ModelSerializer):
     class Meta:
         model = Check
-        fields = ("source", "status", "summary", "data", "checked_at")
+        fields = (
+            "source",
+            "status",
+            "summary",
+            "data",
+            "checked_at",
+            "received_at",
+            "response_sha256",
+            "simulator_version",
+        )
 
 
 class ScoreSerializer(serializers.ModelSerializer):

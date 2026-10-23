@@ -4,6 +4,7 @@ import { toast } from "sonner";
 
 import type { Schemas } from "@/api/client";
 import { routes } from "@/app/routes";
+import { offerAmountSource } from "@/components/AmountSource";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { NextStep } from "@/components/NextStep";
 import { OfferCard } from "@/components/OfferCard";
@@ -26,6 +27,7 @@ import {
   useProducts,
   useRespondInfo,
 } from "@/features/applications/api";
+import { CreditHistory } from "@/features/applications/CreditHistory";
 import { DocumentList, DocumentUpload } from "@/features/applications/Documents";
 import { showsWhatIf, WhatIf } from "@/features/applications/WhatIf";
 import { ApiError, errorMessage } from "@/lib/errors";
@@ -148,6 +150,8 @@ function DecisionCard({
         // The shortest way to grade C with targets; all the advice stays below it.
         <ApprovalPlan plan={decision.approval_plan} grade={decision.grade} />
       ) : null}
+      {/* BKI1: a past overdue cannot be planned away — say what the bank saw and what to do. */}
+      <CreditHistory reasons={decision.reasons} finished={decision.outcome === "declined"} />
       <ImprovementList items={decision.improvements} />
     </Card>
   );
@@ -233,6 +237,7 @@ export function ApplicationPage() {
             <OfferCard
               offer={data.offer}
               actions={actions}
+              amountSource={offerAmountSource(data.decision ? [data.decision] : [])}
               pending={accept.isPending ? "accept" : decline.isPending ? "decline" : null}
               onAccept={() =>
                 accept.mutate(undefined, {

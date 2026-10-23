@@ -1,7 +1,3 @@
-import "@fontsource/golos-text/400.css";
-import "@fontsource/golos-text/500.css";
-import "@fontsource/golos-text/600.css";
-import "@fontsource-variable/manrope";
 import "./index.css";
 
 import { StrictMode } from "react";

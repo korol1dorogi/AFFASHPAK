@@ -1,7 +1,30 @@
 # Production stand on the VPS (docs/deploy.md). Only Caddy publishes ports (80/443):
-# Docker bypasses UFW, so db and backend must never have `ports:`.
+# Docker bypasses UFW, so db, redis, backend and worker must never have `ports:`.
 # On the server, .env sets COMPOSE_FILE=docker-compose.prod.yml, so plain `docker compose ...` works.
 name: alfa-cabinet
+
+# One image for the backend and the Celery worker.
+x-app: &app
+  build:
+    context: .
+    dockerfile: backend/Dockerfile
+    args:
+      REQUIREMENTS: requirements.txt
+  restart: unless-stopped
+  env_file: .env
+
+x-app-env: &app-env
+  DJANGO_DEBUG: "0"
+  CASE_DATA_DIR: /case-data
+  # The pipeline and the disbursement go to the worker (apps/pipeline/tasks.py).
+  CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
+  # Demo stand: personas and /api/demo/* (docs/openapi.yaml). 0 in .env turns them off.
+  DEMO_MODE: ${DEMO_MODE:-1}
+  # Sign-in limits (docs/deploy.md): password login stays strict; demo personas and the
+  # anonymous pages around them allow a jury switching personas from one IP.
+  THROTTLE_LOGIN: ${THROTTLE_LOGIN:-10/min}
+  THROTTLE_DEMO_LOGIN: ${THROTTLE_DEMO_LOGIN:-120/min}
+  THROTTLE_ANON: ${THROTTLE_ANON:-300/min}
 
 services:
   db:
@@ -19,27 +42,34 @@ services:
       timeout: 3s
       retries: 20
 
-  backend:
-    build:
-      context: .
-      dockerfile: backend/Dockerfile
-      args:
-        REQUIREMENTS: requirements.txt
+  # Celery broker only: no persistence (the application row is the state; a lost message is
+  # picked up by apps/pipeline/recover.py), a hard memory cap, no ports.
+  redis:
+    image: redis:7.4.2-alpine
     restart: unless-stopped
-    env_file: .env
-    environment:
-      DJANGO_DEBUG: "0"
-      CASE_DATA_DIR: /case-data
-      # Demo stand: personas and /api/demo/* (docs/openapi.yaml). 0 in .env turns them off.
-      DEMO_MODE: ${DEMO_MODE:-1}
-      # Sign-in limits (docs/deploy.md): password login stays strict; demo personas and the
-      # anonymous pages around them allow a jury switching personas from one IP.
-      THROTTLE_LOGIN: ${THROTTLE_LOGIN:-10/min}
-      THROTTLE_DEMO_LOGIN: ${THROTTLE_DEMO_LOGIN:-120/min}
-      THROTTLE_ANON: ${THROTTLE_ANON:-300/min}
+    command:
+      - redis-server
+      - --maxmemory
+      - 32mb
+      - --maxmemory-policy
+      - noeviction
+      - --save
+      - ""
+      - --appendonly
+      - "no"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  backend:
+    <<: *app
+    environment: *app-env
+    # The seed runs its pipeline in-process (empty broker): the worker starts after the backend.
     command: >
       sh -c "python manage.py migrate --noinput
-      && python manage.py seed_demo
+      && CELERY_BROKER_URL= python manage.py seed_demo
       && python manage.py collectstatic --noinput
       && gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 3 --timeout 60 --no-control-socket --access-logfile -"
     volumes:
@@ -48,6 +78,8 @@ services:
       - ${CASE_DATA_DIR:?set in .env (path outside the repo)}:/case-data:ro
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     healthcheck:
       # Host must be in DJANGO_ALLOWED_HOSTS; /api/health is exempt from the HTTPS redirect.
@@ -59,6 +91,27 @@ services:
       interval: 10s
       timeout: 5s
       retries: 30
+      start_period: 20s
+
+  # The pipeline and the disbursement (apps/pipeline/celery_tasks.py). One worker per stand:
+  # on start it finishes what a lost task left behind (apps/pipeline/recover.py).
+  # After the backend: migrations are applied there.
+  worker:
+    <<: *app
+    environment: *app-env
+    command: celery -A config worker --loglevel INFO --concurrency 2 --without-gossip --without-mingle
+    volumes:
+      - ${CASE_DATA_DIR:?set in .env (path outside the repo)}:/case-data:ro
+    depends_on:
+      redis:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A config inspect ping --destination celery@$$HOSTNAME --timeout 5 > /dev/null"]
+      interval: 15s
+      timeout: 15s
+      retries: 10
       start_period: 20s
 
   # Swagger UI for the contract (docs/openapi.yaml), served by Caddy at /api/docs (T7).
