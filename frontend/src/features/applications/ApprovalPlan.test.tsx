@@ -106,6 +106,8 @@ describe("ApprovalPlan on a decline", () => {
     expect(plan).toHaveTextContent(
       "Сейчас 47 баллов из 100 — грейд E. Эти шаги дают 60 — грейд C: с ним заявку рассмотрит сотрудник банка.",
     );
+    // «Грейд» is a term: the plan says what it means (UX2).
+    expect(plan).toHaveTextContent("Грейд — итог оценки риска по 100-балльной шкале");
     const steps = within(plan).getAllByRole("listitem");
     expect(steps).toHaveLength(2);
     expect(steps[0]).toHaveTextContent("Доля крупнейшего покупателя");

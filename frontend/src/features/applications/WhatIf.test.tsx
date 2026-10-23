@@ -195,6 +195,10 @@ describe("WhatIf — the calculation comes from the backend", () => {
       /₽расчёт$/,
     );
     expect(within(block).getByText("1,26 при норме от 1,25")).toBeInTheDocument();
+    // «Покрытие платежей» is a term: it is explained next to the value (UX2).
+    expect(
+      within(block).getByText(/Во сколько раз денежный поток больше всех платежей/),
+    ).toBeInTheDocument();
     expect(within(block).getByRole("slider", { name: "Срок" })).toHaveAttribute("min", "3");
     expect(within(block).getByRole("slider", { name: "Срок" })).toHaveAttribute("max", "24");
   });
