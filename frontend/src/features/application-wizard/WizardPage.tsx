@@ -29,11 +29,12 @@ import {
   useSubmit,
   useUpdateApplication,
 } from "@/features/applications/api";
+import { BlockError, BlockSkeleton } from "@/features/applications/BlockState";
 import { DocumentList, DocumentUpload, RequiredDocuments } from "@/features/applications/Documents";
-import { applyFieldErrors, errorMessage, fieldMessages, isConflict } from "@/lib/errors";
+import { applyFieldErrors, errorMessage, fieldMessages, isConflict, unwrap } from "@/lib/errors";
 import { formatDateTime } from "@/lib/format";
 import { useIdempotencyKey } from "@/lib/idempotency";
-import { ACTION, BKI_CONSENT, DOCUMENT_KIND, NEED } from "@/texts";
+import { ACTION, BKI_CONSENT, BLOCK_STATE, DOCUMENT_KIND, NEED } from "@/texts";
 
 const AUTOSAVE_MS = 800;
 const ALL_KINDS = Object.keys(DOCUMENT_KIND) as Schemas["DocumentKind"][];
@@ -141,8 +142,7 @@ function BusinessStep() {
     queryFn: async () => {
       const result = await api.GET("/api/company/metrics");
       if (result.response.status === 404) return null;
-      if (!result.data) throw new Error("metrics");
-      return result.data;
+      return unwrap(result);
     },
   });
   return (
@@ -155,7 +155,15 @@ function BusinessStep() {
         Эти данные уже есть в профиле компании — вводить заново не нужно. Ошибка в реквизитах?{" "}
         <Link to={routes.company}>Исправить в профиле</Link>
       </CardDescription>
-      {company.data ? (
+      {company.isPending ? (
+        <BlockSkeleton label={BLOCK_STATE.companyLoading} rows={3} />
+      ) : company.isError ? (
+        <BlockError
+          title={BLOCK_STATE.companyError}
+          error={company.error}
+          onRetry={() => void company.refetch()}
+        />
+      ) : company.data ? (
         <dl className="m-0 grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-4">
           {[
             ["Компания", company.data.name],
@@ -174,7 +182,15 @@ function BusinessStep() {
       ) : (
         <p className="m-0 text-ink-muted">Профиль компании ещё не заполнен.</p>
       )}
-      {metrics.data?.metrics.length ? (
+      {metrics.isPending ? (
+        <BlockSkeleton label={BLOCK_STATE.metricsLoading} />
+      ) : metrics.isError ? (
+        <BlockError
+          title={BLOCK_STATE.metricsError}
+          error={metrics.error}
+          onRetry={() => void metrics.refetch()}
+        />
+      ) : metrics.data?.metrics.length ? (
         <>
           <p className="m-0 font-semibold">По данным счёта</p>
           <ReasonList reasons={metrics.data.metrics} label="Показатели бизнеса" />

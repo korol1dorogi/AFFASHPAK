@@ -6,10 +6,11 @@ import type { Schemas } from "@/api/client";
 import { Button } from "@/components/ui/button";
 import { NativeSelect } from "@/components/ui/input";
 import { useDocuments, useUploadDocument } from "@/features/applications/api";
+import { BlockError, BlockSkeleton } from "@/features/applications/BlockState";
 import { errorMessage } from "@/lib/errors";
 import { formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { DOCUMENT_KIND } from "@/texts";
+import { BLOCK_STATE, DOCUMENT_KIND } from "@/texts";
 
 type Kind = Schemas["DocumentKind"];
 const MAX_BYTES = 10 * 1024 * 1024;
@@ -105,8 +106,19 @@ export function DocumentUpload({
 /** Uploaded documents of the application. */
 export function DocumentList({ applicationId }: { applicationId: number }) {
   const documents = useDocuments(applicationId);
-  if (!documents.data?.length) {
-    return <p className="m-0 text-sm text-ink-muted">Документов пока нет.</p>;
+  if (!documents.data) {
+    return documents.isError ? (
+      <BlockError
+        title={BLOCK_STATE.documentsError}
+        error={documents.error}
+        onRetry={() => void documents.refetch()}
+      />
+    ) : (
+      <BlockSkeleton label={BLOCK_STATE.documentsLoading} />
+    );
+  }
+  if (documents.data.length === 0) {
+    return <p className="m-0 text-sm text-ink-muted">{BLOCK_STATE.documentsEmpty}</p>;
   }
   return (
     <ul className="m-0 flex list-none flex-col gap-3 p-0">

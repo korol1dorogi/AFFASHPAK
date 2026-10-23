@@ -27,12 +27,13 @@ import {
   useProducts,
   useRespondInfo,
 } from "@/features/applications/api";
+import { BlockError, BlockSkeleton } from "@/features/applications/BlockState";
 import { CreditHistory } from "@/features/applications/CreditHistory";
 import { DocumentList, DocumentUpload } from "@/features/applications/Documents";
 import { showsWhatIf, WhatIf } from "@/features/applications/WhatIf";
 import { ApiError, errorMessage } from "@/lib/errors";
 import { formatDate, formatMoney } from "@/lib/format";
-import { ACTION, DECISION_OUTCOME, DOCUMENT_KIND, NEED } from "@/texts";
+import { ACTION, BLOCK_STATE, DECISION_OUTCOME, DOCUMENT_KIND, NEED } from "@/texts";
 
 const FIELD_LABEL: Record<string, string> = {
   purpose: "цель",
@@ -273,10 +274,21 @@ export function ApplicationPage() {
         <aside className="flex min-w-0 flex-[1_1_300px] flex-col gap-6">
           <Card>
             <CardTitle>История</CardTitle>
+            {/* A failed background poll keeps the history it already has. */}
             {events.data ? (
-              <StatusTimeline events={events.data} />
+              events.data.length === 0 ? (
+                <p className="m-0 text-sm text-ink-muted">{BLOCK_STATE.historyEmpty}</p>
+              ) : (
+                <StatusTimeline events={events.data} />
+              )
+            ) : events.isError ? (
+              <BlockError
+                title={BLOCK_STATE.historyError}
+                error={events.error}
+                onRetry={() => void events.refetch()}
+              />
             ) : (
-              <p className="m-0 text-sm text-ink-muted">Загружаем…</p>
+              <BlockSkeleton label={BLOCK_STATE.historyLoading} rows={3} />
             )}
           </Card>
           <Card>
