@@ -67,7 +67,9 @@ function NeedPicker({ value, onChange }: { value: Need | null; onChange: (need: 
                 {selected ? <CircleCheck className="size-5" aria-hidden="true" /> : null}
               </span>
               <span className="font-semibold">{NEED[need].title}</span>
-              <span className="text-sm text-ink-muted">{NEED[need].hint}</span>
+              <span className={cn("text-sm", selected ? "text-ink" : "text-ink-muted")}>
+                {NEED[need].hint}
+              </span>
             </label>
           );
         })}
