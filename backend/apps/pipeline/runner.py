@@ -177,6 +177,7 @@ def _store_checks(application: Application, answers: dict[str, dict]) -> None:
                 status=answer["status"],
                 summary=_summary(source, answer),
                 data=data,
+                **(answer.get("provenance") or {}),
             )
             record_event(
                 application,
