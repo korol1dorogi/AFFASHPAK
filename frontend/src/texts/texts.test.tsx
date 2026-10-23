@@ -59,6 +59,11 @@ describe("metric texts", () => {
     expect(text?.title).not.toBe(metric);
   });
 
+  it("has a text for missing_key_metrics before the backend returns it (decision-model.md §7)", () => {
+    expect(METRIC.missing_key_metrics?.title).toBeTruthy();
+    expect(METRIC.missing_key_metrics?.hint).toContain("Это не отказ");
+  });
+
   it("never shows an unknown metric code to the client", () => {
     expect(metricTitle("brand_new_metric")).toBe(UNKNOWN_METRIC_TITLE);
     render(
