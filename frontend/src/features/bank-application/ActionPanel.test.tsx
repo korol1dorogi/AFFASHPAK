@@ -370,3 +370,28 @@ describe("ActionPanel — errors", () => {
     expect(within(dialog).queryByRole("alert")).not.toBeInTheDocument();
   });
 });
+
+describe("ActionPanel — keyboard (UX2)", () => {
+  it("Escape closes an action dialog and focus goes back to its button", async () => {
+    open();
+    const button = await screen.findByRole("button", { name: "Отказать" });
+    button.focus();
+    fireEvent.click(button);
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.keyDown(dialog, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await waitFor(() => expect(button).toHaveFocus());
+  });
+
+  it("a status changed meanwhile (polling) is read out by a polite live region", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    let calls = 0;
+    open({ [`GET ${BASE}`]: () => (++calls === 1 ? persona4Card() : done("declined")) });
+    await screen.findByRole("button", { name: "Отказать" });
+    const live = document.querySelector('[aria-live="polite"].sr-only');
+    expect(live).toHaveTextContent("");
+    await vi.advanceTimersByTimeAsync(15_000);
+    await waitFor(() => expect(live).toHaveTextContent("Статус заявки изменился: Отказ"));
+    vi.useRealTimers();
+  });
+});

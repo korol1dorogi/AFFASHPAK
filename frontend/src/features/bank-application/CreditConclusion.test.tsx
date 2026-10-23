@@ -273,6 +273,25 @@ describe("BankApplicationPage — credit conclusion", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
+  it("keeps Tab inside the preview and gives focus back to its button (UX2)", async () => {
+    open();
+    const opener = await screen.findByRole("button", { name: "Кредитное заключение" });
+    opener.focus();
+    fireEvent.click(opener);
+    const dialog = screen.getByRole("dialog", { name: "Предпросмотр кредитного заключения" });
+    const print = within(dialog).getByRole("button", { name: "Сохранить в PDF" });
+    const close = within(dialog).getByRole("button", { name: "Закрыть" });
+    expect(print).toHaveFocus();
+    close.focus();
+    fireEvent.keyDown(window, { key: "Tab" });
+    expect(print).toHaveFocus();
+    fireEvent.keyDown(window, { key: "Tab", shiftKey: true });
+    expect(close).toHaveFocus();
+    fireEvent.keyDown(window, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(opener).toHaveFocus();
+  });
+
   it("closes the preview with Escape", async () => {
     open();
     fireEvent.click(await screen.findByRole("button", { name: "Кредитное заключение" }));

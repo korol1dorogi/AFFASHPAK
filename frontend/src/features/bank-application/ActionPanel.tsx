@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import type { Schemas } from "@/api/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
+import { useReturnFocus } from "@/features/applications/returnFocus";
 import {
   ApproveDialog,
   CounterofferDialog,
@@ -54,6 +55,7 @@ export function ActionPanel({ card }: { card: BankApplicationDetail }) {
   const can = (action: Schemas["ApplicationAction"]) =>
     application.available_actions.includes(action);
   const [opened, setOpened] = useState<Opened | null>(null);
+  const rememberOpener = useReturnFocus(opened !== null);
   const assign = useAssign(application.id);
   const close = () => setOpened(null);
   const buttons = BUTTONS.filter((button) => can(button.action));
@@ -87,7 +89,10 @@ export function ActionPanel({ card }: { card: BankApplicationDetail }) {
               <Button
                 key={button.opens}
                 variant={button.variant}
-                onClick={() => setOpened(button.opens)}
+                onClick={() => {
+                  rememberOpener();
+                  setOpened(button.opens);
+                }}
               >
                 {button.label}
               </Button>
