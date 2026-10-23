@@ -474,6 +474,33 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/applications/{id}/hand-off": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ApplicationId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Передать готовый черновик подписанту (XP5)
+         * @description Готовит заявку `preparer` (бухгалтер), отправляет только `signatory`. Когда черновик
+         *     готов, бухгалтер передаёт его подписантам: в журнале — событие `handed_off`, каждому
+         *     подписанту компании — уведомление. Статус и `version` не меняются; повторная передача —
+         *     напоминание. Доступно только в `draft` и только бухгалтеру (`hand_off` в
+         *     `available_actions`). Поля проверяются так же, как при отправке (400 с ошибкой по полю),
+         *     кроме согласия на запрос в БКИ — его даёт подписант при отправке.
+         */
+        post: operations["handOffApplication"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/applications/{id}/events": {
         parameters: {
             query?: never;
@@ -1403,7 +1430,7 @@ export interface components {
          */
         ApplicationStatus: "draft" | "submitted" | "processing" | "manual_review" | "info_requested" | "offer" | "signing" | "signed" | "issued" | "declined" | "cancelled";
         /** @enum {string} */
-        ApplicationAction: "edit" | "upload_document" | "submit" | "cancel" | "respond_info" | "accept_offer" | "decline_offer" | "sign" | "assign" | "approve" | "counteroffer" | "request_info" | "decline";
+        ApplicationAction: "edit" | "upload_document" | "submit" | "hand_off" | "cancel" | "respond_info" | "accept_offer" | "decline_offer" | "sign" | "assign" | "approve" | "counteroffer" | "request_info" | "decline";
         /** @enum {string} */
         PrefillSource: "manual" | "recommendation" | "assistant";
         Application: {
@@ -1463,7 +1490,7 @@ export interface components {
         /** @enum {string} */
         ActorKind: "client" | "bank" | "system";
         /** @enum {string} */
-        EventKind: "status_changed" | "document_uploaded" | "info_requested" | "info_responded" | "assigned" | "check_completed" | "score_calculated" | "decision" | "comment" | "signed" | "issued" | "consent_given";
+        EventKind: "status_changed" | "document_uploaded" | "info_requested" | "info_responded" | "assigned" | "check_completed" | "score_calculated" | "decision" | "comment" | "signed" | "issued" | "consent_given" | "handed_off";
         ApplicationEvent: {
             /** @example 1 */
             id: number;
@@ -2819,6 +2846,33 @@ export interface operations {
                     "application/json": components["schemas"]["ApplicationDetail"];
                 };
             };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    handOffApplication: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ApplicationId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Передано, подписанты уведомлены */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationDetail"];
+                };
+            };
+            400: components["responses"]["ValidationError"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
