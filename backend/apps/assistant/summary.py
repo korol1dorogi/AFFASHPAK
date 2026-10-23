@@ -11,6 +11,10 @@ import re
 
 PREFIX = "[СВОДКА]"  # the bank prompt answers a message starting with it with JSON only
 KEYS = ("risks", "to_verify", "draft_comment", "sources")
+# Factors whose missing value means «no data» (decision-model.md §4); the credit history and the
+# ФНС checks speak through their check status instead, and debt/EBITDA without reporting is the
+# norm for a sole proprietor.
+KEY_METRICS = ("dscr", "revenue_trend", "counterparty_concentration")
 MAX_ITEMS = 8
 _JSON = re.compile(r"\{.*\}", re.DOTALL)
 
@@ -54,7 +58,7 @@ def from_facts(results: dict[str, dict]) -> dict:
             risks.append(f"{factor['message']} (скоринг: {factor['name']})")
             sources.append(f"скоринг: {factor['name']}")
     for factor in score.get("factors") or []:
-        if factor.get("value") is None:
+        if factor.get("name") in KEY_METRICS and factor.get("value") is None:
             to_verify.append(f"{factor['message']} (нет данных — проверить вручную)")
 
     checks = results.get("checks_with_provenance") or {}

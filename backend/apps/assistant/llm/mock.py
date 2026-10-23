@@ -100,7 +100,11 @@ class MockLLMClient:
         if not messages:
             return LLMResponse(content=CLARIFY)
         available = {tool.name for tool in tools}
-        bank = "application_summary" in available
+        # The bank set has application_summary; the decision summary comes with no tools at all
+        # (the engine already read the facts), so its prefix tells the profile too.
+        bank = "application_summary" in available or _last_user_text(messages).startswith(
+            SUMMARY_PREFIX
+        )
         context = messages[0].content if messages[0].role == "system" else ""
         found = _APPLICATION_NUMBER.search(context)
         application_id = int(found.group(1)) if found else None

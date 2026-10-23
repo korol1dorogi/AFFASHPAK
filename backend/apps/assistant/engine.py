@@ -38,7 +38,7 @@ from apps.applications.models import Application
 from apps.applications.offers import current_offer
 from apps.assistant import guards, prompts, tools, tools_bank
 from apps.assistant import summary as summary_module
-from apps.assistant.llm import LLMError, Message, MockLLMClient, get_llm_client
+from apps.assistant.llm import LLMError, Message, MockLLMClient, ToolCall, get_llm_client
 from apps.assistant.models import AssistantMessage, MessageRole
 from apps.core import context
 from apps.scoring.texts import rubles
@@ -173,22 +173,54 @@ def reply(
 
 
 def summary(user: AbstractBaseUser, application_id: int) -> dict:
-    """«Сводка для решения» (И2а, AssistantSummary): risks, to_verify, draft_comment, sources."""
-    answer = reply(user, "bank", SUMMARY_REQUEST, application_id)
-    parsed = summary_module.parse(answer["reply"])
-    if parsed is not None:
-        return parsed
-    results = {
-        call["name"]: call["result"]
-        for call in answer["tool_calls"]
-        if isinstance(call.get("result"), dict) and "error" not in call["result"]
-    }
-    for name in SUMMARY_TOOLS:  # the model skipped them: the facts are read directly
-        if name not in results:
-            result = tools_bank.run_tool(user, name, {"application_id": application_id})
+    """«Сводка для решения» (И2а, AssistantSummary): risks, to_verify, draft_comment, sources.
+
+    One model request, not a tool loop: the orchestrator reads the four facts itself (journaled
+    like any tool call) and hands them to the model with the «[СВОДКА]» message — a model without
+    parallel tool calls would spend a step per tool and a free tier's minute budget with it.
+    A broken JSON or a failing provider → the summary built from the same facts."""
+    application = _application(user, "bank", application_id)
+    tokens = context.bind(user_id=user.pk, application_id=application.pk)
+    try:
+        turn = Turn(user=user, toolset=tools_bank, messages=[])
+        allowed = {spec.name for spec in tools_bank.tool_specs()}
+        calls = [
+            ToolCall(f"summary_{i}", name, {"application_id": application.pk})
+            for i, name in enumerate(SUMMARY_TOOLS)
+        ]
+        results = {}
+        for call in calls:
+            result = turn._execute(allowed, call.name, call.arguments)
+            turn.journal.append({"name": call.name, "arguments": call.arguments,
+                                 "result": result})  # fmt: skip
             if "error" not in result:
-                results[name] = result
-    return summary_module.from_facts(results)
+                results[call.name] = result
+        system = prompts.load("bank").render(
+            today=_today(),
+            user_name=_user_name(user),
+            application_context=_context(user, "bank", application),
+        )
+        messages = [
+            Message(role="system", content=system),
+            Message(role="user", content=SUMMARY_REQUEST),
+            Message(role="assistant", content="", tool_calls=tuple(calls)),
+            *(
+                Message(role="tool", content=json.dumps(entry["result"], ensure_ascii=False),
+                        tool_call_id=call.id)
+                for call, entry in zip(calls, turn.journal, strict=True)
+            ),
+        ]  # fmt: skip
+        parsed = None
+        try:
+            parsed = summary_module.parse(get_llm_client().complete(messages, []).content)
+        except LLMError as error:
+            logger.warning("assistant summary: provider failed, built from facts: %s", error)
+        result = parsed or summary_module.from_facts(results)
+        _save(user, application, SUMMARY_REQUEST, json.dumps(result, ensure_ascii=False),
+              turn.journal, None)  # fmt: skip
+        return result
+    finally:
+        context.reset(tokens)
 
 
 # ───────────────────────── helpers ─────────────────────────

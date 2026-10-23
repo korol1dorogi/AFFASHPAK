@@ -332,7 +332,7 @@ def test_output_is_plain_text(seeded, monkeypatch):
 
 def test_empty_input_never_reaches_the_model(seeded, monkeypatch):
     client = use(monkeypatch, Scripted())
-    answer = engine.reply(user_of("demo_coffee_shop"), "client", " ​\n ")
+    answer = engine.reply(user_of("demo_coffee_shop"), "client", " \u200b\n ")
     assert client.sent == []
     assert "Напишите вопрос" in answer["reply"]
 
@@ -352,3 +352,29 @@ def test_every_turn_is_journaled_and_logged(seeded, caplog):
     record = next(r for r in caplog.records if getattr(r, "kind", None) == "assistant_tool")
     assert record.source == "explain_status"
     assert record.status == "ok"
+
+
+def test_summary_is_one_model_request_with_the_facts(bank, monkeypatch):
+    application = persona_application(5)
+    reply = json.dumps(
+        {"risks": ["Риск (скоринг: dscr)"], "to_verify": ["Проверить"], "draft_comment": "Текст",
+         "sources": ["скоринг: dscr"]}, ensure_ascii=False,
+    )  # fmt: skip
+    client = use(monkeypatch, Scripted(LLMResponse(content=reply)))
+    result = engine.summary(bank, application.pk)
+
+    assert result["risks"] == ["Риск (скоринг: dscr)"]
+    assert len(client.sent) == 1  # one request, not a tool loop
+    sent = client.sent[0]
+    assert sent[1].content.startswith(summary.PREFIX)
+    assert [m.role for m in sent[2:]] == ["assistant"] + ["tool"] * len(engine.SUMMARY_TOOLS)
+    journal = AssistantMessage.objects.filter(application=application, role="assistant").last()
+    assert [c["name"] for c in journal.tool_calls] == list(engine.SUMMARY_TOOLS)
+
+
+def test_summary_survives_a_provider_failure(bank, monkeypatch):
+    application = persona_application(5)
+    use(monkeypatch, Scripted(LLMError("rate limited")))
+    result = engine.summary(bank, application.pk)
+    assert "Грейд E (47 из 100)." in result["draft_comment"]
+    assert not any("ФНС" in item for item in result["to_verify"])  # a clean check is not «no data»
