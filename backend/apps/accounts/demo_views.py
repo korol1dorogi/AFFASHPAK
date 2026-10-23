@@ -93,6 +93,15 @@ class DemoFailuresView(_DemoView):
         return Response(flags.current())
 
 
+class DemoSourcesView(_DemoView):
+    """XP6: the live state of every source for the demo panel — outage and circuit breaker."""
+
+    permission_classes = (IsBankUser,)
+
+    def get(self, request: Request) -> Response:
+        return Response(flags.overview())
+
+
 class DemoResetView(_DemoView):
     """POST /api/demo/reset: seeded companies back to their starting state (bank user).
 

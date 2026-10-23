@@ -11,7 +11,7 @@ simulator version, None when the source did not answer.
 import logging
 from concurrent.futures import ThreadPoolExecutor
 
-from apps.integrations.breaker import breaker
+from apps.integrations.breaker import THRESHOLD, breaker
 from apps.integrations.flags import SOURCES, failing_sources
 from apps.integrations.provenance import provenance
 from apps.integrations.simulator_data import simulators
@@ -38,20 +38,53 @@ def _answer(source: str, inn: str, *, has_account: bool) -> dict:
     return found
 
 
-def fetch(source: str, inn: str, *, has_account: bool, failing: bool = False) -> dict:
-    """One source. A forced outage or an open breaker is `unavailable` without calling out."""
-    if failing or not breaker.allow(source):
-        return dict(UNAVAILABLE)
-    for attempt in range(1, ATTEMPTS + 1):
+class SimulatedOutage(ConnectionError):
+    """The demo panel turned the source off: the simulator «answers» with an error (XP6)."""
+
+
+def _attempts(source: str) -> int:
+    """How many calls the breaker lets through now: none while open, one trial when half-open,
+    otherwise up to ATTEMPTS but no more than it takes to open it."""
+    state = breaker.state(source)
+    if state.state == "open":
+        return 0
+    if state.state == "half_open":
+        return 1
+    return max(1, min(ATTEMPTS, THRESHOLD - state.failures))
+
+
+def _call(
+    source: str, inn: str, *, has_account: bool, failing: bool, attempts: int
+) -> tuple[dict | None, int]:
+    """Up to `attempts` calls: (the answer or None, failed calls). No database here: it runs in a
+    worker thread of fetch_all, the breaker is read and written by the calling thread."""
+    failed = 0
+    for attempt in range(1, attempts + 1):
         try:
-            answer = _answer(source, inn, has_account=has_account)
+            if failing:
+                raise SimulatedOutage(f"{source} is turned off on the demo panel")
+            return _answer(source, inn, has_account=has_account), failed
         except Exception:  # a down simulator is an outage, not a crash of the pipeline
-            logger.warning("%s: attempt %s of %s failed", source, attempt, ATTEMPTS, exc_info=True)
-            continue
+            failed += 1
+            logger.warning("%s: attempt %s of %s failed", source, attempt, attempts, exc_info=True)
+    return None, failed
+
+
+def _settle(source: str, answer: dict | None, failed: int) -> None:
+    """Every failed call counts for the breaker — a forced outage too, so one application opens
+    it (XP6); an answer closes it."""
+    for _ in range(failed):
+        breaker.failure(source)
+    if answer is not None:
         breaker.success(source)
-        return answer
-    breaker.failure(source)
-    return dict(UNAVAILABLE)
+
+
+def fetch(source: str, inn: str, *, has_account: bool, failing: bool = False) -> dict:
+    """One source. An open breaker is `unavailable` without calling out."""
+    attempts = _attempts(source)
+    answer, failed = _call(source, inn, has_account=has_account, failing=failing, attempts=attempts)
+    _settle(source, answer, failed)
+    return dict(UNAVAILABLE) if answer is None else answer
 
 
 def _with_provenance(answer: dict) -> dict:
@@ -59,9 +92,10 @@ def _with_provenance(answer: dict) -> dict:
     return {**answer, "provenance": provenance(answer)}
 
 
-def _fetched(source: str, inn: str, *, has_account: bool, failing: bool) -> dict:
+def _fetched(source: str, inn: str, *, has_account: bool, failing: bool, attempts: int):
     """In the worker thread, so `received_at` is the moment the answer came."""
-    return _with_provenance(fetch(source, inn, has_account=has_account, failing=failing))
+    answer, failed = _call(source, inn, has_account=has_account, failing=failing, attempts=attempts)
+    return (None if answer is None else _with_provenance(answer)), failed
 
 
 def fetch_all(inn: str, *, has_account: bool, bki_consent: bool = True) -> dict[str, dict]:
@@ -74,20 +108,27 @@ def fetch_all(inn: str, *, has_account: bool, bki_consent: bool = True) -> dict[
     asked = SOURCES if bki_consent else tuple(s for s in SOURCES if s != "bki")
     if not bki_consent:
         results["bki"] = _with_provenance(NO_CONSENT)
+    attempts = {source: _attempts(source) for source in asked}  # the breaker: this thread only
     pool = ThreadPoolExecutor(max_workers=len(asked))
     try:
         futures = {
             source: pool.submit(
-                _fetched, source, inn, has_account=has_account, failing=source in failing
+                _fetched,
+                source,
+                inn,
+                has_account=has_account,
+                failing=source in failing,
+                attempts=attempts[source],
             )
             for source in asked
         }
         for source, future in futures.items():
             try:
-                results[source] = future.result(timeout=SOURCE_TIMEOUT_SECONDS)
+                answer, failed = future.result(timeout=SOURCE_TIMEOUT_SECONDS)
             except Exception:  # a timeout or a crash of the source: an outage
-                breaker.failure(source)
-                results[source] = _with_provenance(UNAVAILABLE)
+                answer, failed = None, 1
+            _settle(source, answer, failed)
+            results[source] = _with_provenance(UNAVAILABLE) if answer is None else answer
     finally:
         pool.shutdown(wait=False, cancel_futures=True)
     return results
