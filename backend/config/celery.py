@@ -2,7 +2,14 @@ import logging
 import os
 
 from celery import Celery
-from celery.signals import worker_init, worker_ready
+from celery.signals import (
+    before_task_publish,
+    setup_logging,
+    task_postrun,
+    task_prerun,
+    worker_init,
+    worker_ready,
+)
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
 
@@ -40,3 +47,70 @@ def _recover(**kwargs) -> None:
         logger.exception("worker start: recovery failed; run `python manage.py pipeline_recover`")
     finally:
         connections.close_all()  # the main process keeps no connection the pool children share
+
+
+# --- Correlation (OPS5): the request_id of the client's request follows its task into the worker,
+# so `grep <request_id>` shows an application from the submit to the decision. ---
+
+# Tasks whose first argument is the application's id (apps/pipeline/celery_tasks.py)
+APPLICATION_TASKS = frozenset({"pipeline.run", "pipeline.disburse"})
+_bound: dict[str, list] = {}
+
+
+@setup_logging.connect
+def _logging(**kwargs) -> None:
+    """The worker logs through settings.LOGGING (JSON, correlation fields), not Celery's own."""
+    from logging.config import dictConfig
+
+    from django.conf import settings
+
+    dictConfig(settings.LOGGING)
+
+
+@before_task_publish.connect
+def _publish_request_id(headers: dict | None = None, **kwargs) -> None:
+    """A task queued without a request (recover() at the worker start) gets its own id; its
+    lines still carry the application_id."""
+    from apps.core import context
+
+    if headers is not None:
+        headers["request_id"] = context.request_id.get() or context.new_request_id("task")
+
+
+def _application_id(task, args, kwargs) -> int | None:
+    value = (kwargs or {}).get("application_id")
+    if value is None and task.name in APPLICATION_TASKS and args:
+        value = args[0]
+    return value if isinstance(value, int) else None
+
+
+def _incoming_request_id(task) -> str | None:
+    request = task.request
+    value = getattr(request, "request_id", None) or (getattr(request, "headers", None) or {}).get(
+        "request_id"
+    )
+    from apps.core import context
+
+    return value if context.is_valid_request_id(value) else None
+
+
+@task_prerun.connect
+def _bind_task_context(task_id=None, task=None, args=None, kwargs=None, **extra) -> None:
+    from apps.core import context
+
+    # eager (pytest, init): nothing was published — keep the request's own id
+    request_id = (
+        _incoming_request_id(task) or context.request_id.get() or context.new_request_id("task")
+    )
+    application_id = _application_id(task, args, kwargs) or context.application_id.get()
+    _bound[task_id] = context.bind(request_id=request_id, application_id=application_id)
+
+
+@task_postrun.connect
+def _unbind_task_context(task_id=None, **extra) -> None:
+    """Restore what was there before the task — the request's context in eager mode."""
+    from apps.core import context
+
+    tokens = _bound.pop(task_id, None)
+    if tokens is not None:
+        context.reset(tokens)
