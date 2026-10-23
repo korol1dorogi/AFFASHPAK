@@ -1,0 +1,13 @@
+id: client-docs-product
+description: Документы продукта
+profile: client
+persona: furniture_maker
+application: null
+turns:
+- user: Какие документы нужны для инвестиционного кредита?
+  expect_tools:
+  - name: required_documents
+    args:
+      product_code: investment_loan_basic
+  must_include:
+  - выписка

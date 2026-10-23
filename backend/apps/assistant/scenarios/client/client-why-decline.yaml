@@ -1,0 +1,13 @@
+id: client-why-decline
+description: 'Сценарий 5: причины отказа'
+profile: client
+persona: dependent_supplier
+application: latest
+turns:
+- user: Почему отказ?
+  expect_tools:
+  - name: explain_decision
+  must_include:
+  - отказ
+  must_not_include:
+  - одобрено

@@ -1,0 +1,14 @@
+id: client-payment-2
+description: Платёж с другой ставкой и сроком
+profile: client
+persona: garden_store
+application: null
+turns:
+- user: 'Посчитай платёж: 2 000 000 под 22 на 24'
+  expect_tools:
+  - name: calc_payment
+    args:
+      annual_rate: '0.22'
+      term_months: 24
+  must_include:
+  - ₽

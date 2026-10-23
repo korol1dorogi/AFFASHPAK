@@ -1,0 +1,17 @@
+id: client-capex-1
+description: 'Сценарий 4: оборудование → инвестиционный кредит или лизинг'
+profile: client
+persona: furniture_maker
+application: null
+turns:
+- user: Хотим купить новый станок с ЧПУ
+  expect_tools:
+  - name: recommend_products
+    args:
+      need_type: capex
+  must_include:
+  - предварительн
+  must_not_include:
+  - одобрено
+  - гарантир
+  - точно одобрят

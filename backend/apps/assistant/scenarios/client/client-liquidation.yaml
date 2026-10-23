@@ -1,0 +1,11 @@
+id: client-liquidation
+description: 'Сценарий 6: стоп-фактор'
+profile: client
+persona: liquidating_company
+application: latest
+turns:
+- user: Почему мне сразу отказали?
+  expect_tools:
+  - name: explain_decision
+  must_include:
+  - отказ

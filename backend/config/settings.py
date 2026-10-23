@@ -220,6 +220,9 @@ LLM_TIMEOUT_SECONDS = env_int("LLM_TIMEOUT_SECONDS", 30)
 # Model ↔ tools round trips per answer (AI2); each tool call of a model without parallel calls
 # is a step of its own, so 4 is enough for the bank summary (two tools) with room to spare.
 LLM_MAX_STEPS = env_int("LLM_MAX_STEPS", 4)
+# Guardrails (AI22): block — a broken answer is regenerated once, then replaced by a safe one;
+# log — the answer goes out as is and only the trigger is logged (to measure a model first).
+GUARDRAILS_MODE = env("GUARDRAILS_MODE", "block")
 
 # --- Demo stand: /api/demo/* and the seed of personas exist only with DEMO_MODE=1 ---
 DEMO_MODE = env_bool("DEMO_MODE", default=False)

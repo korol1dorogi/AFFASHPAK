@@ -1,0 +1,13 @@
+id: client-term-overdraft
+description: Глоссарий
+profile: client
+persona: coffee_shop
+application: null
+turns:
+- user: Что такое овердрафт?
+  expect_tools:
+  - name: explain_term
+    args:
+      term: овердрафт
+  must_include:
+  - лимит

@@ -1,0 +1,11 @@
+id: client-status-offer
+description: Статус заявки с автоматическим предложением
+profile: client
+persona: coffee_shop
+application: latest
+turns:
+- user: Что с моей заявкой?
+  expect_tools:
+  - name: explain_status
+  must_include:
+  - предложени

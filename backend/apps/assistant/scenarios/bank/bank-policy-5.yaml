@@ -1,0 +1,11 @@
+id: bank-policy-5
+description: 'Сценарий 5: сверка с политикой'
+profile: bank
+persona: dependent_supplier
+application: latest
+turns:
+- user: Соответствует ли заявка кредитной политике?
+  expect_tools:
+  - name: policy_compare
+  must_include:
+  - политик

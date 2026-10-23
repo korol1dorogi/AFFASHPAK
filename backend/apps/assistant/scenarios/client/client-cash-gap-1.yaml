@@ -1,0 +1,20 @@
+id: client-cash-gap-1
+description: 'Сценарий 1: кассовый разрыв из свободного текста → овердрафт'
+profile: client
+persona: coffee_shop
+application: null
+turns:
+- user: Зарплата 5-го, а клиенты платят 10-го
+  expect_tools:
+  - name: recommend_products
+    args:
+      need_type: cash_gap
+  must_include:
+  - овердрафт
+  - предварительн
+  must_not_include:
+  - одобрено
+  - гарантир
+  - точно одобрят
+  forbid_tools:
+  - create_draft

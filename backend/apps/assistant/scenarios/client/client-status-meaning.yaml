@@ -1,0 +1,11 @@
+id: client-status-meaning
+description: Ручное рассмотрение простыми словами
+profile: client
+persona: furniture_maker
+application: latest
+turns:
+- user: Что значит этот статус?
+  expect_tools:
+  - name: explain_status
+  must_include:
+  - сотрудник

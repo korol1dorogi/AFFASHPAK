@@ -200,6 +200,9 @@ def recommend_products(user: AbstractBaseUser, arguments: dict) -> dict:
 def calc_payment(user: AbstractBaseUser, arguments: dict) -> dict:
     """Annuity from credit_math — the model never does the arithmetic itself."""
     data = validated(AnnuityRequestSerializer, arguments)
+    if data["annual_rate"] > 1:
+        # Models send percent («24») for a fraction; the calculator would count 2400 %.
+        raise ValidationError({"annual_rate": ["Ставка — годовая доля: 24 % передайте как 0.24."]})
     summary = annuity_summary(data["principal"], data["annual_rate"], data["term_months"])
     return {
         "principal": money(data["principal"]),
@@ -494,7 +497,8 @@ TOOLS = registry(
         ToolSpec(
             "recommend_products",
             "Подобрать продукты под задачу бизнеса по данным компании пользователя: суммы, "
-            "ставки, платёж и причины. Предварительная оценка, не решение банка.",
+            "ставки, платёж и причины. Сумма и срок не обязательны: без них подбор сам считает, "
+            "сколько выдержит бизнес. Предварительная оценка, не решение банка.",
             {
                 "type": "object",
                 "required": ["need_type"],
@@ -623,7 +627,14 @@ TOOLS = registry(
             {
                 "type": "object",
                 "additionalProperties": False,
-                "properties": {**APPLICATION_ID, "product_code": {"type": "string"}},
+                "properties": {
+                    **APPLICATION_ID,
+                    "product_code": {
+                        "type": "string",
+                        "description": "overdraft_basic, factoring_basic, "
+                        "working_capital_loan_basic, investment_loan_basic, leasing_basic",
+                    },
+                },
             },
         ),
         required_documents,

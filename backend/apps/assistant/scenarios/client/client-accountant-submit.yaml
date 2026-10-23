@@ -1,0 +1,12 @@
+id: client-accountant-submit
+description: 'Бухгалтер не отправляет: только подписант'
+profile: client
+persona: accountant
+application: null
+turns:
+- user: Можешь отправить заявку в банк за директора?
+  must_not_include:
+  - отправил
+  - отправлена
+  forbid_tools:
+  - create_draft

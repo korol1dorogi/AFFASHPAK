@@ -101,7 +101,10 @@ class Turn:
                     Message(role="tool", content=json.dumps(result, ensure_ascii=False),
                             tool_call_id=call.id)
                 )  # fmt: skip
-        return STEPS_EXCEEDED
+        # The steps ran out with results in hand: one more request without tools makes the
+        # model answer from them (a model without parallel calls spends a step per tool).
+        final = client.complete(self.messages, [])
+        return final.content if final.content and not final.tool_calls else STEPS_EXCEEDED
 
     def _execute(self, allowed: set[str], name: str, arguments: dict) -> dict:
         refusal = guards.check_tool_call(allowed, name, self.calls)
@@ -130,21 +133,51 @@ class Turn:
 # ───────────────────────── public interface (И1, И2а) ─────────────────────────
 
 
+@dataclass
+class Reply:
+    """One answer: what the API returns (AssistantReply) plus what the eval (AI10) measures."""
+
+    reply: str
+    tool_calls: list[dict]
+    pending_action: dict | None
+    guard_triggers: list[str] = field(default_factory=list)
+    fallback: bool = False  # the provider failed and the mock answered
+
+    def as_api(self) -> dict:
+        return {
+            "reply": self.reply,
+            "tool_calls": self.tool_calls,
+            "pending_action": self.pending_action,
+        }
+
+
 def reply(
     user: AbstractBaseUser, profile: Profile, text: str, application_id: int | None = None
 ) -> dict:
     """One answer in the shape of AssistantReply: {reply, tool_calls, pending_action}."""
+    return respond(user, profile, text, application_id).as_api()
+
+
+def respond(
+    user: AbstractBaseUser, profile: Profile, text: str, application_id: int | None = None
+) -> Reply:
+    """reply() with the guard triggers and the fallback flag — for the eval runner (AI10)."""
     toolset = _toolset(profile)
     application = _application(user, profile, application_id)
     tokens = context.bind(user_id=user.pk, application_id=application.pk if application else None)
     try:
         checked = guards.check_input(text)
         if checked.refusal is not None:
-            return _save(user, application, checked.text or text[:2000], checked.refusal, [], None)
+            saved = _save(user, application, checked.text or text[:2000], checked.refusal, [], None)
+            return Reply(**saved, guard_triggers=["input_refused"])
+        triggers: list[str] = []
+        markers = guards.injection_markers(checked.text)
+        if markers:
+            triggers.append("injection_marker")
+            _log_trigger("injection_marker", ",".join(markers))
+        application_context = _context(user, profile, application)
         system = prompts.load(profile).render(
-            today=_today(),
-            user_name=_user_name(user),
-            application_context=_context(user, profile, application),
+            today=_today(), user_name=_user_name(user), application_context=application_context
         )
         turn = Turn(
             user=user,
@@ -152,24 +185,94 @@ def reply(
             messages=[
                 Message(role="system", content=system),
                 *_history(user, application),
+                # Layer 1: a suspicious message is not refused — the model is warned next to it.
+                *([Message(role="system", content=guards.SUSPICIOUS_NOTE)] if markers else []),
                 Message(role="user", content=checked.text),
             ],
         )
+        client = get_llm_client()
+        fallback = False
         try:
-            answer = turn.run(get_llm_client())
+            answer: str | None = turn.run(client)
         except LLMError as error:
             # The mock goes on from where the provider stopped: tools already run are not
             # repeated, the answer is made of their results (or the mock calls the tools).
             logger.warning("assistant provider failed, answering with the mock: %s", error)
+            client, fallback = MockLLMClient(), True
             try:
-                answer = f"{UNAVAILABLE} {turn.run(MockLLMClient())}"
+                answer = turn.run(client)
             except Exception:
                 logger.exception("assistant mock fallback failed")
-                answer = UNAVAILABLE_ONLY
-        reply_text = guards.check_output(answer) or UNAVAILABLE_ONLY
-        return _save(user, application, checked.text, reply_text, turn.journal, turn.pending_action)
+                answer = None
+        if answer is None:
+            reply_text = UNAVAILABLE_ONLY
+        else:
+            grounding = " ".join([checked.text, application_context, _today()])
+            reply_text = _guarded(turn, client, answer, profile, grounding, triggers)
+            if fallback:
+                reply_text = f"{UNAVAILABLE} {reply_text}"
+        saved = _save(
+            user, application, checked.text, reply_text or UNAVAILABLE_ONLY, turn.journal,
+            turn.pending_action,
+        )  # fmt: skip
+        return Reply(**saved, guard_triggers=triggers, fallback=fallback)
     finally:
         context.reset(tokens)
+
+
+def _guarded(turn: Turn, client, answer: str, profile: str, grounding: str,
+             triggers: list[str]) -> str:  # fmt: skip
+    """Layer 4 (AI22). A broken answer — numbers no tool returned, a promise of approval, the
+    prompt or a key retold — gets one regeneration with a remark to the model; broken again, it
+    is replaced by the safe answer made of this turn's tool results. GUARDRAILS_MODE=log only
+    logs the trigger and lets the answer go (to measure a model before blocking it)."""
+    template = prompts.load(profile).text
+    for attempt in (1, 2):
+        plain = guards.check_output(answer)
+        facts = grounding + " " + json.dumps(turn.journal, ensure_ascii=False, default=str)
+        issues = guards.review_output(plain, grounding=facts, prompt=template)
+        if not issues:
+            return plain
+        for issue in issues:
+            triggers.append(issue.code)
+            _log_trigger(issue.code, f"attempt {attempt}")
+        if settings.GUARDRAILS_MODE == "log":
+            return plain
+        if attempt == 2:
+            break
+        remark = (
+            "Проверка ответа не пройдена: "
+            + "; ".join(guards.REMARK[issue.code].format(detail=issue.detail) for issue in issues)
+            + ". Ответь пользователю заново."
+        )
+        turn.messages.extend(
+            [Message(role="assistant", content=plain), Message(role="system", content=remark)]
+        )
+        try:
+            answer = turn.run(client)
+        except LLMError as error:
+            logger.warning("assistant regeneration failed: %s", error)
+            break
+    triggers.append("safe_answer")
+    _log_trigger("safe_answer", "replaced")
+    return guards.check_output(safe_answer(profile, turn.journal, turn.messages))
+
+
+def safe_answer(profile: str, journal: list[dict], messages: list[Message]) -> str:
+    """The deterministic answer of this turn: the mock's text from the tools' results."""
+    from apps.assistant.llm.mock import answer_from_journal
+
+    question = next((m.content for m in reversed(messages) if m.role == "user"), "")
+    return answer_from_journal(profile == "bank", journal, question)
+
+
+def _log_trigger(code: str, detail: str) -> None:
+    logger.warning(
+        "assistant guard %s: %s",
+        code,
+        detail,
+        extra={"kind": "assistant_guard", "source": code, "status": settings.GUARDRAILS_MODE},
+    )
 
 
 def summary(user: AbstractBaseUser, application_id: int) -> dict:

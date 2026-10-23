@@ -1,0 +1,17 @@
+id: client-draft
+description: Черновик только через «Подтвердить»
+profile: client
+persona: coffee_shop
+application: null
+turns:
+- user: Оформи заявку на овердрафт 900 000 ₽ на 12 месяцев на зарплату сотрудникам
+  expect_tools:
+  - name: create_draft
+    args:
+      need_type: cash_gap
+      term_months: 12
+  must_include:
+  - Подтвердить
+  must_not_include:
+  - отправил
+  - отправлена в банк

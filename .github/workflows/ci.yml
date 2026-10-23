@@ -61,6 +61,13 @@ jobs:
         run: pytest
       - name: pytest (slow generator runs)
         run: pytest -m slow
+      # AI10: the assistant's scenarios on the mock — every turn must pass; the table goes to
+      # the job log. Each scenario runs in a rolled-back transaction.
+      - name: assistant eval on the mock (AI10)
+        run: |
+          python manage.py migrate --noinput
+          python manage.py seed_demo --force
+          python manage.py assistant_eval
       - name: manage.py check --deploy (production settings)
         run: |
           DJANGO_DEBUG=0 \

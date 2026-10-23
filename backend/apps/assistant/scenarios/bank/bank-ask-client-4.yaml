@@ -1,0 +1,9 @@
+id: bank-ask-client-4
+description: Что запросить у клиента
+profile: bank
+persona: furniture_maker
+application: latest
+turns:
+- user: Что запросить у клиента?
+  expect_tools:
+  - name: missing_documents

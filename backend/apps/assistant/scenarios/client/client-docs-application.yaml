@@ -1,0 +1,9 @@
+id: client-docs-application
+description: Документы заявки
+profile: client
+persona: furniture_maker
+application: latest
+turns:
+- user: Каких документов не хватает в заявке?
+  expect_tools:
+  - name: required_documents

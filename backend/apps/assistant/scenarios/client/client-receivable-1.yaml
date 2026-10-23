@@ -1,0 +1,17 @@
+id: client-receivable-1
+description: 'Сценарий 2: отсрочка оплаты покупателя → факторинг'
+profile: client
+persona: retail_supplier
+application: null
+turns:
+- user: Отгрузили товар сети на 5 000 000 ₽, они платят через 60 дней по УПД
+  expect_tools:
+  - name: recommend_products
+    args:
+      need_type: receivable_delay
+  must_include:
+  - факторинг
+  must_not_include:
+  - одобрено
+  - гарантир
+  - точно одобрят

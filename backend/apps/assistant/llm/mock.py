@@ -5,12 +5,19 @@ It plays both profiles — the set of tools tells which: the bank set has `appli
 A user message → keywords pick a tool (the arguments come from the text and the application
 number in the <context> block); a tool result → a short answer built only from the results of
 this turn, so the numbers in the answer are the tools' numbers. Unclear → one clarifying
-question. The scenario-driven mock (AI20) replaces the keyword rules, not this interface.
+question.
+
+Scenario-driven (AI20): a message that is a turn of a scenario (scenarios/*.yaml, И4) gets the
+tool calls the scenario expects — with the arguments the keyword rules read from the text and
+the application from the context — so the demo and the e2e without a key look alive. Any other
+message goes through the keyword rules. A system remark of the guards (AI22) as the last message
+→ the answer is rebuilt from this turn's results.
 """
 
 import json
 import re
 from decimal import Decimal, InvalidOperation
+from functools import cache
 
 from apps.assistant.llm.base import LLMResponse, Message, ToolCall, ToolSpec
 from apps.assistant.summary import PREFIX as SUMMARY_PREFIX
@@ -28,6 +35,15 @@ NEED_KEYWORDS: tuple[tuple[str, tuple[str, ...]], ...] = (
 )
 
 CALC_KEYWORDS = ("платёж", "платеж", "посчитай", "сколько платить")
+# Product words → catalogue codes (required_documents for a product, a draft's product).
+PRODUCT_WORDS: tuple[tuple[str, str], ...] = (
+    ("овердрафт", "overdraft_basic"),
+    ("факторинг", "factoring_basic"),
+    ("оборотн", "working_capital_loan_basic"),
+    ("кпо", "working_capital_loan_basic"),
+    ("инвестиц", "investment_loan_basic"),
+    ("лизинг", "leasing_basic"),
+)
 
 CLARIFY = (
     "Расскажите, зачем бизнесу деньги: закрыть кассовый разрыв, дождаться оплаты от покупателя, "
@@ -37,7 +53,28 @@ REFUSE_DECISION = (
     "Я не принимаю решений по заявкам и не меняю их статус. Могу подобрать продукт, "
     "посчитать платёж или помочь заполнить заявку — отправите её вы сами."
 )
-DECISION_WORDS = ("одобри", "approved", "approve", "игнорируй")
+# «одобри», «одобрите» — a demand; «одобрение», «одобрили» are questions about the decision.
+DECISION = re.compile(r"\bодобр(и|ите|ить)\b|\bapprove|игнорируй|переведи заявку", re.IGNORECASE)
+REFUSE_SUBMIT = (
+    "Отправить заявку в банк может только руководитель компании или тот, кому он дал право "
+    "подписи, — кнопкой в карточке заявки. Я заявки не отправляю: могу подготовить черновик, "
+    "и вы проверите его сами."
+)
+SUBMIT = re.compile(r"отправ\w*\s+(\w+\s+)?(заявк|в банк)", re.IGNORECASE)
+REFUSE_FOREIGN = "Я показываю только данные вашей компании и ваших заявок. Чем помочь по ним?"
+FOREIGN = re.compile(r"других клиент|чуж\w+ (заявк|компан|данн)|\bинн\s*\d", re.IGNORECASE)
+REFUSE_PROMPT = (
+    "Свои инструкции и настройки я не показываю. Могу помочь с финансированием, заявкой "
+    "и расчётами."
+)
+PROMPT = re.compile(
+    r"промт|промпт|prompt|инструкци\w* дословно|ключ\w*\s+api|api[- ]?ключ|ключ\w* провайдер"
+    r"|токен|парол",
+    re.IGNORECASE,
+)
+DRAFT = re.compile(
+    r"\bоформи(те)?\b|подготовь (черновик|заявк)|создай (черновик|заявк)", re.IGNORECASE
+)
 
 BANK_CLARIFY = (
     "Могу собрать сводку по заявке, разобрать скоринг, проверки и источники, платёжеспособность, "
@@ -48,7 +85,10 @@ BANK_REFUSE = (
     "Решение по заявке и её статус меняет сотрудник в карточке — я только собираю факты "
     "и готовлю черновик комментария."
 )
-BANK_DECISION_WORDS = ("одобри", "отклони", "откажи", "измени статус", "смени статус", "игнорируй")
+BANK_DECISION = re.compile(
+    r"\bодобр(и|ите)\b|отклони|\bоткажи\b|измени статус|смени статус|игнорируй", re.IGNORECASE
+)
+BANK_REFUSE_PROMPT = "Свои инструкции, настройки и ключи я не показываю. Чем помочь по заявке?"
 
 _APPLICATION_NUMBER = re.compile(r"Заявка №\s*(\d+)")
 
@@ -109,14 +149,39 @@ class MockLLMClient:
         found = _APPLICATION_NUMBER.search(context)
         application_id = int(found.group(1)) if found else None
         last = messages[-1]
-        if last.role == "tool":
+        if last.role in ("tool", "system"):  # results to answer, or a guard's remark (AI22)
             results = _turn_results(messages)
             question = _last_user_text(messages)
+            if not results:
+                return LLMResponse(content=BANK_CLARIFY if bank else CLARIFY)
             return LLMResponse(content=_bank_answer(results, question) if bank else
                                _client_answer(results))  # fmt: skip
         if bank:
-            return self._bank_step(last.content, available, application_id)
-        return self._client_step(last.content, available, application_id)
+            response = self._bank_step(last.content, available, application_id)
+        else:
+            response = self._client_step(last.content, available, application_id)
+        planned = scenario_calls("bank" if bank else "client", last.content)
+        if planned:
+            response = self._from_scenario(planned, response, tools, application_id)
+        return response
+
+    def _from_scenario(self, planned, response: LLMResponse, tools: list[ToolSpec],
+                       application_id: int | None) -> LLMResponse:  # fmt: skip
+        """The scenario's calls; arguments: the keyword rules' ones, then the scenario's, then
+        the application of the context where the tool takes one."""
+        by_name = {tool.name: tool for tool in tools}
+        read = {call.name: call.arguments for call in response.tool_calls}
+        calls = []
+        for expected in planned:
+            spec = by_name.get(expected.name)
+            if spec is None:
+                continue
+            arguments = {**read.get(expected.name, {}), **expected.args}
+            takes_application = "application_id" in spec.parameters.get("properties", {})
+            if takes_application and application_id and "application_id" not in arguments:
+                arguments["application_id"] = application_id
+            calls.append(self._call(expected.name, arguments))
+        return LLMResponse(content="", tool_calls=tuple(calls)) if calls else response
 
     # ───────────────────────── client ─────────────────────────
 
@@ -129,8 +194,16 @@ class MockLLMClient:
                 return None
             return LLMResponse(content="", tool_calls=(self._call(name, arguments),))
 
-        if any(word in lowered for word in DECISION_WORDS):
+        if PROMPT.search(text):
+            return LLMResponse(content=REFUSE_PROMPT)
+        if FOREIGN.search(text):
+            return LLMResponse(content=REFUSE_FOREIGN)
+        if DECISION.search(text):
             return LLMResponse(content=REFUSE_DECISION)
+        if SUBMIT.search(text):
+            return LLMResponse(content=REFUSE_SUBMIT)
+        if DRAFT.search(text) and "create_draft" in available:
+            return self._draft(text)
         if any(word in lowered for word in CALC_KEYWORDS) and CALCULATOR_TOOL in available:
             numbers = _numbers(text)
             if len(numbers) >= 3:
@@ -159,24 +232,55 @@ class MockLLMClient:
                 return LLMResponse(content="Назовите сумму, которую хотите взять на этот срок.")
         if "статус" in lowered or re.search(r"что с (моей |нашей )?заявк", lowered):
             return call("explain_status", ref) or LLMResponse(content=CLARIFY)
-        if "почему" in lowered and re.search(r"отказ|меньше|решени|услови", lowered):
+        if "почему" in lowered and re.search(
+            r"отказ|меньше|решени|услови|предложил|вместо|одобрил", lowered
+        ):
             return call("explain_decision", ref) or LLMResponse(content=CLARIFY)
-        if "одобрени" in lowered or "что улучшить" in lowered:
+        if re.search(r"получить одобрени|шанс\w* на одобрени|что улучшить", lowered):
             return call("approval_plan", ref) or LLMResponse(content=CLARIFY)
         if "документ" in lowered:
-            return call("required_documents", ref) or LLMResponse(content=CLARIFY)
+            product = next((code for word, code in PRODUCT_WORDS if word in lowered), None)
+            arguments = {"product_code": product} if product and not ref else ref
+            return call("required_documents", arguments) or LLMResponse(content=CLARIFY)
         if re.search(r"проверк|источник", lowered):
             return call("explain_check_status", ref) or LLMResponse(content=CLARIFY)
         if re.search(r"показател|метрик|мои обороты", lowered):
             return call("company_metrics", {}) or LLMResponse(content=CLARIFY)
-        term = re.search(r"что (такое|значит|означает)\s+(.+)", text, re.IGNORECASE)
+        term = re.search(r"что (такое|значит|означает)\s+([^?!.,;]+)", text, re.IGNORECASE)
         if term:
-            asked = term.group(2).strip(' ?!.«»"')
+            asked = re.split(r"\s+(?:и|или|а|зачем|почему)\s+", term.group(2))[0].strip(' «»"')
             return call("explain_term", {"term": asked}) or LLMResponse(content=CLARIFY)
         need_type = detect_need_type(text)
         if need_type and RECOMMEND_TOOL in available:
-            return call(RECOMMEND_TOOL, {"need_type": need_type})
+            arguments: dict = {"need_type": need_type}
+            amounts = [n for n in _numbers(text) if n and Decimal(n) >= 10_000]
+            if need_type == "receivable_delay" and amounts:
+                arguments["invoice_amount"] = amounts[0]
+            return call(RECOMMEND_TOOL, arguments)
         return LLMResponse(content=CLARIFY)
+
+    def _draft(self, text: str) -> LLMResponse:
+        """«Оформи заявку на …»: a draft proposal with what the person named; missing → ask."""
+        lowered = text.lower()
+        need_type = detect_need_type(text)
+        product = next((code for word, code in PRODUCT_WORDS if word in lowered), None)
+        if need_type is None and product == "overdraft_basic":
+            need_type = "cash_gap"
+        amounts = [n for n in _numbers(text) if n and Decimal(n) >= 10_000]
+        term = re.search(r"(\d+)\s*(мес|month)", lowered)
+        if need_type is None or not amounts or not term:
+            return LLMResponse(
+                content="Чтобы подготовить черновик, назовите цель, сумму и срок в месяцах."
+            )
+        arguments = {
+            "need_type": need_type,
+            "purpose": text[:1000],
+            "requested_amount": amounts[0],
+            "term_months": int(term.group(1)),
+        }
+        if product:
+            arguments["product_code"] = product
+        return LLMResponse(content="", tool_calls=(self._call("create_draft", arguments),))
 
     # ───────────────────────── bank ─────────────────────────
 
@@ -208,8 +312,12 @@ class MockLLMClient:
             elif "одобрен" in lowered:
                 intent = "approve"
             return calls("draft_officer_comment", preliminary_intent=intent)
-        if any(word in lowered for word in BANK_DECISION_WORDS):
+        if PROMPT.search(text):
+            return LLMResponse(content=BANK_REFUSE_PROMPT)
+        if BANK_DECISION.search(text):
             return LLMResponse(content=BANK_REFUSE)
+        if re.search(r"стоп|автоматическ\w* отказ", lowered):
+            return calls("policy_compare")
         if re.search(r"грейд|фактор|скоринг|балл", lowered):
             return calls("score_breakdown")
         if "политик" in lowered:
@@ -294,7 +402,14 @@ def _client_line(name: str, data: dict) -> str:
             return data.get("message", "Решения пока нет.")
         failed = [r["message"] for r in decision.get("reasons", []) if r.get("passed") is False]
         why = f" Главное: {failed[0]}." if failed else ""
-        return f"Решение: {decision['outcome_text']}.{why} {data.get('note', '')}".strip()
+        offer = data.get("offer") or {}
+        offered = (
+            f" Предложение: {offer['product']}, {_rub(offer['amount'])} на "
+            f"{offer['term_months']} мес вместо запрошенных {_rub(offer['requested_amount'])}."
+            if offer.get("is_counteroffer") or offer.get("product_changed")
+            else ""
+        )
+        return f"Решение: {decision['outcome_text']}.{offered}{why} {data.get('note', '')}".strip()
     if name == "create_draft":
         pending = data.get("pending_action") or {}
         return f"{pending.get('summary', '')} Чтобы создать черновик, нажмите «Подтвердить»."
@@ -385,3 +500,27 @@ def _bank_line(name: str, data: dict) -> str:
         warnings = " ".join(data.get("warnings", []))
         return f"Черновик комментария: {data['draft_comment']} {warnings}".strip()
     return BANK_CLARIFY
+
+
+# ───────────────────────── shared with the engine and the scenarios ─────────────────────────
+
+
+def answer_from_journal(bank: bool, journal: list[dict], question: str) -> str:
+    """The deterministic answer from a turn's journal: the guards' safe answer (AI22)."""
+    results = {entry["name"]: entry["result"] for entry in journal
+               if isinstance(entry.get("result"), dict)}  # fmt: skip
+    if not results:
+        return BANK_CLARIFY if bank else CLARIFY
+    return _bank_answer(results, question) if bank else _client_answer(results)
+
+
+@cache
+def _scenario_index(profile: str) -> dict:
+    from apps.assistant import scenarios  # the scenarios import the tool sets
+
+    return scenarios.by_user_text(profile)
+
+
+def scenario_calls(profile: str, text: str) -> tuple:
+    """The tool calls a scenario expects for exactly this message (AI20); () — not a scenario."""
+    return _scenario_index(profile).get(text.strip(), ())
