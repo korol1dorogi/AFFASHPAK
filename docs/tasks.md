@@ -101,7 +101,7 @@ Guardrails (AI22, если внедряем): четыре слоя вокруг
 | AI4 | Локальная модель для жюри без GPU | Should | Сб | 2 ч | — | korol1dorogi | на ревью: ветка AI-block-rest |
 | AI5 | Панель ассистента клиента | Must | Пт–Сб | 4 ч | — (контракт уже есть) | korol1dorogi | на ревью: ветка AI-block-rest |
 | AI6 | Контекстные кнопки клиента | Must | Сб | 2 ч | AI5 | korol1dorogi | на ревью: ветка AI-block-rest |
-| AI7 | Red team на живой модели | Must | Вс | 2 ч | AI10, AI16 | ThroughThornsToTheStars | на ревью: ветка AI-block-rest |
+| AI7 | Red team на живой модели | Must | Вс | 2 ч | AI10, AI16 | ThroughThornsToTheStars | на ревью: ветка AI-block-rest — 16 атак на mock и модели стенда, журнал в redteam.md |
 | AI8 | e2e обоих ассистентов на mock | Should | Сб | 2 ч | AI5, AI9 | korol1dorogi | на ревью: ветка AI-block-rest |
 | AI9 | Панель сотрудника банка в карточке заявки | Must | Сб | 3 ч | AI11 (на mock) | korol1dorogi | на ревью: ветка AI-block-rest |
 | AI10 | Eval-раннер качества | Must | Сб | 3 ч | формат И4; AI2 для реального ответа | korol1dorogi | на ревью: ветка AI-block-rest |
@@ -680,7 +680,7 @@ Guardrails (AI22, если внедряем): четыре слоя вокруг
 Папки: docs/redteam.md, backend/apps/assistant/prompts/
 Зависит от: AI10, AI16
 Готово, когда: Все атаки отклонены или записаны как принятый риск; журнал заполнен
-Статус: на ревью: ветка AI-block-rest
+Статус: на ревью: ветка AI-block-rest — 16 атак на mock и модели стенда, журнал в redteam.md
 
 ## AI8 — e2e обоих ассистентов на mock
 Приоритет: Should · Закрывает: бонус кейса; критерий 02 · Владелец: korol1dorogi · День: Сб · Оценка: 2 ч
