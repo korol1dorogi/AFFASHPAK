@@ -161,9 +161,23 @@ docker compose up -d --build --wait
 | `LLM_PROVIDER` | `mock` | `mock` — детерминированный, без сети и ключа; `openai` — OpenAI-совместимый API к модели с открытыми весами |
 | `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL` | пусто | только для `LLM_PROVIDER=openai` |
 | `LLM_TIMEOUT_SECONDS` | `30` | таймаут запроса к LLM |
+| `LLM_MAX_STEPS` | `4` | сколько раз за ответ модель может обратиться к инструментам |
+| `GUARDRAILS_MODE` | `block` | `block` — ответ с выдуманной цифрой или обещанием одобрения перегенерируется, затем заменяется безопасным; `log` — только записать в лог |
 | `CASE_DATA_DIR` | `./data/sample` | папка с данными, монтируется только на чтение; по умолчанию синтетика ([data/SCHEMA.md](data/SCHEMA.md)) |
 
 Задано в `docker-compose.yml`, в `.env` менять не нужно: `CELERY_BROKER_URL` (Redis; пусто — конвейер выполняется прямо в запросе), `THROTTLE_LOGIN` и `THROTTLE_ANON` (лимиты запросов, ослаблены для e2e).
+
+### Подключить модель за минуту
+Без ключа ассистент работает на детерминированной заглушке. Чтобы включить модель с открытыми весами, впишите в `.env` (бесплатный ключ Groq — https://console.groq.com/keys):
+
+```env
+LLM_PROVIDER=openai
+LLM_BASE_URL=https://api.groq.com/openai/v1
+LLM_API_KEY=<ключ>
+LLM_MODEL=qwen/qwen3.8-27b,openai/gpt-oss-120b,openai/gpt-oss-20b
+```
+
+`docker compose up -d backend`, затем `docker compose exec backend python -m apps.assistant.llm.smoke` — напишет «готово» или что не так. Без внешней сети и ключа — локальная модель: `docker compose --profile llm up -d llm` и настройки из [docs/assistant.md](docs/assistant.md#как-подключить-модель).
 
 ## Как проверить качество
 | Что | Команда | Что нужно |
@@ -174,12 +188,13 @@ docker compose up -d --build --wait
 | e2e, сценарии 1–8 в браузере | в `e2e/`: `npm ci && npx playwright install chromium && npx playwright test` | стек поднят (API на `127.0.0.1:8000`), `npm ci` в `frontend/` — Playwright сам запускает dev-сервер фронта; против другого адреса — `E2E_BASE_URL=<адрес>` |
 | Коллекция запросов (newman) | в `postman/`: `npm ci && npm test` | стек поднят, API на `127.0.0.1:8000` |
 | Чистый клон + сценарий 1 | `scripts/check-clean-clone.sh` | Git, bash, Docker |
+| Качество ассистента: 47 сценариев и атаки | `docker compose exec backend python manage.py assistant_eval` (`--provider openai` — на модели из `.env`) | стек поднят |
 
 CI ([.github/workflows/ci.yml](.github/workflows/ci.yml)) на каждый PR и push в main:
 
 | Задача | Что проверяет |
 |---|---|
-| `backend` | ruff, pytest (включая медленные), `manage.py check --deploy` с боевыми настройками, миграции совпадают с моделями |
+| `backend` | ruff, pytest (включая медленные), eval ассистента на mock, `manage.py check --deploy` с боевыми настройками, миграции совпадают с моделями |
 | `frontend` | Biome, `tsc --noEmit`, Vitest, сборка, сгенерированный клиент API совпадает с `docs/openapi.yaml` |
 | `e2e` | Playwright по сценариям против `docker compose` |
 | `collection` | newman по [postman/collection.json](postman/collection.json) против `docker compose` |
@@ -204,6 +219,7 @@ CI ([.github/workflows/ci.yml](.github/workflows/ci.yml)) на каждый PR �
 | Модель процесса: этапы, участники, данные | [docs/process.md](docs/process.md); границы MVP — [docs/mvp.md](docs/mvp.md) |
 | Исследование потребностей | [docs/research.md](docs/research.md), интервью — [docs/research/interviews/](docs/research/interviews/) |
 | Допущения и упрощения | [docs/assumptions.md](docs/assumptions.md) |
+| ИИ-ассистент: что умеет, данные, модели, качество | [docs/assistant.md](docs/assistant.md) |
 | Безопасность и red team | [docs/security.md](docs/security.md), [docs/redteam.md](docs/redteam.md) |
 | Принятые решения | [docs/decisions.md](docs/decisions.md) |
 | Сторонние компоненты и смоделированные интеграции | [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) |

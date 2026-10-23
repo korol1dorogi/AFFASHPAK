@@ -9,7 +9,11 @@
 | Компонент | Как используется | Лицензия |
 |---|---|---|
 | Mock-провайдер (`apps/assistant/llm`) | по умолчанию: детерминированные ответы без сети и ключа | собственный код |
-| LLM с открытыми весами через OpenAI-совместимый API или Ollama | опционально (`LLM_PROVIDER=openai`, профиль `llm`); основной сценарий работает без неё | лицензия выбранной модели: модель и её лицензия вписываются сюда при выборе (D8) |
+| Qwen3.8 27B — `qwen/qwen3.8-27b` (Alibaba Qwen, открытые веса) | модель стенда через Groq (`LLM_PROVIDER=openai`) | Apache-2.0 |
+| gpt-oss-120b, gpt-oss-20b — `openai/gpt-oss-*` (открытые веса) | запасные модели стенда: модель на лимите передаёт ход следующей | Apache-2.0 |
+| Qwen3 4B — `qwen3:4b` в Ollama, веса с [Hugging Face](https://huggingface.co/Qwen/Qwen3-4B) | локальная модель без GPU и ключа (профиль compose `llm`, AI4) | Apache-2.0 |
+| Ollama — образ `ollama/ollama:0.35.1` | сервер локальной модели, OpenAI-совместимый API | MIT |
+| Groq Cloud | внешний сервис: хостинг открытых моделей по OpenAI-совместимому API; ключ — только в `.env` стенда, в модель уходят лишь данные текущего пользователя ([docs/assistant.md](docs/assistant.md)) | условия сервиса Groq |
 | `openai` (Python SDK) 3.35.1 | клиент OpenAI-совместимого API (к модели с открытыми весами, не к сервисам OpenAI) | Apache-2.0 |
 
 ## Бэкенд (Python 3.12)
@@ -22,6 +26,7 @@
 | gunicorn | 26.2.0 | MIT |
 | celery | 5.5.3 | BSD-3-Clause |
 | openai | 3.35.1 | Apache-2.0 |
+| PyYAML | 6.0.3 | MIT — сценарии ассистента (AI14–AI16) |
 
 Только разработка и тесты: pytest 9.1.1 (MIT), pytest-django 4.14.0 (BSD-3-Clause), ruff 0.17.1 (MIT), openapi-core 0.23.1 (BSD-3-Clause).
 
