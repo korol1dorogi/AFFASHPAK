@@ -375,21 +375,25 @@ test.describe("scenario 6: company in liquidation — stop factor", () => {
 });
 
 test.describe("scenario 7: BKI outage — manual review", () => {
-  test("demo panel turns BKI off → application lands in manual review with a note (B7, L4)", async ({
+  test("demo panel turns BKI off → application lands in manual review with a note, breaker opens (B7, L4, XP6)", async ({
     browser,
   }) => {
     const bank = await personaPage(browser, "Сотрудник банка", /\/bank/);
     const setFailures = async (bki: boolean) => {
-      // TODO B7: заменить на UI — /bank/demo is still a placeholder
+      // Safety net for `finally`: the stand must not keep the outage whatever failed above.
       const response = await bank.request.put("/api/demo/failures", {
         headers: await csrfHeaders(bank),
         data: { egrul: false, transparent_business: false, bki, bank_account: false },
       });
       expect(response.status()).toBe(200);
-      expect((await response.json()).bki).toBe(bki);
     };
+    const bkiRow = bank.locator('li[data-source="bki"]');
 
-    await setFailures(true);
+    // XP6: two clicks on the panel — switch BKI off, then the persona submits.
+    await bank.goto("/bank/demo");
+    await bkiRow.getByRole("switch").check();
+    await expect(bkiRow).toContainText("Сбой");
+    await expect(bkiRow).toContainText("Breaker закрыт");
     let id: number;
     try {
       const client = await personaPage(browser, "кофейня «Северный ветер»", /\/app$/);
@@ -410,6 +414,16 @@ test.describe("scenario 7: BKI outage — manual review", () => {
         "Бюро кредитных историй сейчас не отвечает — заявку проверит сотрудник. Это не отказ",
       );
       await expect(reasons).toContainText("Грейд B (82 из 100)");
+
+      // The application met the outage: three failed calls opened the breaker for everyone.
+      await expect(bkiRow).toContainText("Breaker открыт");
+      await expect(bkiRow).toContainText("3 ошибки подряд");
+      await expect(bkiRow).toContainText(/повтор через \d+ с/);
+
+      // Back on: the operator fixed the source, its breaker closes at once.
+      await bkiRow.getByRole("switch").uncheck();
+      await expect(bkiRow).toContainText("Работает");
+      await expect(bkiRow).toContainText("Breaker закрыт");
     } finally {
       await setFailures(false);
     }

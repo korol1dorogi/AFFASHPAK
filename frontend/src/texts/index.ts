@@ -1232,6 +1232,15 @@ export const BANK_DASHBOARD = {
 } as const;
 
 /** B7: demo panel. */
+/** «1 ошибка», «3 ошибки», «5 ошибок». */
+export function errorsWord(n: number): string {
+  const last = n % 10;
+  const tens = n % 100;
+  if (last === 1 && tens !== 11) return "ошибка";
+  if (last >= 2 && last <= 4 && (tens < 12 || tens > 14)) return "ошибки";
+  return "ошибок";
+}
+
 export const BANK_DEMO = {
   title: "Демо-панель",
   subtitle: "Только на стенде: сбои источников, быстрый вход за персону и сброс данных.",
@@ -1247,6 +1256,20 @@ export const BANK_DEMO = {
   } as Record<"egrul" | "transparent_business" | "bki" | "bank_account", string>,
   up: "Работает",
   down: "Сбой",
+  twoClicks:
+    "Сценарий 7 в два клика: выключите «Бюро кредитных историй» и нажмите «Войти» у персоны сценария 7. Когда её заявка встретит сбой, breaker здесь откроется.",
+  // XP6: the circuit breaker of each source, live (GET /api/demo/sources).
+  breaker: {
+    closed: "Breaker закрыт",
+    open: "Breaker открыт",
+    half_open: "Breaker: пробный вызов",
+    calls: "вызовы идут",
+    streak: (n: number) => `${n} ${errorsWord(n)} подряд`,
+    of: (n: number, threshold: number) => `ошибок подряд: ${n} из ${threshold}`,
+    retryIn: (seconds: number) => `повтор через ${seconds} с`,
+    trial: "следующий вызов пробный",
+    offIn: (minutes: number) => `сбой выключится сам через ${minutes} мин`,
+  },
   personasTitle: "Быстрый вход за персону",
   personasHint: "Сессия сотрудника банка завершится, откроется кабинет персоны.",
   bankPlace: "Рабочее место банка",
