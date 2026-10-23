@@ -218,6 +218,36 @@ describe("BankApplicationPage — tabs", () => {
     expect(screen.getByRole("status")).toHaveTextContent(/источников не ответил/);
   });
 
+  it("«Проверки»: each answer shows when it came, the simulator version and its sha256", async () => {
+    open("checks");
+    const egrul = (await screen.findByText("ЕГРЮЛ / ЕГРИП")).closest("li") as HTMLElement;
+    expect(within(egrul).getByText("Происхождение")).toBeInTheDocument();
+    expect(within(egrul).getByText("Ответ получен")).toBeInTheDocument();
+    expect(within(egrul).getByText("datagen-2026.10-v1")).toBeInTheDocument();
+    expect(within(egrul).getByText("SHA-256 ответа")).toBeInTheDocument();
+    // The full hash, not a cut one: the bank compares it with the source's answer.
+    expect(
+      within(egrul).getByText("04ab99570b8f3edb7b58f8898450582b15487f07647f8d53a2f8c9b24b5bd322"),
+    ).toBeInTheDocument();
+  });
+
+  it("«Проверки»: a source that did not answer has no provenance and says so", async () => {
+    const card = persona4Card();
+    card.checks[2] = {
+      ...present(card.checks[2]),
+      status: "consent_missing",
+      summary: "",
+      received_at: null,
+      response_sha256: null,
+      simulator_version: null,
+    };
+    open("checks", card);
+    const bki = (await screen.findByText("Бюро кредитных историй")).closest("li") as HTMLElement;
+    expect(within(bki).getByText("Источник не ответил — происхождения нет")).toBeInTheDocument();
+    expect(within(bki).queryByText("SHA-256 ответа")).not.toBeInTheDocument();
+    expect(within(bki).queryByText("Происхождение")).not.toBeInTheDocument();
+  });
+
   it("«Проверки»: pipeline has not run → empty state", async () => {
     open("checks", { ...persona4Card(), checks: [] });
     expect(await screen.findByText("Проверки ещё не запускались")).toBeInTheDocument();

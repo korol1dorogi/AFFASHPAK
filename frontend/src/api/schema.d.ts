@@ -1669,6 +1669,18 @@ export interface components {
             };
             /** Format: date-time */
             checked_at: string;
+            /**
+             * @description Происхождение (SRC4): когда пришёл ответ источника. null — источник не ответил
+             *     (unavailable) или его не спрашивали (consent_missing); тогда null и два поля ниже.
+             */
+            received_at: string | null;
+            /**
+             * @description sha256 ответа источника — канонического JSON {status, data} (ключи по алфавиту,
+             *     UTF-8, без пробелов). Тот же ответ — тот же хэш.
+             */
+            response_sha256: string | null;
+            /** @description Версия симулятора, который ответил (версия генератора синтетики) */
+            simulator_version: string | null;
         };
         ScoreFactor: {
             /** @example dscr */
