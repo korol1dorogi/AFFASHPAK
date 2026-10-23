@@ -1,0 +1,15 @@
+id: client-approval-plan
+description: 'XP2: план «как получить одобрение»'
+profile: client
+persona: dependent_supplier
+application: latest
+turns:
+- user: Как получить одобрение?
+  expect_tools:
+  - name: approval_plan
+  must_include:
+  - грейд
+  must_not_include:
+  - одобрено
+  - гарантир
+  - точно одобрят

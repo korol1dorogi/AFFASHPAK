@@ -1,0 +1,9 @@
+id: client-metrics
+description: Показатели компании по выписке
+profile: client
+persona: coffee_shop
+application: null
+turns:
+- user: Какие у меня показатели?
+  expect_tools:
+  - name: company_metrics

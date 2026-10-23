@@ -1,0 +1,14 @@
+id: bank-comment-counter-3
+description: 'Черновик под предварительное намерение: иные условия'
+profile: bank
+persona: garden_store
+application: latest
+turns:
+- user: Черновик комментария на иные условия
+  expect_tools:
+  - name: draft_officer_comment
+    args:
+      preliminary_intent: counteroffer
+  must_include:
+  - Предварительно
+  - 2 009 314

@@ -1,0 +1,9 @@
+id: bank-docs-2
+description: 'Сценарий 2: документы факторинга'
+profile: bank
+persona: retail_supplier
+application: latest
+turns:
+- user: Каких документов не хватает?
+  expect_tools:
+  - name: missing_documents

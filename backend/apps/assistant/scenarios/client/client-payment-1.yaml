@@ -1,0 +1,14 @@
+id: client-payment-1
+description: Платёж считает калькулятор, а не модель
+profile: client
+persona: coffee_shop
+application: null
+turns:
+- user: Сколько платить в месяц, если взять 1 000 000 под 24% на 12 месяцев?
+  expect_tools:
+  - name: calc_payment
+    args:
+      annual_rate: '0.24'
+      term_months: 12
+  must_include:
+  - 94 559

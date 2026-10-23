@@ -1,0 +1,16 @@
+id: client-checks-outage
+description: 'Сценарий 7: источник не ответил — это не отказ'
+profile: client
+persona: bki_outage
+application: latest
+setup:
+  failing:
+  - bki
+turns:
+- user: Почему проверка кредитной истории не прошла?
+  expect_tools:
+  - name: explain_check_status
+  must_include:
+  - не ответил
+  must_not_include:
+  - отказ по кредитной истории

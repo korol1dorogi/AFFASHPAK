@@ -1,0 +1,17 @@
+id: client-cash-gap-2
+description: Кассовый разрыв другими словами
+profile: client
+persona: coffee_shop
+application: null
+turns:
+- user: Не хватает денег на аренду до поступлений от покупателей
+  expect_tools:
+  - name: recommend_products
+    args:
+      need_type: cash_gap
+  must_include:
+  - овердрафт
+  must_not_include:
+  - одобрено
+  - гарантир
+  - точно одобрят

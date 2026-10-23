@@ -1,0 +1,11 @@
+id: client-alternative
+description: 'Сценарий 8: другой продукт'
+profile: client
+persona: equipment_no_collateral
+application: latest
+turns:
+- user: Почему предложили лизинг вместо кредита?
+  expect_tools:
+  - name: explain_decision
+  must_include:
+  - продукт
