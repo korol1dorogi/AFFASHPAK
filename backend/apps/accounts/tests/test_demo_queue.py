@@ -52,3 +52,59 @@ def test_the_bank_sees_a_full_queue_after_seed_demo(media, settings):
     assert page["count"] == 12
     assert sum(1 for row in page["results"] if row["hours_in_status"] > 24) > 0
     assert len({row["status"] for row in page["results"]}) >= 4
+
+
+# ───────────────────────── fix 3.1: one shift for every date ─────────────────────────
+
+# Moments that are not «when it happened» but «until when»: they move by the shift too,
+# but lie in the future on purpose.
+DEADLINES = {"expires_at"}
+
+
+def _moments(application: Application) -> dict[str, list]:
+    """Every timestamp of the application and of the rows that belong to it."""
+    from apps.accounts.demo_queue import _related_to_application, _timestamps
+
+    found = {
+        f"Application.{name}": [getattr(application, name)] for name in _timestamps(Application)
+    }
+    for model, link in _related_to_application():
+        for name in _timestamps(model):
+            if name in DEADLINES:
+                continue
+            values = model.objects.filter(**{link: application}).values_list(name, flat=True)
+            found[f"{model.__name__}.{name}"] = list(values)
+    # Not happened yet (no decision, not read): nothing to age.
+    return {name: [v for v in values if v is not None] for name, values in found.items()}
+
+
+@pytest.mark.django_db(transaction=True)  # real commits: the disbursement runs as on the stand
+def test_every_date_of_a_queue_application_is_aged_by_the_same_shift(media):
+    from datetime import timedelta
+
+    from apps.applications.models import Offer
+    from apps.applications.offers import OFFER_TTL
+
+    seed()
+    assert seed_queue(12) == 12
+    slack = timedelta(minutes=1)  # one application is seeded within seconds
+    aged = 0
+    for application in Application.objects.filter(purpose__endswith=QUEUE_MARK):
+        start, end = application.created_at, application.status_changed_at
+        for name, values in _moments(application).items():
+            for value in values:
+                # Nothing after the last status change, nothing before the draft: no «13:47»
+                # offer or check on an application decided at «06:47».
+                assert start - slack <= value <= end + slack, (application.pk, name, value)
+        aged += end < application.submitted_at + slack and end < start + timedelta(days=3)
+    assert aged == 12
+    # «Действует до» stays 30 days after the offer, wherever the offer moved.
+    for offer in Offer.objects.filter(application__purpose__endswith=QUEUE_MARK):
+        assert abs(offer.expires_at - offer.created_at - OFFER_TTL) < slack
+    # The shift is real: the oldest application was decided more than a day ago.
+    oldest = min(Application.objects.values_list("status_changed_at", flat=True))
+    from django.utils import timezone
+
+    assert timezone.now() - oldest > timedelta(days=1)
+    issued = Application.objects.filter(purpose__endswith=QUEUE_MARK, status="issued")
+    assert issued.exists()  # the disbursement is covered by the check above
