@@ -83,6 +83,8 @@
 | Пн 26.10 | P8, P9: чистый клон, тег, доступ, загрузка до 16:00 |
 
 ### AI — ИИ-ассистент
+Перед любой задачей блока — [assistant-dev.md](assistant-dev.md): что уже есть, интерфейсы, правила, ловушки и что читать под свою задачу.
+
 Цель: лид вставляет ключ провайдера на стенде — и оба ассистента работают: для предпринимателя в кабинете и для сотрудника банка в карточке заявки. Всё остальное готово заранее и проверено на mock. Цифры — только из инструментов, решения принимает человек, качество измерено (AI10). Сам факт ИИ баллов не даёт: оценивают работоспособность, релевантность, обоснование и документацию (QA 19, 46, 47).
 
 Общие интерфейсы — фиксируем сразу, поэтому задачи независимы и идут параллельно. И1 оркестратор: backend/apps/assistant/engine.py, reply(user, profile «client»|«bank», text, application_id) → словарь формата AssistantReply. И2 промты: backend/apps/assistant/prompts/client.md и bank.md, первая строка «version: N», плейсхолдеры {today}, {user_name}, {application_context}; загрузка prompts.load(profile). И3 инструменты: клиент — tools.tool_specs() и run_tool(user, name, args) (уже есть, AI1); банк — tools_bank.py с теми же функциями и тем же форматом результата, ошибка — {"error": {code, message}}. И4 сценарии: backend/apps/assistant/scenarios/{client,bank,attacks}/*.yaml — id, profile, persona, application, turns: [{user, expect_tools: [{name, args}], must_include, must_not_include, forbid_tools}]. И5 настройки: LLM_PROVIDER (mock|openai), LLM_BASE_URL, LLM_API_KEY, LLM_MODEL, LLM_TIMEOUT_SECONDS, LLM_MAX_STEPS.
@@ -616,6 +618,8 @@ Guardrails (AI22, если внедряем): четыре слоя вокруг
 # Финальный спринт — карточки задач
 
 ## Блок AI — ИИ-ассистент
+Перед любой задачей блока — [assistant-dev.md](assistant-dev.md).
+
 Цель: лид вставляет ключ провайдера на стенде — и оба ассистента работают: для предпринимателя в кабинете и для сотрудника банка в карточке заявки. Всё остальное готово заранее и проверено на mock. Цифры — только из инструментов, решения принимает человек, качество измерено (AI10). Сам факт ИИ баллов не даёт: оценивают работоспособность, релевантность, обоснование и документацию (QA 19, 46, 47).
 
 Общие интерфейсы — фиксируем сразу, поэтому задачи независимы и идут параллельно. И1 оркестратор: backend/apps/assistant/engine.py, reply(user, profile «client»|«bank», text, application_id) → словарь формата AssistantReply. И2 промты: backend/apps/assistant/prompts/client.md и bank.md, первая строка «version: N», плейсхолдеры {today}, {user_name}, {application_context}; загрузка prompts.load(profile). И3 инструменты: клиент — tools.tool_specs() и run_tool(user, name, args) (уже есть, AI1); банк — tools_bank.py с теми же функциями и тем же форматом результата, ошибка — {"error": {code, message}}. И4 сценарии: backend/apps/assistant/scenarios/{client,bank,attacks}/*.yaml — id, profile, persona, application, turns: [{user, expect_tools: [{name, args}], must_include, must_not_include, forbid_tools}]. И5 настройки: LLM_PROVIDER (mock|openai), LLM_BASE_URL, LLM_API_KEY, LLM_MODEL, LLM_TIMEOUT_SECONDS, LLM_MAX_STEPS.
