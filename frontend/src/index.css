@@ -2,104 +2,43 @@
 @import "tw-animate-css";
 
 /*
- * Design system «Оборот» (docs/design.md, Claude Design artifact «Оборот»).
- * Tokens only here; components use Tailwind utilities generated from them:
- * bg-paper, bg-surface, text-ink, text-ink-muted, border-line, bg-primary, text-on-primary,
- * bg-status-action-soft text-status-action, font-display, rounded-md, shadow-pop …
+ * Design system «Оборот» in the style of the Alfa-Bank design book (core-components, MIT):
+ * palette, radii and type from @alfalab/core-components-vars; buttons, inputs and checkboxes are
+ * the core-components themselves (src/components/ui). Tokens only here; components use Tailwind
+ * utilities generated from them: bg-paper, bg-surface, text-ink, text-ink-muted, border-line,
+ * bg-primary, text-on-primary, bg-status-action-soft text-status-action, rounded-md, shadow-pop …
+ * Light theme only, like the Alfa business web: the core components ship a light theme.
+ * Text colours are darkened where the book's value is below WCAG AA 4.5:1 on white.
  */
 
-@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
-
 :root {
-  --paper: #f6f7f5;
-  --surface: #ffffff;
-  --sunken: #eef1ef;
-  --ink: #14242a;
-  --ink-muted: #55676c;
-  --line: #d6dddb;
-  --line-strong: #7f8f8d;
-  --primary: #0b5563;
-  --primary-hover: #08434e;
+  --paper: #f2f3f5; /* bg-secondary */
+  --surface: #ffffff; /* bg-primary */
+  --sunken: #f2f3f5; /* neutral-100 */
+  --ink: #0b0b0e; /* text-primary */
+  --ink-muted: #6d7079; /* text-secondary, AA */
+  --line: #e7e8ec; /* border-secondary */
+  --line-strong: #d5d6dc; /* border-primary */
+  --primary: #ef3124; /* accent-primary */
+  --primary-hover: #e32a17;
   --on-primary: #ffffff;
-  --primary-soft: #dcecee;
-  --primary-ink: #0b5563;
-  --brass: #76591a;
-  --brass-soft: #f3ead2;
-  --status-action: #a24d06;
-  --status-action-soft: #fcebdc;
-  --status-progress: #2a5ab3;
-  --status-progress-soft: #e3ebfa;
-  --status-success: #25704a;
-  --status-success-soft: #dff0e6;
-  --status-danger: #b02a2a;
-  --status-danger-soft: #f8e1df;
-  --status-neutral: #5d686c;
-  --status-neutral-soft: #e9eceb;
-  --focus: #0b5563;
-  --shadow-pop-value: 0 12px 32px rgba(20, 36, 42, 0.16);
+  --primary-soft: #ffebeb; /* bg-negative-muted: the soft red of the book */
+  --primary-ink: #c8211a; /* accent on white for text and icons, AA */
+  --brass: #0b0b0e; /* the main offer amount: black and bold, as in the book */
+  --brass-soft: #f2f3f5;
+  --status-action: #a85600; /* attention, AA */
+  --status-action-soft: #ffefd9;
+  --status-progress: #1b62d1; /* info, AA */
+  --status-progress-soft: #e4f0ff;
+  --status-success: #0b7a2e; /* positive, AA */
+  --status-success-soft: #dff8e5;
+  --status-danger: #c8211a; /* negative, AA */
+  --status-danger-soft: #ffebeb;
+  --status-neutral: #6d7079;
+  --status-neutral-soft: #f2f3f5;
+  --focus: #2288fa; /* graphic-link */
+  --shadow-pop-value: 0 8px 24px rgba(11, 31, 53, 0.12);
   color-scheme: light;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --paper: #0f181b;
-    --surface: #16232a;
-    --sunken: #0b1316;
-    --ink: #e4ecec;
-    --ink-muted: #9fb1b4;
-    --line: #2a3a40;
-    --line-strong: #6b8086;
-    --primary: #5cc0cf;
-    --primary-hover: #7fd0dc;
-    --on-primary: #062228;
-    --primary-soft: #13343b;
-    --primary-ink: #7fd0dc;
-    --brass: #d8b766;
-    --brass-soft: #33290f;
-    --status-action: #f2a35c;
-    --status-action-soft: #3a2410;
-    --status-progress: #8fb2f2;
-    --status-progress-soft: #16253f;
-    --status-success: #6cc795;
-    --status-success-soft: #12301f;
-    --status-danger: #f28b84;
-    --status-danger-soft: #3d1716;
-    --status-neutral: #a7b3b6;
-    --status-neutral-soft: #243034;
-    --focus: #7fd0dc;
-    --shadow-pop-value: 0 12px 32px rgba(0, 0, 0, 0.55);
-    color-scheme: dark;
-  }
-}
-
-:root[data-theme="dark"] {
-  --paper: #0f181b;
-  --surface: #16232a;
-  --sunken: #0b1316;
-  --ink: #e4ecec;
-  --ink-muted: #9fb1b4;
-  --line: #2a3a40;
-  --line-strong: #6b8086;
-  --primary: #5cc0cf;
-  --primary-hover: #7fd0dc;
-  --on-primary: #062228;
-  --primary-soft: #13343b;
-  --primary-ink: #7fd0dc;
-  --brass: #d8b766;
-  --brass-soft: #33290f;
-  --status-action: #f2a35c;
-  --status-action-soft: #3a2410;
-  --status-progress: #8fb2f2;
-  --status-progress-soft: #16253f;
-  --status-success: #6cc795;
-  --status-success-soft: #12301f;
-  --status-danger: #f28b84;
-  --status-danger-soft: #3d1716;
-  --status-neutral: #a7b3b6;
-  --status-neutral-soft: #243034;
-  --focus: #7fd0dc;
-  --shadow-pop-value: 0 12px 32px rgba(0, 0, 0, 0.55);
-  color-scheme: dark;
 }
 
 @theme inline {
@@ -149,13 +88,16 @@
   --color-input: var(--line-strong);
   --color-ring: var(--focus);
 
-  --font-sans: "Golos Text", system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-display: "Manrope Variable", "Golos Text", system-ui, sans-serif;
+  /* --font-family-system of core-components: the brand typeface is not open */
+  --font-sans:
+    system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Helvetica, sans-serif;
+  --font-display:
+    system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Helvetica, sans-serif;
 
-  --radius-sm: 6px;
-  --radius-md: 10px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
   --radius-lg: 16px;
-  --radius-xl: 20px;
+  --radius-xl: 24px;
 
   --shadow-pop: var(--shadow-pop-value);
 }
