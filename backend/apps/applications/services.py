@@ -188,7 +188,10 @@ def cancel(application: Application, actor: Actor) -> Application:
     with transaction.atomic():
         app = lock_application(application.pk)
         apply_transition(app, "cancel", actor, message="Заявка отозвана клиентом.")
-        app.offers.filter(status=OfferStatus.ACTIVE).update(status=OfferStatus.DECLINED)
+        # Active in `offer`, accepted in `signing`: either way the client said no.
+        app.offers.filter(status__in=(OfferStatus.ACTIVE, OfferStatus.ACCEPTED)).update(
+            status=OfferStatus.DECLINED
+        )
         return app
 
 
