@@ -233,3 +233,115 @@ export function persona4Card(): BankApplicationDetail {
     assignee: { id: 20, full_name: "Анна Банк" },
   };
 }
+
+/**
+ * Persona 4 (демо) at the end of scenario 4: the officer asked for the financial report, the client
+ * uploaded it, the officer approved on the system's terms. The longest demo conclusion (XP3).
+ */
+export function persona4DecidedCard(): BankApplicationDetail {
+  const card = persona4Card();
+  const officer = { id: 20, full_name: "Анна Банк" };
+  card.application = {
+    ...card.application,
+    status: "offer",
+    version: 6,
+    available_actions: [],
+    status_changed_at: "2026-10-21T12:00:00Z",
+  };
+  card.decisions.push(
+    {
+      id: 6,
+      application_id: 42,
+      outcome: "info_requested",
+      decided_by: "officer",
+      is_preliminary: false,
+      grade: "C",
+      policy_version: "2026.10-v1",
+      reasons: [],
+      improvements: [],
+      comment: "Пришлите бухгалтерскую отчётность за 2025 год (демо)",
+      created_at: "2026-10-20T10:05:00Z",
+    },
+    {
+      id: 7,
+      application_id: 42,
+      outcome: "offer",
+      decided_by: "officer",
+      is_preliminary: false,
+      grade: "C",
+      policy_version: "2026.10-v1",
+      reasons: [],
+      improvements: [],
+      comment: "Отчётность подтверждает поток, станок в залоге — одобряю (демо)",
+      created_at: "2026-10-21T12:00:00Z",
+    },
+  );
+  card.info_requests = [
+    {
+      id: 3,
+      origin: "officer",
+      message: "Пришлите бухгалтерскую отчётность за 2025 год (демо)",
+      fields: [],
+      document_kinds: ["financial_report"],
+      status: "answered",
+      response_message: "Загрузили отчётность (демо)",
+      created_at: "2026-10-20T10:05:00Z",
+      answered_at: "2026-10-21T09:00:00Z",
+    },
+  ];
+  card.offer = {
+    id: 1,
+    product: {
+      code: "investment_loan_basic",
+      kind: "investment_loan",
+      name: "Инвестиционный кредит (демо)",
+      description: "Оборудование и транспорт (демо)",
+      rate_min: "0.1900",
+      rate_max: "0.3000",
+      term_min_months: 12,
+      term_max_months: 60,
+      amount_min: "500000.00",
+      amount_max: "30000000.00",
+      is_revolving: false,
+      collateral_required: true,
+      params: {},
+      requirements: { min_business_age_months: 12, legal_forms: ["ooo", "ip"] },
+      required_documents: [],
+    },
+    amount: "8000000.00",
+    requested_amount: "8000000.00",
+    term_months: 36,
+    rate: "0.2350",
+    monthly_payment: "311766.44",
+    is_counteroffer: false,
+    product_changed: false,
+    status: "active",
+    expires_at: "2026-11-20T00:00:00Z",
+    reasons: [],
+  };
+  card.events.push(
+    {
+      id: 4,
+      kind: "info_requested",
+      from_status: "manual_review",
+      to_status: "info_requested",
+      actor_kind: "bank",
+      actor: officer,
+      message: "Пришлите бухгалтерскую отчётность за 2025 год (демо)",
+      is_internal: false,
+      created_at: "2026-10-20T10:05:00Z",
+    },
+    {
+      id: 5,
+      kind: "decision",
+      from_status: "manual_review",
+      to_status: "offer",
+      actor_kind: "bank",
+      actor: officer,
+      message: "Сотрудник банка одобрил заявку.",
+      is_internal: false,
+      created_at: "2026-10-21T12:00:01Z",
+    },
+  );
+  return card;
+}
