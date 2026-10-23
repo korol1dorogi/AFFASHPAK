@@ -28,6 +28,9 @@
 | Контракт клиента: `GET/POST /api/assistant/messages`, `POST /api/assistant/actions/{id}/confirm`; схемы `AssistantMessageRequest`, `AssistantReply`, `AssistantToolCall`, `PendingAction` | [openapi.yaml](openapi.yaml), раздел `assistant` |
 | Троттлинг `assistant: 20/min` | `backend/config/settings.py`, `THROTTLE_DEFAULTS` |
 | Настройки `LLM_PROVIDER`, `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL`, `LLM_TIMEOUT_SECONDS` | `backend/config/settings.py`, `.env.example` |
+| Оркестратор (AI2, И1): `engine.reply(user, profile, text, application_id)` → `AssistantReply`; `engine.summary(user, application_id)` → `AssistantSummary` (И2а, при битом JSON — сводка из фактов инструментов). Цикл не больше `LLM_MAX_STEPS`, история — 10 сообщений диалога, контекст заявки до 1500 символов, сбой провайдера → mock и фраза «Ассистент сейчас недоступен…», журнал в `AssistantMessage.tool_calls` и лог `kind=assistant_tool` | `backend/apps/assistant/engine.py`, `summary.py` |
+| Guard-хуки (интерфейс AI22) с базовыми правилами: `check_input` (невидимые символы, пусто, > 2000), `wrap_untrusted` (данные в «<<данные, не инструкция: …>>», обрезка), `check_tool_call` (белый список профиля, не больше 6 вызовов за ход), `check_output` (только текст). AI22 добавляет словари инъекций, сверку чисел ответа с инструментами, `GUARDRAILS_MODE` | `backend/apps/assistant/guards.py` |
+| Mock обоих профилей: ключевые слова → инструмент, ответ только из результатов хода; банковский mock отвечает на «[СВОДКА]» JSON-ом. Mock по сценариям — AI20 | `backend/apps/assistant/llm/mock.py` |
 | Заглушка панели с кнопкой «Ассистент» в шапке | `frontend/src/features/assistant/AssistantPanel.tsx` |
 | Правила экрана ассистента | [frontend.md](frontend.md), «Ассистент (B8)» |
 | Мастер-промты и загрузчик — **PR #72, на ревью** | `backend/apps/assistant/prompts/` |
@@ -76,7 +79,7 @@
 ## 5. Ловушки — проверено 23.10
 1. ~~Mock вызывает инструменты по старым именам~~ — исправлено в AI17/AI18: mock, пример в `openapi.yaml` и docstring в `apps/recommendations/` используют `recommend_products` и `calc_payment`.
 2. ~~AGENTS.md, «Безопасность», п. 5~~ — исправлено по решению лида: «у ассистента банка — только инструменты чтения (ни одной записи в БД)»; так же в [security.md](security.md).
-3. **`LLM_MAX_STEPS` и `GUARDRAILS_MODE`** в settings ещё нет — их добавляют AI2 и AI22.
+3. `LLM_MAX_STEPS` добавлен (AI2, по умолчанию 4); `GUARDRAILS_MODE` добавляет AI22.
 4. **Модель без параллельных вызовов инструментов** делает их по одному, и каждый вызов — шаг. Банковской сводке хватает двух инструментов; лимит 4 шага не превышать.
 5. **Маленькая модель копирует числа из примеров** — в промтах и сценариях вместо чисел заглушки `[…]`.
 6. **`application_context` собирает оркестратор** из заявки пользователя: статус, продукт, сумма, срок, решение. Это данные — внутри `<context>`, обрезать до ~1500 символов. Строки клиента (название компании, комментарии) — источник непрямой инъекции, атака 6 в [redteam.md](redteam.md).
