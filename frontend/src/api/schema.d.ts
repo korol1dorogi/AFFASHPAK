@@ -1844,7 +1844,7 @@ export interface components {
         };
         /** @description Запись журнала — что ассистент вызвал и что получил */
         AssistantToolCall: {
-            /** @example get_recommendations */
+            /** @example recommend_products */
             name: string;
             arguments: {
                 [key: string]: unknown;

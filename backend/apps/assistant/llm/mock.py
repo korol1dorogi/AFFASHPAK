@@ -10,8 +10,8 @@ from decimal import Decimal, InvalidOperation
 
 from apps.assistant.llm.base import LLMResponse, Message, ToolCall, ToolSpec
 
-RECOMMEND_TOOL = "get_recommendations"
-CALCULATOR_TOOL = "calculate_annuity"
+RECOMMEND_TOOL = "recommend_products"
+CALCULATOR_TOOL = "calc_payment"
 
 # Checked in order; first match wins.
 NEED_KEYWORDS: tuple[tuple[str, tuple[str, ...]], ...] = (

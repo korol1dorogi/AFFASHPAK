@@ -2515,7 +2515,7 @@ components:
       required: [name, arguments, result]
       description: Запись журнала — что ассистент вызвал и что получил
       properties:
-        name: { type: string, examples: [get_recommendations] }
+        name: { type: string, examples: [recommend_products] }
         arguments: { type: object, additionalProperties: true }
         result:
           oneOf: [{ type: object, additionalProperties: true }, { type: "null" }]
