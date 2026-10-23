@@ -104,11 +104,19 @@ function InfoRequestCard({
             id={`answer-${request.id}`}
             value={message}
             maxLength={2000}
+            aria-invalid={respond.isError || undefined}
+            aria-describedby={respond.isError ? `answer-${request.id}-error` : undefined}
             onChange={(event) => setMessage(event.target.value)}
             placeholder="Например: загрузили отчётность за 2025 год"
           />
           {respond.isError ? (
-            <p className="m-0 text-sm text-status-danger">{errorMessage(respond.error)}</p>
+            <p
+              id={`answer-${request.id}-error`}
+              role="alert"
+              className="m-0 text-sm text-status-danger"
+            >
+              {errorMessage(respond.error)}
+            </p>
           ) : null}
           <Button
             type="submit"

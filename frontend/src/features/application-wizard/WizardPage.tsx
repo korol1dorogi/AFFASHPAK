@@ -130,7 +130,11 @@ function ParamsStep({ application }: { application: ApplicationDetail }) {
         </div>
       ) : null}
       <ParamsFields form={form} />
-      {rest ? <p className="m-0 text-sm text-status-danger">{rest}</p> : null}
+      {rest ? (
+        <p role="alert" className="m-0 text-sm text-status-danger">
+          {rest}
+        </p>
+      ) : null}
     </Card>
   );
 }

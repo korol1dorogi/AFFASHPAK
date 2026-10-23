@@ -63,7 +63,9 @@ function DemoPersonas() {
         ))}
       </ul>
       {demoLogin.isError ? (
-        <p className="m-0 text-sm text-status-danger">{errorMessage(demoLogin.error)}</p>
+        <p role="alert" className="m-0 text-sm text-status-danger">
+          {errorMessage(demoLogin.error)}
+        </p>
       ) : null}
     </Card>
   );

@@ -135,3 +135,44 @@ describe("wizard «О бизнесе» — loading is not «профиль не 
     );
   });
 });
+
+describe("answer to the bank — the error is announced and tied to the field (UX2)", () => {
+  it("marks the answer invalid and describes it with the server's text", async () => {
+    mockApi({
+      "GET /api/applications/42": {
+        ...BASE,
+        status: "info_requested",
+        available_actions: ["respond_info"],
+        open_info_requests: [
+          {
+            id: 7,
+            origin: "officer",
+            message: "Приложите договор аренды (демо)",
+            fields: [],
+            document_kinds: [],
+            status: "open",
+            response_message: null,
+            created_at: "2026-10-22T10:00:00Z",
+            answered_at: null,
+          },
+        ],
+      },
+      "GET /api/applications/42/events": [],
+      "GET /api/applications/42/documents": [],
+      "POST /api/applications/42/info-requests/7/respond": [
+        400,
+        { error: { code: "invalid_transition", message: "Запрос уже закрыт (демо)" } },
+      ],
+    });
+    renderApplication();
+
+    const answer = await screen.findByLabelText("Ответ банку");
+    fireEvent.change(answer, { target: { value: "Загрузили (демо)" } });
+    fireEvent.click(screen.getByRole("button", { name: "Ответить банку" }));
+
+    const error = await screen.findByRole("alert");
+    expect(error).toHaveTextContent("Запрос уже закрыт (демо)");
+    expect(answer).toHaveAttribute("aria-invalid", "true");
+    expect(answer).toHaveAccessibleDescription("Запрос уже закрыт (демо)");
+  });
+});

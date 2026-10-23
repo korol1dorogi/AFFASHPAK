@@ -6,10 +6,11 @@ import { ReasonList } from "@/components/ReasonList";
 import { DemoBadge } from "@/components/States";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
+import { BlockError, BlockSkeleton } from "@/features/applications/BlockState";
 import { useCompanyMetrics, useConnectIntegration } from "@/features/company/api";
-import { errorMessage } from "@/lib/errors";
+import { ApiError, errorMessage } from "@/lib/errors";
 import { formatDate } from "@/lib/format";
-import { COMPANY } from "@/texts";
+import { BLOCK_STATE, COMPANY } from "@/texts";
 
 const I = COMPANY.integrations;
 const M = COMPANY.metrics;
@@ -65,7 +66,24 @@ export function Integrations({ company }: { company: Schemas["Company"] }) {
 /** Metrics of the latest snapshot — what the preliminary evaluation will see. */
 export function Metrics() {
   const metrics = useCompanyMetrics();
-  if (!metrics.data) return null;
+  if (!metrics.data) {
+    // 404 — no company: nothing to show; any other failure is said out loud.
+    if (metrics.error instanceof ApiError && metrics.error.status === 404) return null;
+    return (
+      <Card>
+        <CardTitle className="m-0">{M.title}</CardTitle>
+        {metrics.isError ? (
+          <BlockError
+            title={BLOCK_STATE.metricsError}
+            error={metrics.error}
+            onRetry={() => void metrics.refetch()}
+          />
+        ) : (
+          <BlockSkeleton label={BLOCK_STATE.metricsLoading} rows={3} />
+        )}
+      </Card>
+    );
+  }
   const { snapshot } = metrics.data;
   return (
     <Card>

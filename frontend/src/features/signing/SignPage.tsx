@@ -146,7 +146,9 @@ export function SignPage() {
           <>
             <p className="m-0">Нажмите, чтобы получить одноразовый код. Он действует 10 минут.</p>
             {start.isError ? (
-              <p className="m-0 text-sm text-status-danger">{errorMessage(start.error)}</p>
+              <p role="alert" className="m-0 text-sm text-status-danger">
+                {errorMessage(start.error)}
+              </p>
             ) : null}
             <Button
               size="lg"

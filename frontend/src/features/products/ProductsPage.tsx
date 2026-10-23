@@ -174,7 +174,9 @@ function Calculator({
         </Button>
       </form>
       {calculate.isError ? (
-        <p className="m-0 text-status-danger">{errorMessage(calculate.error)}</p>
+        <p role="alert" className="m-0 text-status-danger">
+          {errorMessage(calculate.error)}
+        </p>
       ) : null}
       {result ? (
         <div className="flex flex-col gap-4">
