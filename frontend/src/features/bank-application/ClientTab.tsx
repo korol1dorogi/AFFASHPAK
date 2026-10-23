@@ -1,4 +1,5 @@
 import { ROLE_LABEL } from "@/app/session";
+import { SourceTag, snapshotSource } from "@/components/AmountSource";
 import { Facts } from "@/components/Facts";
 import { MoneyText } from "@/components/Money";
 import { DemoBadge, EmptyState } from "@/components/States";
@@ -39,7 +40,10 @@ function Snapshot({ snapshot }: { snapshot: NonNullable<BankApplicationDetail["s
                 {value === null ? (
                   <NoData />
                 ) : field.format === "money" ? (
-                  <MoneyText value={value} />
+                  <>
+                    <MoneyText value={value} />
+                    <SourceTag source={snapshotSource(snapshot.source)} />
+                  </>
                 ) : (
                   formatDecimal(value)
                 )}

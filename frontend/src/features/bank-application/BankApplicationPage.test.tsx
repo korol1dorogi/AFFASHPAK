@@ -52,6 +52,9 @@ describe("BankApplicationPage — header and states", () => {
     expect(screen.getByText("У сотрудника банка")).toBeInTheDocument();
     const header = screen.getByText("Исполнитель").closest("dl") as HTMLElement;
     expect(within(header).getByText("8 000 000 ₽")).toBeInTheDocument();
+    expect(within(header).getByText("8 000 000 ₽").parentElement).toHaveTextContent(
+      "8 000 000 ₽со слов клиента",
+    );
     expect(await within(header).findByText("Инвестиционный кредит (демо)")).toBeInTheDocument();
     expect(within(header).getByText("C")).toBeInTheDocument();
     expect(within(header).getByText("Анна Банк")).toBeInTheDocument();
@@ -129,6 +132,11 @@ describe("BankApplicationPage — tabs", () => {
     const reasons = within(history).getByRole("list", { name: "Причины решения" });
     expect(within(reasons).getByText("score_total")).toBeInTheDocument();
     expect(within(reasons).getByText("11 290 503 ₽")).toBeInTheDocument();
+    expect(within(reasons).getByText("11 290 503 ₽").parentElement).toHaveTextContent("расчёт");
+    // The requested amount is the client's word (SRC7).
+    const params = screen.getByText("Параметры заявки").closest("div") as HTMLElement;
+    const requested = within(params.parentElement as HTMLElement).getByText("8 000 000 ₽");
+    expect(requested.parentElement).toHaveTextContent("8 000 000 ₽со слов клиента");
   });
 
   it("«Заявка»: offer and improvements when the bank has decided", async () => {
@@ -162,6 +170,14 @@ describe("BankApplicationPage — tabs", () => {
     expect(await screen.findByText("Оффер")).toBeInTheDocument();
     expect(screen.getByText("23,5 %")).toBeInTheDocument();
     expect(screen.getByText("311 766,44 ₽")).toBeInTheDocument();
+    // SRC7: the officer set the amount, the payment is counted.
+    const offer = screen.getByText("Оффер").closest("[data-slot=card]") as HTMLElement;
+    expect(within(offer).getByText("8 000 000 ₽").parentElement).toHaveTextContent(
+      "8 000 000 ₽решение банка",
+    );
+    expect(within(offer).getByText("311 766,44 ₽").parentElement).toHaveTextContent(
+      "311 766,44 ₽расчёт",
+    );
     const newest = present(
       within(screen.getByRole("list", { name: "История решений" })).getAllByRole("listitem")[0],
     );
@@ -188,11 +204,26 @@ describe("BankApplicationPage — tabs", () => {
     expect(row("Денежный поток на обслуживание долга (CFADS), в месяц")).toHaveTextContent(
       "1 800 000 ₽",
     );
+    expect(row("Денежный поток на обслуживание долга (CFADS), в месяц")).toHaveTextContent(
+      "1 800 000 ₽по выписке",
+    );
     expect(row("Долг")).toHaveTextContent("нет данных");
+    expect(row("Долг")).not.toHaveTextContent("по выписке"); // no amount, no label
+    expect(row("Выручка год к году (коэффициент)")).not.toHaveTextContent("по выписке");
     expect(row("EBITDA за 12 мес")).toHaveTextContent("нет данных");
     expect(row("Выручка год к году (коэффициент)")).toHaveTextContent("0,97");
     expect(row("Доля крупнейшего покупателя (коэффициент)")).toHaveTextContent("0,4");
     expect(screen.queryByText("0 ₽")).not.toBeInTheDocument();
+  });
+
+  it("«Клиент»: a snapshot typed in by hand is the client's word", async () => {
+    const card = persona4Card();
+    card.snapshot = { ...present(card.snapshot ?? undefined), source: "manual" };
+    open("client", card);
+    const cfads = await screen.findByText("Денежный поток на обслуживание долга (CFADS), в месяц");
+    expect((cfads.parentElement as HTMLElement).querySelector("dd")).toHaveTextContent(
+      "1 800 000 ₽со слов клиента",
+    );
   });
 
   it("«Клиент»: no snapshot → empty state", async () => {
