@@ -36,17 +36,7 @@
 
 ## Симулятор → реальный источник в продакшене
 
-Таблица для SRC8: что отвечает сейчас и чем это заменится. Все симуляторы отвечают по ИНН из одного набора синтетики, поэтому реестр и проверки согласованы между собой.
-
-| Источник в MVP | Где в коде | Что даёт | Реальный источник в продакшене |
-|---|---|---|---|
-| `egrul` — ЕГРЮЛ/ЕГРИП | [backend/apps/business/registry.py](../backend/apps/business/registry.py), [backend/apps/integrations/adapters.py](../backend/apps/integrations/adapters.py) | статус, дата регистрации, ОКВЭД, адрес, руководитель, учредители | реестр ФНС — потребует интеграции с ФНС или агрегатором по договору |
-| `transparent_business` — «Прозрачный бизнес» | `adapters.py` | массовый адрес, массовый руководитель, налоговая задолженность | сведения ФНС — потребует интеграции с ФНС или поставщиком данных |
-| `bki` — бюро кредитных историй | `adapters.py`, согласие — `BkiConsent` в [backend/apps/applications/models.py](../backend/apps/applications/models.py) | текущая и прошлая просрочка, обязательства и платежи | бюро кредитных историй по договору и с согласием клиента |
-| `bank_account` — счёт | `adapters.py`, [backend/apps/credit_math/statement.py](../backend/apps/credit_math/statement.py), `IntegrationConnectView` в [backend/apps/business/views.py](../backend/apps/business/views.py) | обороты и показатели из выписки | данные счетов клиента в банке или выписка с согласия клиента — потребует интеграции с системами банка |
-| `edo` — документы отгрузки | `IntegrationConnectView` | отметка о подключении и тот же снимок по счёту, что у `bank_account` (D19) | оператор ЭДО — потребует интеграции |
-| Подписание | `start_signature`, `confirm_signature` в [backend/apps/applications/services.py](../backend/apps/applications/services.py) | факт подписи кодом с экрана | подписание в ДБО банка (простая или усиленная электронная подпись) или через Госключ — потребует интеграции |
-| Выдача | `enqueue_disbursement` в [backend/apps/pipeline/tasks.py](../backend/apps/pipeline/tasks.py), `mark_issued` в `services.py` | статус `issued` | АБС банка: открытие ссудного счёта и зачисление на расчётный счёт клиента — потребует интеграции |
+Все симуляторы отвечают по ИНН из одного набора синтетики, поэтому реестр и проверки согласованы между собой. Контракты симуляторов — [docs/external/](external/README.md). Чем заменится каждый источник в продакшене и на каком основании (договор, согласие клиента, открытые данные ФНС) — таблица в [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md), раздел «Внешние источники» (SRC8). Таблица одна, чтобы не расходилась.
 
 ## Известные ограничения
 
