@@ -60,6 +60,13 @@ def test_the_tool_list_matches_the_task():
         "explain_status",
         "explain_decision",
         "create_draft",
+        # AI18
+        "what_if",
+        "approval_plan",
+        "explain_check_status",
+        "company_metrics",
+        "required_documents",
+        "explain_term",
     }
     for spec in tool_specs():
         assert spec.description

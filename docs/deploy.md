@@ -93,6 +93,23 @@ echo 'restrict,command="/usr/local/bin/alfa-deploy" ssh-ed25519 AAAA... github-a
 - Сценарий 7: на демо-панели включить сбой «Бюро кредитных историй», подать заявку персоной `bki_outage`, выключить. Забытый сбой гаснет сам через 15 минут (`FAILURE_TTL` в [backend/apps/integrations/flags.py](../backend/apps/integrations/flags.py)).
 - Swagger: `https://<домен>/api/docs`.
 
+## 7а. Ассистент на живой модели (один раз)
+По умолчанию ассистент работает на детерминированном mock: без ключа и без сети. Чтобы включить живую модель с открытыми весами, на сервере в `/srv/alfa-cabinet/.env` (ключ — только здесь, не в репозитории и не в CI):
+
+```
+LLM_PROVIDER=openai
+LLM_BASE_URL=https://api.groq.com/openai/v1
+LLM_API_KEY=<ключ провайдера>
+LLM_MODEL=qwen/qwen3.8-27b,openai/gpt-oss-120b,openai/gpt-oss-20b
+LLM_TIMEOUT_SECONDS=20
+```
+
+Затем `docker compose up -d backend worker` (перечитать `.env`). Проверка — вопрос ассистенту в кабинете или `docker compose exec backend python manage.py shell -c "from apps.assistant.llm import get_llm_client; print(type(get_llm_client()).__name__)"` → `OpenAICompatibleClient`.
+
+- Список моделей через запятую: модель, упёршаяся в лимит (429) или таймаут, сразу передаёт запрос следующей. На бесплатном тарифе Groq у каждой модели свои 8000 токенов в минуту, а ход ассистента тратит 3–7 тысяч, поэтому три модели ≈ втрое больше ходов в минуту.
+- Если не ответила ни одна модель, ассистент отвечает через mock с фразой «Ассистент сейчас недоступен…»; кабинет и заявки работают как обычно.
+- Вернуть mock: `LLM_PROVIDER=mock` и тот же перезапуск.
+
 ## 8. Обслуживание
 - Логи: `docker compose logs -f --tail 100 caddy backend`. Ротация — у каждого контейнера не больше 3 файлов по 10 МБ (`x-logging` в [docker-compose.prod.yml](../docker-compose.prod.yml)); на уже запущенном стенде она включится после `docker compose up -d`, который пересоздаст контейнеры.
 - Бэкап БД: `docker compose exec -T db sh -c 'pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB"' | gzip > ~/backup-$(date +%F-%H%M).sql.gz`
