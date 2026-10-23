@@ -43,6 +43,7 @@ from apps.applications.transitions import (
     record_event,
     touch,
 )
+from apps.business.models import MemberRole
 from apps.products.models import Product
 from apps.scoring.policy import CURRENT_POLICY_VERSION
 from apps.scoring.texts import percent, rubles
@@ -152,6 +153,33 @@ def submit(
             actor,
             message="Заявка отправлена в банк.",
             notify=("Заявка отправлена", "Скоро начнём автоматическую проверку."),
+        )
+        return app
+
+
+def hand_off(application: Application, actor: Actor) -> Application:
+    """XP5: a preparer hands the ready draft to the signatories, who alone may send it.
+
+    No status change: an event in the journal and a notification to every signatory. The same
+    field check as submit (400), so the signatory gets a draft that can be sent as it is.
+    Handing it off again is allowed — a reminder.
+    """
+    from apps.notifications.services import notify_company
+
+    with transaction.atomic():
+        app = lock_application(application.pk)
+        check_action(app, "hand_off", actor)
+        gaps = field_gaps(app)
+        if gaps:
+            raise ValidationError({field: [message] for field, message in gaps})
+        record_event(app, actor, EventKind.HANDED_OFF, "Заявка передана подписанту на отправку.")
+        notify_company(
+            app,
+            kind=EventKind.HANDED_OFF,
+            title=f"Заявка № {app.pk} готова к отправке",
+            message="Проверьте её и отправьте в банк — отправить может только подписант.",
+            exclude=actor.user,
+            roles=(MemberRole.SIGNATORY,),
         )
         return app
 

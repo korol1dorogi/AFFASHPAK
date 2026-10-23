@@ -94,6 +94,7 @@ export const ACTION: Record<Schemas["ApplicationAction"], string> = {
   edit: "Изменить заявку",
   upload_document: "Загрузить документ",
   submit: "Отправить в банк",
+  hand_off: "Передать директору",
   cancel: "Отозвать заявку",
   respond_info: "Ответить банку",
   accept_offer: "Принять и подписать",

@@ -169,7 +169,7 @@ def test_lock_outside_a_transaction_is_a_programming_error():
     ("status", "role", "expected"),
     [
         (S.DRAFT, "signatory", ["edit", "upload_document", "submit", "cancel"]),
-        (S.DRAFT, "preparer", ["edit", "upload_document"]),
+        (S.DRAFT, "preparer", ["edit", "upload_document", "hand_off"]),  # XP5
         (S.DRAFT, "bank", []),
         (S.INFO_REQUESTED, "preparer", ["upload_document", "respond_info"]),
         (S.OFFER, "signatory", ["accept_offer", "decline_offer", "cancel"]),

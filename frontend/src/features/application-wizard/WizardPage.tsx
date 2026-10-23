@@ -25,6 +25,7 @@ import {
   type ApplicationDetail,
   useApplication,
   useDocuments,
+  useHandOff,
   useProducts,
   useSubmit,
   useUpdateApplication,
@@ -205,9 +206,27 @@ function DocumentsStep({ application }: { application: ApplicationDetail }) {
   );
 }
 
+/** The server's answer to a failed send or hand-off: the message and every field error. */
+function MutationError({ error }: { error: Error | null }) {
+  if (!error) return null;
+  return (
+    <div role="alert" className="m-0 text-sm text-status-danger">
+      <p className="m-0">{errorMessage(error)}</p>
+      {fieldMessages(error).length ? (
+        <ul className="m-0 pl-5">
+          {fieldMessages(error).map((message) => (
+            <li key={message}>{message}</li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
+
 function ReviewStep({ application }: { application: ApplicationDetail }) {
   const navigate = useNavigate();
   const submit = useSubmit(application.id);
+  const handOff = useHandOff(application.id);
   const idempotency = useIdempotencyKey();
   const product = useProduct(application.product_code);
   const documents = useDocuments(application.id);
@@ -220,6 +239,7 @@ function ReviewStep({ application }: { application: ApplicationDetail }) {
     (kind) => !documents.data?.some((document) => document.kind === kind),
   );
   const canSubmit = application.available_actions.includes("submit");
+  const canHandOff = application.available_actions.includes("hand_off");
   const [consent, setConsent] = useState(false);
   const [consentMissing, setConsentMissing] = useState(false);
 
@@ -253,18 +273,8 @@ function ReviewStep({ application }: { application: ApplicationDetail }) {
           — банк запросит их позже, но проверка займёт дольше.
         </p>
       ) : null}
-      {submit.isError ? (
-        <div role="alert" className="m-0 text-sm text-status-danger">
-          <p className="m-0">{errorMessage(submit.error)}</p>
-          {fieldMessages(submit.error).length ? (
-            <ul className="m-0 pl-5">
-              {fieldMessages(submit.error).map((message) => (
-                <li key={message}>{message}</li>
-              ))}
-            </ul>
-          ) : null}
-        </div>
-      ) : null}
+      <MutationError error={submit.error} />
+      <MutationError error={handOff.error} />
       {canSubmit ? (
         <>
           <div className="flex flex-col gap-2 rounded-md border border-line p-3">
@@ -316,10 +326,33 @@ function ReviewStep({ application }: { application: ApplicationDetail }) {
           </Button>
         </>
       ) : (
-        <p className="m-0 rounded-md bg-sunken p-3">
-          Отправить заявку может подписант{signatory ? `: ${signatory.user.full_name}` : ""}.
-          Черновик сохранён — он увидит его в своём кабинете.
-        </p>
+        <div className="flex flex-col gap-3 rounded-md bg-sunken p-3">
+          <p className="m-0">
+            Отправить заявку может подписант{signatory ? `: ${signatory.user.full_name}` : ""}.
+            {canHandOff
+              ? " Когда черновик готов, передайте его — подписант получит уведомление в кабинете."
+              : " Черновик сохранён — подписант увидит его в своём кабинете."}
+          </p>
+          {handOff.isSuccess ? (
+            <p role="status" className="m-0 font-medium text-status-success">
+              Передано: подписант получил уведомление. Можно напомнить ещё раз.
+            </p>
+          ) : null}
+          {canHandOff ? (
+            <Button
+              className="self-start"
+              variant={handOff.isSuccess ? "secondary" : "default"}
+              loading={handOff.isPending}
+              onClick={() =>
+                handOff.mutate(undefined, {
+                  onSuccess: () => toast.success("Заявка передана подписанту"),
+                })
+              }
+            >
+              {ACTION.hand_off}
+            </Button>
+          ) : null}
+        </div>
       )}
     </Card>
   );

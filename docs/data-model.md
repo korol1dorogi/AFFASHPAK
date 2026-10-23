@@ -84,7 +84,7 @@ erDiagram
 - Даётся галочкой на шаге «Проверка и отправка» вместе с `submit`. Нет согласия — конвейер не запрашивает БКИ: проверка `bki` получает статус `consent_missing` (не сбой: `source_unavailable` не поднимается), заявка уходит сотруднику, а не в отказ. После SRC1 без согласия заявку не отправить — статус остаётся для заявок, отправленных раньше.
 
 **ApplicationEvent** — журнал аудита (append-only)
-- `application`, `kind`: `status_changed` | `document_uploaded` | `info_requested` | `info_responded` | `assigned` | `check_completed` | `score_calculated` | `decision` | `comment` | `signed` | `issued` | `consent_given`
+- `application`, `kind`: `status_changed` | `document_uploaded` | `info_requested` | `info_responded` | `assigned` | `check_completed` | `score_calculated` | `decision` | `comment` | `signed` | `issued` | `consent_given` | `handed_off` (бухгалтер передал черновик подписанту, XP5; то же значение — `Notification.kind`)
 - `from_status`, `to_status` | null; `actor_kind`: `client` | `bank` | `system`; `actor` → User | null
 - `message`; `payload` (JSON); `is_internal` (true — клиенту не показываем); `created_at`
 

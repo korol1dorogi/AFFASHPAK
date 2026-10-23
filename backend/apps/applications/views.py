@@ -153,6 +153,10 @@ class ApplicationCancelView(_ActionView):
     action_name = "cancel"
 
 
+class ApplicationHandOffView(_ActionView):
+    action_name = "hand_off"
+
+
 class OfferAcceptView(_ActionView):
     action_name = "accept_offer"
 
