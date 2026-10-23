@@ -1,7 +1,10 @@
-"""Offer terms. Money comes from credit_math; the rate grid is a placeholder until D4.
+"""Offer terms. Money comes from credit_math; the rate comes from the grade.
 
-decision-model.md (D4) will replace `rate_for` with the grade × product grid;
-same grade can mean different terms for different products (case, «Скоринг ≠ решение»).
+`rate_for` is the grade × product grid of decision-model.md, section 5: inside each product's
+rate_min–rate_max range, grade A gets rate_min, E gets rate_max, a quarter of the range a step.
+Why the ranges are what they are (the key rate plus a spread per product) — docs/products.md,
+«Ставки: ключевая + спред» (DOC3). The same grade can mean different terms for different
+products (case, «Скоринг ≠ решение»).
 """
 
 from datetime import timedelta
