@@ -2249,7 +2249,8 @@ components:
 
     Check:
       type: object
-      required: [source, status, summary, data, checked_at]
+      required:
+        [source, status, summary, data, checked_at, received_at, response_sha256, simulator_version]
       properties:
         source: { $ref: "#/components/schemas/CheckSource" }
         status:
@@ -2264,6 +2265,19 @@ components:
         summary: { type: string }
         data: { type: object, additionalProperties: true }
         checked_at: { type: string, format: date-time }
+        received_at:
+          oneOf: [{ type: string, format: date-time }, { type: "null" }]
+          description: |
+            Происхождение (SRC4): когда пришёл ответ источника. null — источник не ответил
+            (unavailable) или его не спрашивали (consent_missing); тогда null и два поля ниже.
+        response_sha256:
+          oneOf: [{ type: string, pattern: "^[0-9a-f]{64}$" }, { type: "null" }]
+          description: |
+            sha256 ответа источника — канонического JSON {status, data} (ключи по алфавиту,
+            UTF-8, без пробелов). Тот же ответ — тот же хэш.
+        simulator_version:
+          oneOf: [{ type: string, examples: [datagen-2026.10-v1] }, { type: "null" }]
+          description: Версия симулятора, который ответил (версия генератора синтетики)
 
     ScoreFactor:
       type: object
