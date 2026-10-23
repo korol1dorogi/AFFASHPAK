@@ -1,0 +1,128 @@
+openapi: 3.1.0
+info:
+  title: Симулятор «Прозрачный бизнес» ФНС (демо)
+  version: datagen-2026.10-v1
+  description: |
+    Упрощённый контракт симулятора сведений ФНС о компании (SRC8). Сейчас симулятор отвечает
+    внутри бэкенда (`backend/apps/integrations/adapters.py`) из набора синтетики; в S1 он станет
+    HTTP-сервисом с этим контрактом.
+
+    Ключи `data` — [data-spec.md](../data-spec.md), раздел 5.1. Модель решения читает
+    `mass_address`, `mass_director`, `tax_arrears` (фактор балльной карты) и
+    `accounts_suspended` (стоп-фактор С6). Профиль ФНС (`employees`, `tax_regime`,
+    `msp_category`, `taxes_paid`) — для интерфейса; в ответах персон 1–8 его нет, поэтому эти
+    ключи необязательные.
+
+    Реальный источник в продакшене — открытые сведения ФНС
+    ([THIRD_PARTY_NOTICES.md](../../THIRD_PARTY_NOTICES.md), «Внешние источники»).
+    Все примеры — синтетика генератора, помечены «демо».
+paths:
+  /transparent_business/{inn}:
+    get:
+      operationId: getTransparentBusiness
+      summary: Сведения ФНС по ИНН
+      parameters:
+        - name: inn
+          in: path
+          required: true
+          description: ИНН — 10 цифр у юрлица, 12 у ИП
+          schema: { type: string, pattern: "^(\\d{10}|\\d{12})$" }
+      responses:
+        "200":
+          description: |
+            Источник ответил. ok — флагов нет, налогового долга нет, операции по счетам не
+            приостановлены; warning — есть флаг, долг или приостановка (приостановка — стоп-фактор
+            С6); restricted — сведения скрыты (→ ручное рассмотрение).
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/Answered"
+                  - $ref: "#/components/schemas/Restricted"
+              examples:
+                persona_1:
+                  summary: Без флагов (персона 1, демо; профиля ФНС у персон нет)
+                  value:
+                    status: ok
+                    data: { mass_address: false, mass_director: false, tax_arrears: "0.00" }
+                with_profile:
+                  summary: Массовый руководитель, с профилем ФНС (популяция, демо)
+                  value:
+                    status: warning
+                    data:
+                      mass_address: false
+                      mass_director: true
+                      tax_arrears: "0.00"
+                      employees: 10
+                      tax_regime: usn_income_minus_expenses
+                      msp_category: micro
+                      taxes_paid: "1921080.00"
+                      accounts_suspended: false
+                accounts_suspended:
+                  summary: Операции по счетам приостановлены (граничный случай e_accounts_suspended, демо)
+                  value:
+                    status: warning
+                    data:
+                      mass_address: false
+                      mass_director: false
+                      tax_arrears: "0.00"
+                      employees: 5
+                      tax_regime: usn_income_minus_expenses
+                      msp_category: micro
+                      taxes_paid: "612000.00"
+                      accounts_suspended: true
+        "503":
+          description: |
+            Источник не ответил: адаптер записывает Check.status = unavailable — это не отказ
+            (SRC2), заявка уходит сотруднику.
+components:
+  schemas:
+    Money:
+      type: string
+      pattern: "^-?\\d+\\.\\d{2}$"
+      description: Рубли с копейками строкой, как во всём API
+    Answered:
+      type: object
+      required: [status, data]
+      additionalProperties: false
+      properties:
+        status: { type: string, enum: [ok, warning] }
+        data: { $ref: "#/components/schemas/FnsData" }
+    Restricted:
+      type: object
+      required: [status, data]
+      additionalProperties: false
+      properties:
+        status: { const: restricted }
+        data: { type: object, maxProperties: 0 }
+    FnsData:
+      type: object
+      required: [mass_address, mass_director, tax_arrears]
+      additionalProperties: false
+      properties:
+        mass_address: { type: boolean, description: Адрес массовой регистрации }
+        mass_director:
+          type: boolean
+          description: Массовый руководитель; у ИП всегда false
+        tax_arrears:
+          $ref: "#/components/schemas/Money"
+          description: Налоговая задолженность; "0.00" — нет
+        accounts_suspended:
+          type: boolean
+          description: ФНС приостановила операции по счетам — стоп-фактор С6 (SRC5)
+        employees:
+          type: integer
+          minimum: 0
+          maximum: 250
+          description: Среднесписочная численность
+        tax_regime:
+          type: string
+          enum: [psn, usn_income, usn_income_minus_expenses, osn]
+          description: ПСН, УСН «доходы», УСН «доходы минус расходы», ОСН
+        msp_category:
+          type: string
+          enum: [micro, small, medium, not_msp]
+          description: Категория по реестру МСП (209-ФЗ)
+        taxes_paid:
+          $ref: "#/components/schemas/Money"
+          description: Уплаченные налоги за год
