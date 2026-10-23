@@ -45,7 +45,9 @@ import {
 } from "@/features/bank-application/schema";
 import { applyFieldErrors, errorMessage, isConflict } from "@/lib/errors";
 import { formatMoney, formatRate } from "@/lib/format";
-import { BANK_ACTIONS } from "@/texts";
+import { BANK_ACTIONS, DOCUMENT_KIND } from "@/texts";
+
+const DOCUMENT_KIND_LIST = Object.keys(DOCUMENT_KIND) as Schemas["DocumentKind"][];
 
 const T = BANK_ACTIONS;
 
@@ -327,20 +329,20 @@ export function CounterofferDialog({
   );
 }
 
-/** manual_review → info_requested: the text the client answers (documents are named in it). */
+/** manual_review → info_requested: the text the client answers and the documents to upload. */
 export function RequestInfoDialog({ card, onClose }: DialogProps) {
   const { application } = card;
   const requestInfo = useRequestInfo(application.id);
   const [problem, setProblem] = useState<Problem | null>(null);
   const form = useForm<RequestInfoValues>({
     resolver: zodResolver(requestInfoSchema),
-    defaultValues: { message: "" },
+    defaultValues: { message: "", document_kinds: [] },
   });
 
-  const submit = form.handleSubmit(({ message }) => {
+  const submit = form.handleSubmit(({ message, document_kinds }) => {
     setProblem(null);
     requestInfo.mutate(
-      { version: application.version, message },
+      { version: application.version, message, document_kinds },
       {
         onSuccess: () => {
           toast.success(T.requestInfo.done);
@@ -370,6 +372,23 @@ export function RequestInfoDialog({ card, onClose }: DialogProps) {
       >
         <Textarea maxLength={2000} {...form.register("message")} />
       </Field>
+      <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
+        <legend className="mb-1 text-sm font-semibold">{T.requestInfo.documents}</legend>
+        <p className="m-0 text-sm text-ink-muted">{T.requestInfo.documentsHint}</p>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {DOCUMENT_KIND_LIST.map((kind) => (
+            <label key={kind} className="flex cursor-pointer items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                value={kind}
+                className="size-4"
+                {...form.register("document_kinds")}
+              />
+              {DOCUMENT_KIND[kind]}
+            </label>
+          ))}
+        </div>
+      </fieldset>
     </ActionDialog>
   );
 }

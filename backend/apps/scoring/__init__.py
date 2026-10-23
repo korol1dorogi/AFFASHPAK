@@ -17,6 +17,7 @@ from apps.scoring.policy import (
     get_policy,
     get_scorecard,
 )
+from apps.scoring.review import review_reasons
 from apps.scoring.scorecard import ScoreResult, improvements, score
 from apps.scoring.stop_factors import StopFactor, stop_factors
 
@@ -33,6 +34,7 @@ __all__ = [
     "get_policy",
     "get_scorecard",
     "improvements",
+    "review_reasons",
     "score",
     "stop_factors",
 ]

@@ -209,39 +209,7 @@ def test_members_without_company_is_404():
     assert_matches_contract(response, method="get", path="/api/company/members")
 
 
-def test_signatory_adds_a_member_by_username(team):
-    newcomer = make_user("newcomer", full_name="Пётр Демо")
-    body = {"username": "newcomer", "role": "preparer", "position": "Финансовый директор"}
-    response = team["as_director"].post("/api/company/members", body, format="json")
-    assert response.status_code == 201
-    assert_matches_contract(response, method="post", path="/api/company/members", request_body=body)
-    assert response.json()["user"] == {"id": newcomer.pk, "full_name": "Пётр Демо"}
-    assert as_user(newcomer).get("/api/company").json()["my_role"] == "preparer"
-
-
-@pytest.mark.parametrize(
-    ("username", "status", "code"),
-    [
-        ("missing", 404, "not_found"),
-        ("outsider", 409, "member_exists"),
-        ("accountant", 409, "member_exists"),
-        ("manager", 400, "invalid"),
-    ],
-)
-def test_adding_a_member_fails_clearly(team, username, status, code):
-    make_bank_user("manager")
-    body = {"username": username, "role": "preparer", "position": "Бухгалтер"}
-    response = team["as_director"].post("/api/company/members", body, format="json")
-    assert response.status_code == status
-    assert_matches_contract(response, method="post", path="/api/company/members")
-    assert response.json()["error"]["code"] == code
-
-
-def test_preparer_cannot_add_or_remove_members(team):
-    make_user("newcomer")
-    body = {"username": "newcomer", "role": "signatory", "position": "Директор"}
-    response = team["as_accountant"].post("/api/company/members", body, format="json")
-    assert response.status_code == 403
+def test_preparer_cannot_remove_members(team):
     member = Membership.objects.get(user=team["director"])
     response = team["as_accountant"].delete(f"/api/company/members/{member.pk}")
     assert response.status_code == 403
@@ -269,6 +237,153 @@ def test_foreign_member_id_is_404(team):
             response, method="delete", path=f"/api/company/members/{foreign.pk}"
         )
     assert Membership.objects.filter(pk=foreign.pk).exists()
+
+
+# ───────────────────────── invitations ─────────────────────────
+# Nobody joins a company without accepting; inviting tells nothing about the login.
+
+
+def invite(team, username: str, role: str = "preparer"):
+    body = {"username": username, "role": role, "position": "Финансовый директор"}
+    return team["as_director"].post("/api/company/invitations", body, format="json")
+
+
+def test_invited_user_joins_only_after_accepting(team):
+    newcomer = make_user("newcomer", full_name="Пётр Демо")
+    body = {"username": "newcomer", "role": "preparer", "position": "Финансовый директор"}
+    response = team["as_director"].post("/api/company/invitations", body, format="json")
+    assert response.status_code == 201
+    assert_matches_contract(
+        response, method="post", path="/api/company/invitations", request_body=body
+    )
+    assert response.json()["username"] == "newcomer"
+
+    as_newcomer = as_user(newcomer)
+    assert as_newcomer.get("/api/company").status_code == 404  # not a member yet
+    response = as_newcomer.get("/api/invitations")
+    assert response.status_code == 200
+    assert_matches_contract(response, method="get", path="/api/invitations")
+    [incoming] = response.json()
+    assert incoming["company"]["name"] == team["company"].name
+    assert incoming["invited_by"] == {"id": team["director"].pk, "full_name": "Анна Демо"}
+    assert (incoming["role"], incoming["position"]) == ("preparer", "Финансовый директор")
+
+    path = f"/api/invitations/{incoming['id']}/accept"
+    response = as_newcomer.post(path)
+    assert response.status_code == 200
+    assert_matches_contract(response, method="post", path=path)
+    assert response.json()["my_role"] == "preparer"
+    assert as_newcomer.get("/api/invitations").json() == []
+    assert team["as_director"].get("/api/company/invitations").json() == []
+    members = team["as_director"].get("/api/company/members").json()
+    assert "Пётр Демо" in [member["user"]["full_name"] for member in members]
+
+
+@pytest.mark.parametrize("username", ["missing", "outsider", "manager"])
+def test_inviting_answers_the_same_for_any_login(team, username):
+    """Unknown login, a member of another company and a bank user look exactly alike."""
+    make_bank_user("manager")
+    response = invite(team, username, role="signatory")
+    assert response.status_code == 201
+    assert_matches_contract(response, method="post", path="/api/company/invitations")
+    assert set(response.json()) == {"id", "username", "role", "position", "created_at"}
+    assert not Membership.objects.filter(company=team["company"], user__username=username).exists()
+
+
+def test_member_of_another_company_cannot_be_pulled_in(team):
+    invitation_id = invite(team, "outsider", role="signatory").json()["id"]
+    path = f"/api/invitations/{invitation_id}/accept"
+    response = team["as_outsider"].post(path)
+    assert response.status_code == 409
+    assert_matches_contract(response, method="post", path=path)
+    assert response.json()["error"]["code"] == "member_exists"
+    assert team["as_outsider"].get("/api/company").json()["id"] == team["other"].pk
+
+
+@pytest.mark.parametrize(
+    ("username", "status", "code"),
+    [
+        ("accountant", 409, "member_exists"),
+        ("ACCOUNTANT", 409, "member_exists"),
+        ("bad login", 400, "invalid"),
+    ],
+)
+def test_inviting_fails_clearly(team, username, status, code):
+    response = invite(team, username)
+    assert response.status_code == status
+    assert_matches_contract(response, method="post", path="/api/company/invitations")
+    assert response.json()["error"]["code"] == code
+
+
+def test_the_same_login_is_invited_once(team):
+    assert invite(team, "newcomer").status_code == 201
+    response = invite(team, "NewComer")
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "invitation_exists"
+    assert len(team["as_accountant"].get("/api/company/invitations").json()) == 1
+
+
+def test_preparer_sees_but_cannot_invite_or_cancel(team):
+    invitation_id = invite(team, "newcomer").json()["id"]
+    response = team["as_accountant"].get("/api/company/invitations")
+    assert response.status_code == 200
+    assert_matches_contract(response, method="get", path="/api/company/invitations")
+    body = {"username": "someone", "role": "signatory", "position": "Директор"}
+    response = team["as_accountant"].post("/api/company/invitations", body, format="json")
+    assert response.status_code == 403
+    path = f"/api/company/invitations/{invitation_id}"
+    response = team["as_accountant"].delete(path)
+    assert response.status_code == 403
+    assert_matches_contract(response, method="delete", path=path)
+
+
+def test_cancelled_invitation_cannot_be_accepted(team):
+    newcomer = make_user("newcomer")
+    invitation_id = invite(team, "newcomer").json()["id"]
+    path = f"/api/company/invitations/{invitation_id}"
+    response = team["as_director"].delete(path)
+    assert response.status_code == 204
+    assert_matches_contract(response, method="delete", path=path)
+    assert as_user(newcomer).get("/api/invitations").json() == []
+    response = as_user(newcomer).post(f"/api/invitations/{invitation_id}/accept")
+    assert response.status_code == 404
+    assert not Membership.objects.filter(user=newcomer).exists()
+
+
+def test_declined_invitation_is_gone(team):
+    newcomer = make_user("newcomer")
+    invitation_id = invite(team, "newcomer").json()["id"]
+    path = f"/api/invitations/{invitation_id}/decline"
+    response = as_user(newcomer).post(path)
+    assert response.status_code == 204
+    assert_matches_contract(response, method="post", path=path)
+    assert team["as_director"].get("/api/company/invitations").json() == []
+    assert as_user(newcomer).post(f"/api/invitations/{invitation_id}/accept").status_code == 404
+
+
+def test_foreign_invitation_id_is_404(team):
+    """Someone else's invitation: neither another user nor another company can touch it."""
+    make_user("newcomer")
+    invitation_id = invite(team, "newcomer").json()["id"]
+    for action in ("accept", "decline"):
+        path = f"/api/invitations/{invitation_id}/{action}"
+        response = team["as_accountant"].post(path)
+        assert response.status_code == 404
+        assert_matches_contract(response, method="post", path=path)
+    path = f"/api/company/invitations/{invitation_id}"
+    response = team["as_outsider"].delete(path)
+    assert response.status_code == 404
+    assert_matches_contract(response, method="delete", path=path)
+    assert team["as_director"].get("/api/company/invitations").json() != []
+
+
+def test_bank_user_has_no_invitations(team):
+    invitation_id = invite(team, "manager").json()["id"]
+    as_bank = as_user(make_bank_user("manager"))
+    response = as_bank.get("/api/invitations")
+    assert response.status_code == 403
+    assert_matches_contract(response, method="get", path="/api/invitations")
+    assert as_bank.post(f"/api/invitations/{invitation_id}/accept").status_code == 403
 
 
 # ───────────────────────── integrations ─────────────────────────

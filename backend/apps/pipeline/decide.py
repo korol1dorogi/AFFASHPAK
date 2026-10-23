@@ -15,7 +15,7 @@ from apps.credit_math import (
     working_capital_need_metric,
 )
 from apps.products.models import Product
-from apps.scoring import ScoringInput, business_age_months, get_scorecard, score
+from apps.scoring import ScoringInput, business_age_months, get_scorecard, review_reasons, score
 from apps.scoring.inputs import SOURCES
 from apps.scoring.policy import CURRENT_POLICY_VERSION, get_policy
 from apps.scoring.scorecard import ScoreResult
@@ -47,14 +47,18 @@ def decide(application: Application, inp: ScoringInput) -> Decision:
     if product is None:
         raise ValueError("decision needs a product")
     result = score(inp, min_dscr=_decimal(product.params.get("min_dscr"), "1.25"))
-    unavailable = [
-        source for source in SOURCES if (check := inp.check(source)) and check.is_unavailable
-    ]
+    # No data is not a decline (SRC2): unavailable, restricted or consent_missing → an officer.
+    # Only a source that did not answer raises source_unavailable (the queue's outage mark).
+    no_data = [source for source in SOURCES if (check := inp.check(source)) and check.has_no_data]
     reasons = [_factor_reason(factor) for factor in result.factors]
     reasons.append(_score_reason(result))
-    source_unavailable = bool(unavailable)
-    for source in unavailable:
-        reasons.append(_row(f"source_{source}", None, None, False, _unavailable_text(inp, source)))
+    source_unavailable = any(inp.check(source).is_unavailable for source in no_data)
+    for source in no_data:
+        reasons.append(_row(f"source_{source}", None, None, False, _no_data_text(inp, source)))
+    # ЕГРЮЛ marks (SRC5): unreliable address or director, pending exclusion → an officer.
+    marks = review_reasons(inp)
+    for mark in marks:
+        reasons.append(_row(mark.metric, mark.value, mark.threshold, mark.passed, mark.message))
 
     def pack(
         outcome: str,
@@ -73,8 +77,10 @@ def decide(application: Application, inp: ScoringInput) -> Decision:
             policy_version=policy.policy_version or CURRENT_POLICY_VERSION,
         )
 
-    if source_unavailable or inp.registered_at is None:
-        return pack(DecisionOutcome.MANUAL_REVIEW)
+    if no_data or marks or inp.registered_at is None:
+        # The officer still gets the amount the data allows (decision-model.md §5, П3 and П5).
+        _cap, extra = _size(product, application, inp, result.grade, application.term_months)
+        return pack(DecisionOutcome.MANUAL_REVIEW, extra=extra)
     if result.grade == "E":
         texts: list[str] = []
         for factor in sorted(result.factors, key=lambda item: item.lost_points, reverse=True):
@@ -199,8 +205,9 @@ def _size(
     if product.kind == "factoring":
         return _factoring_size(product, application, requested)
     by_dscr = _dscr_cap(product, inp, rate, term)
-    if by_dscr is None:
-        return None, []
+    if by_dscr is None:  # None and a reason, never a silent gap (AGENTS.md)
+        text = "Не хватает данных о денежном потоке, чтобы посчитать сумму — посчитает сотрудник"
+        return None, [_row("max_loan_by_dscr", None, requested, False, text)]
     reasons = [_dscr_reason(by_dscr, requested, rate, term)]
     limit = min(by_dscr, product.amount_max)
     if product.kind == "working_capital_loan":
@@ -218,7 +225,8 @@ def _overdraft_size(
 ) -> tuple[Decimal | None, list[dict]]:
     turnover = inp.metric("cleaned_credit_turnover")
     if turnover is None:
-        return None, []
+        text = "Нет данных об оборотах по счёту, чтобы посчитать лимит — посчитает сотрудник"
+        return None, [_row("overdraft_limit", None, requested, False, text)]
     alpha = _decimal(product.params.get("alpha"), "0.3")
     limit = min(overdraft_limit(turnover, alpha), product.amount_max)
     passed = limit >= requested
@@ -235,7 +243,8 @@ def _factoring_size(
 ) -> tuple[Decimal | None, list[dict]]:
     invoice = application.invoice_amount
     if invoice is None:
-        return None, []
+        text = "Нет суммы отгрузки, чтобы посчитать аванс"
+        return None, [_row("factoring_advance", None, requested, False, text)]
     beta = _decimal(product.params.get("beta"), "0.9")
     limit = min(factoring_advance(invoice, beta), product.amount_max)
     passed = limit >= requested
@@ -331,12 +340,16 @@ def _score_reason(result: ScoreResult) -> dict:
     }
 
 
-def _unavailable_text(inp: ScoringInput, source: str) -> str:
+def _no_data_text(inp: ScoringInput, source: str) -> str:
     check = inp.check(source)
     if source == "bank_account" and check is not None and check.data.get("not_connected"):
         return "Счёт не подключён — данные по счёту проверит сотрудник. Это не отказ"
-    if check is not None and check.data.get("consent_missing"):
+    if check is not None and (
+        check.status == "consent_missing" or check.data.get("consent_missing")
+    ):
         return "Нет согласия на запрос в бюро — кредитную историю проверит сотрудник. Это не отказ"
+    if check is not None and check.status == "restricted":
+        return f"{SOURCE_NAME[source]}: сведения скрыты — заявку проверит сотрудник. Это не отказ"
     return f"{SOURCE_NAME[source]} сейчас не отвечает — заявку проверит сотрудник. Это не отказ"
 
 

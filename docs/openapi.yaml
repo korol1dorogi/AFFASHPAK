@@ -240,26 +240,116 @@ paths:
                 items: { $ref: "#/components/schemas/Member" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/company/invitations:
+    get:
+      tags: [company]
+      operationId: listCompanyInvitations
+      summary: Приглашения компании, ждущие ответа
+      responses:
+        "200":
+          description: Приглашения
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Invitation" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
     post:
       tags: [company]
-      operationId: addCompanyMember
-      summary: Добавить сотрудника по логину (только signatory)
+      operationId: inviteCompanyMember
+      summary: Пригласить сотрудника по логину (только signatory)
+      description: |
+        Сотрудник появится в компании, только когда сам примет приглашение (acceptInvitation).
+        Ответ одинаковый для любого логина правильного формата — есть ли такой клиент, работает ли
+        он в другой компании или это сотрудник банка, подписант не узнаёт (docs/security.md).
+        409 — логин уже в этой компании (member_exists) или уже приглашён (invitation_exists).
       requestBody:
         required: true
         content:
           application/json:
-            schema: { $ref: "#/components/schemas/MemberCreate" }
+            schema: { $ref: "#/components/schemas/InvitationCreate" }
       responses:
         "201":
-          description: Добавлен
+          description: Приглашение создано
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/Member" }
+              schema: { $ref: "#/components/schemas/Invitation" }
         "400": { $ref: "#/components/responses/ValidationError" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/Conflict" }
+
+  /api/company/invitations/{invitation_id}:
+    parameters:
+      - name: invitation_id
+        in: path
+        required: true
+        schema: { type: integer, minimum: 1 }
+    delete:
+      tags: [company]
+      operationId: cancelCompanyInvitation
+      summary: Отозвать приглашение, пока на него не ответили (только signatory)
+      responses:
+        "204": { description: Отозвано }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/invitations:
+    get:
+      tags: [company]
+      operationId: listMyInvitations
+      summary: Приглашения в компании, адресованные текущему пользователю (403 — сотрудник банка)
+      responses:
+        "200":
+          description: Приглашения, ждущие ответа
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/IncomingInvitation" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/invitations/{invitation_id}/accept:
+    parameters:
+      - name: invitation_id
+        in: path
+        required: true
+        schema: { type: integer, minimum: 1 }
+    post:
+      tags: [company]
+      operationId: acceptInvitation
+      summary: Принять приглашение и войти в компанию (409 — пользователь уже работает в компании)
+      responses:
+        "200":
+          description: Компания, в которую вошёл пользователь
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Company" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /api/invitations/{invitation_id}/decline:
+    parameters:
+      - name: invitation_id
+        in: path
+        required: true
+        schema: { type: integer, minimum: 1 }
+    post:
+      tags: [company]
+      operationId: declineInvitation
+      summary: Отклонить приглашение
+      responses:
+        "204": { description: Отклонено }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
 
   /api/company/members/{member_id}:
     parameters:
@@ -471,6 +561,9 @@ paths:
         Вместе с отправкой подписант даёт согласие на запрос в бюро кредитных историй (218-ФЗ):
         без `bki_consent: true` и актуальной `consent_version` — 400, заявка остаётся черновиком.
         Согласие сохраняется и пишется в журнал событием `consent_given`.
+        Поля, без которых банк не начнёт проверку (продукт, цель от 10 символов, сумма и срок в
+        границах продукта, сумма отгрузки у факторинга), проверяются здесь же — 400 с ошибкой по
+        полю: после отправки их уже не изменить. Документы можно догрузить и после отправки.
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -548,7 +641,7 @@ paths:
     post:
       tags: [applications]
       operationId: acceptOffer
-      summary: Принять активный оффер или контроффер (offer → signing; signatory)
+      summary: Принять активный оффер или контроффер (offer → signing; signatory); истёкший оффер — 409
       responses:
         "200":
           description: Оффер принят
@@ -575,6 +668,34 @@ paths:
               schema: { $ref: "#/components/schemas/ApplicationDetail" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /api/applications/{id}/what-if:
+    parameters:
+      - $ref: "#/components/parameters/ApplicationId"
+    post:
+      tags: [applications]
+      operationId: calculateWhatIf
+      summary: «Что если» под оффером — платёж, DSCR и допустимая сумма на другой срок (расчёт, не решение)
+      description: |
+        Только расчёт: оффер банка не меняется. Ставка — из действующего оффера, допустимая сумма —
+        те же правила, что у подбора (credit_math: max_loan_by_dscr, лимиты продукта). Доступно при
+        действующем оффере на продукт с фиксированным платежом (КПО, инвестиционный кредит, лизинг);
+        сумма вне лимитов продукта не ошибка, а fits = false с причиной. Заявки чужой компании — 404.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WhatIfRequest" }
+      responses:
+        "200":
+          description: Расчёт
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WhatIfResult" }
+        "400": { $ref: "#/components/responses/ValidationError" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/Conflict" }
 
@@ -785,6 +906,10 @@ paths:
         - name: min_hours_in_status
           in: query
           schema: { type: integer, minimum: 0 }
+        - name: overdue
+          in: query
+          description: true — только заявки, просроченные по нормативу статуса (SLA)
+          schema: { type: boolean }
         - name: search
           in: query
           description: ИНН или название компании
@@ -1443,14 +1568,48 @@ components:
         role: { $ref: "#/components/schemas/MemberRole" }
         position: { type: string, examples: ["Главный бухгалтер"] }
 
-    MemberCreate:
+    InvitationCreate:
       type: object
       required: [username, role, position]
       additionalProperties: false
       properties:
-        username: { type: string, minLength: 1, maxLength: 150 }
+        username: { type: string, minLength: 1, maxLength: 150, pattern: '^[\w.@+-]+$' }
         role: { $ref: "#/components/schemas/MemberRole" }
         position: { type: string, minLength: 1, maxLength: 100 }
+
+    Invitation:
+      type: object
+      description: Приглашение компании в том виде, как его отправил подписант
+      required: [id, username, role, position, created_at]
+      properties:
+        id: { type: integer, examples: [1] }
+        username: { type: string, examples: [demo_accountant] }
+        role: { $ref: "#/components/schemas/MemberRole" }
+        position: { type: string, examples: ["Главный бухгалтер"] }
+        created_at: { type: string, format: date-time }
+
+    IncomingInvitation:
+      type: object
+      description: Приглашение, адресованное текущему пользователю
+      required: [id, company, role, position, invited_by, created_at]
+      properties:
+        id: { type: integer, examples: [1] }
+        company:
+          type: object
+          required: [id, name, short_name, legal_form, inn]
+          properties:
+            id: { type: integer, examples: [1] }
+            name: { type: string, examples: ["ООО «Демо Мебель»"] }
+            short_name:
+              oneOf: [{ type: string, maxLength: 300 }, { type: "null" }]
+            legal_form: { $ref: "#/components/schemas/LegalForm" }
+            inn: { $ref: "#/components/schemas/Inn" }
+        role: { $ref: "#/components/schemas/MemberRole" }
+        position: { type: string, examples: ["Главный бухгалтер"] }
+        invited_by:
+          description: Кто пригласил; null — его учётная запись удалена
+          oneOf: [{ $ref: "#/components/schemas/UserRef" }, { type: "null" }]
+        created_at: { type: string, format: date-time }
 
     SnapshotSource:
       type: string
@@ -1674,6 +1833,38 @@ components:
           type: array
           items: { $ref: "#/components/schemas/Reason" }
         is_preliminary: { type: boolean, const: true }
+
+    WhatIfRequest:
+      type: object
+      required: [amount, term_months]
+      additionalProperties: false
+      properties:
+        amount: { $ref: "#/components/schemas/Money" }
+        term_months:
+          type: integer
+          minimum: 1
+          maximum: 360
+          description: В пределах срока продукта оффера, иначе 400
+
+    WhatIfResult:
+      type: object
+      required: [amount, term_months, rate, monthly_payment, max_amount, dscr_after, min_dscr, fits, reasons]
+      properties:
+        amount: { $ref: "#/components/schemas/Money" }
+        term_months: { type: integer, minimum: 1 }
+        rate: { $ref: "#/components/schemas/Rate" }
+        monthly_payment: { $ref: "#/components/schemas/Money" }
+        max_amount:
+          description: Допустимая сумма на этот срок; null — посчитать нельзя (причина в reasons)
+          oneOf: [{ $ref: "#/components/schemas/Money" }, { type: "null" }]
+        dscr_after:
+          description: DSCR с новым платежом; null — посчитать нельзя
+          oneOf: [{ $ref: "#/components/schemas/DecimalString" }, { type: "null" }]
+        min_dscr: { $ref: "#/components/schemas/DecimalString" }
+        fits: { type: boolean, description: Все проверки пройдены — такие условия прошли бы }
+        reasons:
+          type: array
+          items: { $ref: "#/components/schemas/Reason" }
 
     AnnuityRequest:
       type: object
@@ -1899,6 +2090,35 @@ components:
           description: Комментарий сотрудника для клиента
           oneOf: [{ type: string, examples: ["Одобрили сумму, которую выдерживает ваш денежный поток"] }, { type: "null" }]
         created_at: { type: string, format: date-time }
+        approval_plan:
+          description: |
+            «Как получить одобрение» (XP2): для автоматического отказа по грейду ниже C — самый короткий
+            набор шагов по факторам балльной карты, после которых грейд стал бы C. null — плана нет:
+            отказ по стоп-фактору, решение сотрудника, грейд C и выше или цель недостижима
+            изменяемыми факторами. Бэкенд отдаёт поле всегда.
+          oneOf: [{ $ref: "#/components/schemas/ApprovalPlan" }, { type: "null" }]
+
+    ApprovalPlan:
+      type: object
+      required: [current_total, target_total, target_grade, steps]
+      properties:
+        current_total: { type: integer, description: Баллы сейчас }
+        target_total: { type: integer, description: Баллы после всех шагов }
+        target_grade: { $ref: "#/components/schemas/Grade" }
+        steps:
+          type: array
+          minItems: 1
+          items: { $ref: "#/components/schemas/ApprovalStep" }
+
+    ApprovalStep:
+      type: object
+      required: [metric, current, target, points, message]
+      properties:
+        metric: { type: string, description: Фактор балльной карты (ScoreFactor.name), examples: [counterparty_concentration] }
+        current: { $ref: "#/components/schemas/DecimalString" }
+        target: { $ref: "#/components/schemas/DecimalString" }
+        points: { type: integer, minimum: 1, description: Сколько баллов добавит шаг }
+        message: { type: string, description: Что сделать — простым языком, examples: ["Снизьте долю крупнейшего покупателя до 50 % и меньше (сейчас 80 %)"] }
 
     InfoRequest:
       type: object
@@ -1938,6 +2158,12 @@ components:
           maxLength: 32
           example: bki-2026-10
           description: Версия текста согласия, который видел клиент (frontend/src/texts). Устаревшая — 400
+        version:
+          allOf: [{ $ref: "#/components/schemas/Version" }]
+          description: |
+            Версия черновика, который подписант видел на шаге «Проверка и отправка». Если черновик
+            успели изменить (бухгалтер в другой вкладке) — 409 version_conflict. Кабинет передаёт
+            всегда; без поля версия не проверяется
 
     InfoRequestResponse:
       type: object
@@ -2028,8 +2254,13 @@ components:
         source: { $ref: "#/components/schemas/CheckSource" }
         status:
           type: string
-          enum: [ok, warning, failed, unavailable]
-          description: unavailable — источник не ответил (сценарий 7)
+          enum: [ok, warning, failed, unavailable, not_found, restricted, consent_missing]
+          description: |
+            ok, warning, failed — источник ответил; unavailable — источник не ответил (сценарий 7);
+            not_found — ИНН нет в реестре (ЕГРЮЛ/ЕГРИП → отказ, стоп-фактор С2);
+            restricted — источник ответил, но сведения скрыты (→ ручное рассмотрение);
+            consent_missing — БКИ не запрашивали: нет согласия клиента (→ ручное рассмотрение).
+            Нет данных — не отказ (SRC2).
         summary: { type: string }
         data: { type: object, additionalProperties: true }
         checked_at: { type: string, format: date-time }
@@ -2040,7 +2271,8 @@ components:
       properties:
         name: { type: string, examples: [dscr] }
         value:
-          oneOf: [{ $ref: "#/components/schemas/DecimalString" }, { type: string }, { type: "null" }]
+          description: Значение фактора числом-строкой; null — посчитать нельзя (причина в message)
+          oneOf: [{ $ref: "#/components/schemas/DecimalString" }, { type: "null" }]
         points: { type: integer }
         message: { type: string }
 
@@ -2070,6 +2302,9 @@ components:
         - source_unavailable
         - status_changed_at
         - hours_in_status
+        - sla_due_at
+        - is_overdue
+        - overdue_hours
         - version
       properties:
         id: { type: integer, examples: [1] }
@@ -2086,6 +2321,11 @@ components:
         source_unavailable: { type: boolean, description: Хотя бы один источник не ответил }
         status_changed_at: { type: string, format: date-time }
         hours_in_status: { type: integer, minimum: 0 }
+        sla_due_at:
+          description: До какого момента заявка должна уйти из статуса по нормативу; null — у статуса нет норматива (ждём клиента или финал)
+          oneOf: [{ type: string, format: date-time }, { type: "null" }]
+        is_overdue: { type: boolean, description: Срок по нормативу прошёл }
+        overdue_hours: { type: integer, minimum: 0, description: Сколько полных часов прошло после срока; 0 — не просрочено или меньше часа }
         version: { $ref: "#/components/schemas/Version" }
 
     BankQueuePage:
@@ -2189,7 +2429,7 @@ components:
 
     BankDashboard:
       type: object
-      required: [period_days, funnel, avg_hours_in_status, auto_decision_share, total_applications]
+      required: [period_days, funnel, avg_hours_in_status, auto_decision_share, total_applications, sla_hours, sla_open_count, overdue_count, overdue_share]
       properties:
         period_days: { type: integer }
         total_applications: { type: integer, minimum: 0 }
@@ -2207,6 +2447,16 @@ components:
           additionalProperties: { $ref: "#/components/schemas/DecimalString" }
         auto_decision_share:
           description: Доля решений без участия сотрудника (0..1); null — решений ещё нет
+          oneOf: [{ $ref: "#/components/schemas/DecimalString" }, { type: "null" }]
+        sla_hours:
+          type: object
+          description: Норматив в часах для статусов, где действует банк
+          additionalProperties: { type: integer, minimum: 1 }
+          examples: [{ submitted: 1, processing: 1, manual_review: 24, signed: 1 }]
+        sla_open_count: { type: integer, minimum: 0, description: Заявок периода сейчас в статусах с нормативом }
+        overdue_count: { type: integer, minimum: 0, description: Из них просрочено по нормативу }
+        overdue_share:
+          description: Доля просроченных среди sla_open_count (0..1); null — таких заявок нет
           oneOf: [{ $ref: "#/components/schemas/DecimalString" }, { type: "null" }]
 
     # ── assistant ──

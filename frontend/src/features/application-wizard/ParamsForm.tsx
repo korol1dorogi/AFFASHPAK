@@ -134,30 +134,50 @@ export function ParamsFields({
           ))}
         </NativeSelect>
       </Field>
-      <Field label="Продукт" hint="Можно оставить выбор банку" error={errors.product_code?.message}>
-        <NativeSelect {...form.register("product_code")}>
-          <option value="">Подберёт банк</option>
-          {suitable.map((product) => (
-            <option key={product.code} value={product.code}>
-              {product.name}
-            </option>
-          ))}
-        </NativeSelect>
-      </Field>
-      <Field label="Сумма" error={errors.requested_amount?.message}>
-        <Controller
-          control={form.control}
-          name="requested_amount"
-          render={({ field }) => (
+      {/* Controlled: the catalog loads after the draft, and an uncontrolled select would show
+          «Подберёт банк» for a draft that already has a product. */}
+      <Controller
+        control={form.control}
+        name="product_code"
+        render={({ field }) => (
+          <Field
+            label="Продукт"
+            hint="Нужен, чтобы отправить заявку. Не знаете какой — откройте подбор"
+            error={errors.product_code?.message}
+          >
+            <NativeSelect
+              ref={field.ref}
+              name={field.name}
+              value={field.value}
+              onChange={field.onChange}
+              onBlur={field.onBlur}
+            >
+              <option value="">Выберите продукт</option>
+              {suitable.map((product) => (
+                <option key={product.code} value={product.code}>
+                  {product.name}
+                </option>
+              ))}
+            </NativeSelect>
+          </Field>
+        )}
+      />
+      {/* Field gives its direct child the id (label ↔ input), so it wraps MoneyInput, not the
+          Controller. */}
+      <Controller
+        control={form.control}
+        name="requested_amount"
+        render={({ field }) => (
+          <Field label="Сумма" error={errors.requested_amount?.message}>
             <MoneyInput
               name={field.name}
               value={field.value}
               onBlur={field.onBlur}
               onValueChange={(value) => field.onChange(value ?? "invalid")}
             />
-          )}
-        />
-      </Field>
+          </Field>
+        )}
+      />
       <Field label="Срок, месяцев" error={errors.term_months?.message}>
         <Input
           type="number"
@@ -168,20 +188,20 @@ export function ParamsFields({
         />
       </Field>
       {need === "receivable_delay" ? (
-        <Field label="Сумма отгрузки по УПД" error={errors.invoice_amount?.message}>
-          <Controller
-            control={form.control}
-            name="invoice_amount"
-            render={({ field }) => (
+        <Controller
+          control={form.control}
+          name="invoice_amount"
+          render={({ field }) => (
+            <Field label="Сумма отгрузки по УПД" error={errors.invoice_amount?.message}>
               <MoneyInput
                 name={field.name}
                 value={field.value}
                 onBlur={field.onBlur}
                 onValueChange={(value) => field.onChange(value ?? "invalid")}
               />
-            )}
-          />
-        </Field>
+            </Field>
+          )}
+        />
       ) : null}
       <Field label="На что нужны деньги" error={errors.purpose?.message} className="col-span-full">
         <Textarea maxLength={1000} {...form.register("purpose")} />

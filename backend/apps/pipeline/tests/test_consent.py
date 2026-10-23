@@ -42,7 +42,7 @@ def test_no_consent_no_bureau_request(seeded, asked):
     assert "bki" not in asked
     assert {"egrul", "transparent_business"} <= set(asked)
     check = Check.objects.get(application=application, source="bki")
-    assert check.status == "unavailable"
+    assert check.status == "consent_missing"  # its own status since SRC2, not an outage
     assert check.data == {"consent_missing": True}
     assert check.summary == "Бюро кредитных историй: не запрашивали — нет согласия клиента"
     application.refresh_from_db()

@@ -197,9 +197,9 @@ def bki_history_factor(inp: ScoringInput, card: Scorecard) -> Factor:
     rule = card.bki_history
     threshold = Decimal(rule.past_short_max_days)
     check = _required(inp.check("bki"), "bki")
-    if check.is_unavailable:
+    if check.has_no_data:
         return Factor("bki_history", None, rule.unknown_points, rule.max_points, False,
-                      threshold, texts.BKI_UNAVAILABLE)  # fmt: skip
+                      threshold, texts.BKI_NO_DATA[check.status])  # fmt: skip
     current = int(check.data["current_overdue_days"])
     past = int(check.data["past_overdue_max_days"])
     if current > rule.current_max_days:
@@ -231,9 +231,12 @@ def bki_history_factor(inp: ScoringInput, card: Scorecard) -> Factor:
 def transparent_business_factor(inp: ScoringInput, card: Scorecard) -> Factor:
     rule = card.transparent_business
     check = _required(inp.check("transparent_business"), "transparent_business")
-    if check.is_unavailable:
+    if check.has_no_data:
+        message = texts.TRANSPARENT_BUSINESS_NO_DATA.get(
+            check.status, texts.TRANSPARENT_BUSINESS_UNAVAILABLE
+        )
         return Factor("transparent_business", None, rule.unknown_points, rule.max_points, False,
-                      None, texts.TRANSPARENT_BUSINESS_UNAVAILABLE)  # fmt: skip
+                      None, message)  # fmt: skip
     mass_address = bool(check.data["mass_address"])
     mass_director = bool(check.data["mass_director"])
     arrears = to_decimal(check.data["tax_arrears"], "tax_arrears")

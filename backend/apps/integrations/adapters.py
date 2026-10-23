@@ -1,6 +1,9 @@
 """Simulated external sources, looked up by INN (demo generator) with retries and a breaker.
 
-S1 will replace the lookup with HTTP. The pipeline only sees status + data.
+S1 will replace the lookup with HTTP. The pipeline only sees status + data. Statuses (SRC2):
+ok, warning, failed — the source answered; unavailable — it did not; not_found — the registry
+has no such INN; restricted — the source answered but hid the data (a simulator record may
+carry it as is); consent_missing — the credit bureau was not asked at all.
 """
 
 import logging
@@ -13,9 +16,9 @@ from apps.integrations.simulator_data import simulators
 ATTEMPTS = 3
 UNAVAILABLE = {"status": "unavailable", "data": {}}
 NOT_CONNECTED = {"status": "unavailable", "data": {"not_connected": True}}
-NOT_IN_REGISTRY = {"status": "failed", "data": {}}
+NOT_IN_REGISTRY = {"status": "not_found", "data": {}}
 # No consent from the client: the bureau is not asked at all (218-FZ).
-NO_CONSENT = {"status": "unavailable", "data": {"consent_missing": True}}
+NO_CONSENT = {"status": "consent_missing", "data": {"consent_missing": True}}
 SOURCE_TIMEOUT_SECONDS = 2
 logger = logging.getLogger(__name__)
 

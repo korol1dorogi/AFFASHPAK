@@ -54,13 +54,13 @@ POST /api/applications/{id}/signature/confirm   {"code"}              → signed
 
 ## Эндпоинты
 
-Сгенерировано из [openapi.yaml](openapi.yaml): 49 путей, 57 операций. «Вход: нет» — доступно без сессии. Пока не реализованы два пути ассистента (три операции) — помечены ⏳ с номером задачи.
+Сгенерировано из [openapi.yaml](openapi.yaml): 55 путей, 63 операции. «Вход: нет» — доступно без сессии. Пока не реализованы два пути ассистента (три операции) — помечены ⏳ с номером задачи.
 
 ### system
 | Метод | Путь | Что делает | Вход |
 |---|---|---|---|
 | GET | `/api/health` | Живость API и базы | нет |
-| GET | `/api/ready` | Готовность к трафику (база, очередь, симуляторы) | нет |
+| GET | `/api/ready` | Готовность к трафику: база доступна, миграции применены | нет |
 
 ### auth
 | Метод | Путь | Что делает | Вход |
@@ -79,8 +79,13 @@ POST /api/applications/{id}/signature/confirm   {"code"}              → signed
 | POST | `/api/company` | Создать компанию по ИНН; реквизиты — из ЕГРЮЛ, создатель становится signatory | сессия |
 | PATCH | `/api/company` | Изменить редактируемые поля (реквизиты из реестра не редактируются) | сессия |
 | GET | `/api/company/members` | Сотрудники компании и их роли | сессия |
-| POST | `/api/company/members` | Добавить сотрудника по логину (только signatory) | сессия |
 | DELETE | `/api/company/members/{member_id}` | Убрать сотрудника (только signatory; себя убрать нельзя) | сессия |
+| GET | `/api/company/invitations` | Приглашения компании, ждущие ответа | сессия |
+| POST | `/api/company/invitations` | Пригласить сотрудника по логину (только signatory); ответ одинаков для любого логина | сессия |
+| DELETE | `/api/company/invitations/{invitation_id}` | Отозвать приглашение (только signatory) | сессия |
+| GET | `/api/invitations` | Приглашения, адресованные текущему пользователю | сессия |
+| POST | `/api/invitations/{invitation_id}/accept` | Принять приглашение и войти в компанию | сессия |
+| POST | `/api/invitations/{invitation_id}/decline` | Отклонить приглашение | сессия |
 | GET | `/api/company/metrics` | Последний финансовый снимок и ключевые метрики с пояснениями | сессия |
 | POST | `/api/company/integrations/{source}/connect` | Подключить источник данных (симулятор; данные помечены «демо») | сессия |
 
@@ -103,7 +108,8 @@ POST /api/applications/{id}/signature/confirm   {"code"}              → signed
 | POST | `/api/applications/{id}/cancel` | Отозвать заявку | сессия |
 | GET | `/api/applications/{id}/events` | Таймлайн заявки для клиента (без внутренних комментариев банка) | сессия |
 | GET | `/api/applications/{id}/decision` | Последнее решение с причинами и «что улучшить» (404 — решения ещё нет) | сессия |
-| POST | `/api/applications/{id}/offer/accept` | Принять активный оффер или контроффер (offer → signing; signatory) | сессия |
+| POST | `/api/applications/{id}/what-if` | «Что если» под оффером — платёж, DSCR и допустимая сумма на другой срок (расчёт, не решение) | сессия |
+| POST | `/api/applications/{id}/offer/accept` | Принять активный оффер или контроффер (offer → signing; signatory); истёкший оффер — 409 | сессия |
 | POST | `/api/applications/{id}/offer/decline` | Отказаться от оффера (offer → cancelled; signatory) | сессия |
 | POST | `/api/applications/{id}/signature` | Получить код подписания — показывается на экране (не SMS); повтор выдаёт новый код | сессия |
 | POST | `/api/applications/{id}/signature/confirm` | Подтвердить подписание кодом (signing → signed) | сессия |

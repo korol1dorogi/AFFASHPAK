@@ -30,8 +30,7 @@ export function AssistantPanel() {
             </DialogPrimitive.Close>
           </div>
           <DialogPrimitive.Description className="m-0 text-ink-muted">
-            Здесь будет ассистент: подберёт продукт, посчитает платёж и поможет заполнить заявку.
-            Задача B8.
+            Ассистент скоро появится: подберёт продукт, посчитает платёж и поможет заполнить заявку.
           </DialogPrimitive.Description>
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>

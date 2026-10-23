@@ -12,6 +12,7 @@ from apps.applications.models import (
     ApplicationEvent,
     Check,
     Decision,
+    DecisionOutcome,
     InfoRequest,
     InfoRequestStatus,
     NeedType,
@@ -24,6 +25,7 @@ from apps.applications.transitions import available_actions
 from apps.business.models import Company, FinancialSnapshot, IntegrationSource, Membership
 from apps.documents.models import DocumentKind
 from apps.products.serializers import ProductSerializer
+from apps.scoring.plan import approval_plan
 
 
 def money(**kwargs) -> serializers.DecimalField:
@@ -48,6 +50,7 @@ def user_ref(user: AbstractBaseUser | None) -> dict | None:
 class DecisionSerializer(serializers.ModelSerializer):
     application_id = serializers.IntegerField()
     is_preliminary = serializers.SerializerMethodField()
+    approval_plan = serializers.SerializerMethodField()
 
     class Meta:
         model = Decision
@@ -63,10 +66,38 @@ class DecisionSerializer(serializers.ModelSerializer):
             "improvements",
             "comment",
             "created_at",
+            "approval_plan",
         )
 
     def get_is_preliminary(self, decision: Decision) -> bool:
         return decision.decided_by == "auto"
+
+    def get_approval_plan(self, decision: Decision) -> dict | None:
+        """XP2: only for an automatic decline by grade — a stop factor leaves no grade, and an
+        officer's decline says its own reasons. Counted from the stored Score, so stable."""
+        if decision.decided_by != "auto" or decision.outcome != DecisionOutcome.DECLINED:
+            return None
+        if decision.grade is None:
+            return None
+        score = Score.objects.filter(application_id=decision.application_id).first()
+        plan = None if score is None else approval_plan(score.factors, score.model_version)
+        if plan is None:
+            return None
+        return {
+            "current_total": plan.current_total,
+            "target_total": plan.target_total,
+            "target_grade": plan.target_grade,
+            "steps": [
+                {
+                    "metric": step.metric,
+                    "current": format(step.current, "f"),
+                    "target": format(step.target, "f"),
+                    "points": step.points,
+                    "message": step.message,
+                }
+                for step in plan.steps
+            ],
+        }
 
 
 class OfferSerializer(serializers.ModelSerializer):
@@ -329,6 +360,9 @@ class SubmitSerializer(serializers.Serializer):
 
     bki_consent = serializers.BooleanField()
     consent_version = serializers.CharField(max_length=32)
+    # The draft version the signatory reviewed: a preparer's later edit → 409 (optional for
+    # older clients; the cabinet always sends it).
+    version = serializers.IntegerField(min_value=0, required=False)
 
     def validate_bki_consent(self, value: bool) -> bool:
         if not value:

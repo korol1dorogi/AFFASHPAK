@@ -11,6 +11,7 @@ function open(handlers: Record<string, unknown> = {}, role: Schemas["MemberRole"
     "GET /api/auth/me": me({ company_role: role }),
     "GET /api/company": company({ my_role: role }),
     "GET /api/company/members": members,
+    "GET /api/company/invitations": [],
     ...handlers,
   });
   renderRoutes(
@@ -125,7 +126,7 @@ describe("CompanyPage — requisites", () => {
     expect(screen.queryByRole("button", { name: /Убрать/ })).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Логин сотрудника")).not.toBeInTheDocument();
     expect(
-      screen.getByText("Добавлять и убирать сотрудников может подписант."),
+      screen.getByText("Приглашать и убирать сотрудников может подписант."),
     ).toBeInTheDocument();
   });
 
@@ -147,24 +148,25 @@ describe("CompanyPage — requisites", () => {
     expect(await sent(fetchMock, "DELETE", "/api/company/members/2")).toHaveLength(1);
   });
 
-  it("adds a member by login with a position and a role", async () => {
-    const added: Schemas["Member"] = {
-      id: 3,
-      user: { id: 12, full_name: "Илья Демо" },
+  it("invites by login: nobody is added until the person accepts", async () => {
+    const created: Schemas["Invitation"] = {
+      id: 5,
+      username: "ilya_demo",
       role: "preparer",
       position: "Финансовый директор",
+      created_at: "2026-10-22T09:00:00Z",
     };
-    let current = members;
+    let pending: Schemas["Invitation"][] = [];
     const fetchMock = open({
-      "GET /api/company/members": () => current,
-      "POST /api/company/members": () => {
-        current = [...members, added];
-        return [201, added];
+      "GET /api/company/invitations": () => pending,
+      "POST /api/company/invitations": () => {
+        pending = [created];
+        return [201, created];
       },
     });
     await memberList();
-    const addButton = screen.getByRole("button", { name: "Добавить сотрудника" });
-    fireEvent.click(addButton);
+    const inviteButton = screen.getByRole("button", { name: "Пригласить сотрудника" });
+    fireEvent.click(inviteButton);
     expect(await screen.findByText("Напишите логин")).toBeInTheDocument();
     expect(screen.getByText("Напишите должность")).toBeInTheDocument();
 
@@ -174,30 +176,97 @@ describe("CompanyPage — requisites", () => {
     fireEvent.change(screen.getByLabelText("Должность"), {
       target: { value: "Финансовый директор" },
     });
-    fireEvent.click(addButton);
-    expect(await screen.findByText("Илья Демо")).toBeInTheDocument();
-    expect(await sent(fetchMock, "POST", "/api/company/members")).toEqual([
+    fireEvent.click(inviteButton);
+    const waiting = await screen.findByRole("list", { name: "Ждут ответа" });
+    expect(waiting).toHaveTextContent("ilya_demo");
+    expect(waiting).toHaveTextContent("Готовит заявки · Финансовый директор");
+    expect(await sent(fetchMock, "POST", "/api/company/invitations")).toEqual([
       JSON.stringify({ username: "ilya_demo", position: "Финансовый директор", role: "preparer" }),
     ]);
+    // Not a member yet: the member list is unchanged.
+    expect(within(await memberList()).getAllByRole("listitem")).toHaveLength(2);
     expect(screen.getByLabelText("Логин сотрудника")).toHaveValue("");
   });
 
-  it("unknown login: the API's message lands under the login field", async () => {
+  it("a login with spaces is rejected before the request", async () => {
+    const fetchMock = open();
+    await memberList();
+    fireEvent.change(screen.getByLabelText("Логин сотрудника"), {
+      target: { value: "ilya demo" },
+    });
+    fireEvent.change(screen.getByLabelText("Должность"), { target: { value: "Бухгалтер" } });
+    fireEvent.click(screen.getByRole("button", { name: "Пригласить сотрудника" }));
+    expect(await screen.findByText(/только буквы, цифры/)).toBeInTheDocument();
+    expect(await sent(fetchMock, "POST", "/api/company/invitations")).toHaveLength(0);
+  });
+
+  it("already invited: the API's message lands under the login field", async () => {
     open({
-      "POST /api/company/members": [
-        404,
-        { error: { code: "not_found", message: "Пользователь с таким логином не найден." } },
+      "POST /api/company/invitations": [
+        409,
+        {
+          error: { code: "invitation_exists", message: "Этот логин уже приглашён — ждём ответа." },
+        },
       ],
     });
     await memberList();
     fireEvent.change(screen.getByLabelText("Логин сотрудника"), {
-      target: { value: "nobody" },
+      target: { value: "ilya_demo" },
     });
     fireEvent.change(screen.getByLabelText("Должность"), { target: { value: "Бухгалтер" } });
     fireEvent.change(screen.getByLabelText("Роль"), { target: { value: "signatory" } });
-    fireEvent.click(screen.getByRole("button", { name: "Добавить сотрудника" }));
-    expect(await screen.findByText("Пользователь с таким логином не найден.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Пригласить сотрудника" }));
+    expect(await screen.findByText("Этот логин уже приглашён — ждём ответа.")).toBeInTheDocument();
     expect(screen.getByLabelText("Логин сотрудника")).toHaveAttribute("aria-invalid", "true");
+  });
+
+  it("the signatory takes a pending invitation back", async () => {
+    let pending: Schemas["Invitation"][] = [
+      {
+        id: 5,
+        username: "ilya_demo",
+        role: "signatory",
+        position: "Директор",
+        created_at: "2026-10-22T09:00:00Z",
+      },
+    ];
+    const fetchMock = open({
+      "GET /api/company/invitations": () => pending,
+      "DELETE /api/company/invitations/5": () => {
+        pending = [];
+        return [204, null];
+      },
+    });
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Отозвать приглашение для ilya_demo" }),
+    );
+    await waitFor(() =>
+      expect(screen.queryByRole("list", { name: "Ждут ответа" })).not.toBeInTheDocument(),
+    );
+    expect(await sent(fetchMock, "DELETE", "/api/company/invitations/5")).toHaveLength(1);
+  });
+
+  it("a preparer sees pending invitations but cannot invite or take them back", async () => {
+    open(
+      {
+        "GET /api/company/invitations": [
+          {
+            id: 5,
+            username: "ilya_demo",
+            role: "preparer",
+            position: "Бухгалтер",
+            created_at: "2026-10-22T09:00:00Z",
+          },
+        ],
+      },
+      "preparer",
+    );
+    expect(await screen.findByRole("list", { name: "Ждут ответа" })).toHaveTextContent("ilya_demo");
+    expect(screen.queryByRole("button", { name: /Отозвать/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Пригласить сотрудника" })).not.toBeInTheDocument();
+    expect(
+      screen.getByText("Приглашать и убирать сотрудников может подписант."),
+    ).toBeInTheDocument();
   });
 });
 

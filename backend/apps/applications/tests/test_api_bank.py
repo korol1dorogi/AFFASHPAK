@@ -5,7 +5,7 @@ import uuid
 import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
 
-from apps.applications.models import ApplicationStatus, Decision
+from apps.applications.models import ApplicationStatus, Decision, Score
 from apps.core.factories import make_application
 from apps.core.testing import assert_matches_contract
 from apps.documents.tests.test_signatures import PDF_BYTES
@@ -46,6 +46,27 @@ def test_clients_get_403_on_bank_endpoints(world, method, suffix):
 def test_unknown_application_is_404_for_the_bank(world):
     response = world["as_bank"].get(bank_url(999999))
     assert response.status_code == 404
+
+
+def test_scored_card_matches_contract(world):
+    """Factor values are numeric strings or null, as apps/scoring stores them (ScoreFactor)."""
+    application = make_application(world["company"], status=S.MANUAL_REVIEW, product=world["loan"])
+    Score.objects.create(
+        application=application,
+        grade="C",
+        total=65,
+        model_version="scorecard-2026.10-v1",
+        factors=[
+            {"name": "business_age_months", "value": "36", "points": 10, "message": "Демо"},
+            {"name": "dscr", "value": "1.8000", "points": 18, "message": "Демо"},
+            {"name": "debt_to_ebitda", "value": None, "points": 7, "message": "Демо"},
+        ],
+    )
+    response = world["as_bank"].get(bank_url(application.pk))
+
+    assert response.status_code == 200
+    assert_matches_contract(response, method="get", path=bank_url(application.pk))
+    assert [f["value"] for f in response.json()["score"]["factors"]] == ["36", "1.8000", None]
 
 
 def test_card_matches_contract(world):
@@ -99,7 +120,7 @@ def test_approve_creates_offer_on_requested_terms(world):
 
 
 def test_approve_without_product_is_400(world):
-    application = make_application(world["company"], status=S.MANUAL_REVIEW)
+    application = make_application(world["company"], status=S.MANUAL_REVIEW, product=None)
     response = world["as_bank"].post(
         bank_url(application.pk, "/approve"), {"version": 0}, format="json"
     )
@@ -218,5 +239,7 @@ def test_clients_cannot_download_through_the_bank_route(world, media):
         )
         .json()
     )
-    response = world["as_signatory"].get(bank_url(application.pk, f"/documents/{document['id']}"))
-    assert response.status_code == 404
+    path = bank_url(application.pk, f"/documents/{document['id']}")
+    response = world["as_signatory"].get(path)
+    assert response.status_code == 403  # like the rest of /api/bank/*, before any lookup
+    assert_matches_contract(response, method="get", path=path)

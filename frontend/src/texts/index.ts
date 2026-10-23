@@ -150,6 +150,27 @@ export const DECISION_OUTCOME: Record<Schemas["DecisionOutcome"], string> = {
   declined: "Отказ",
 };
 
+/** 1 балл, 2 балла, 5 баллов, 11 баллов, 21 балл. */
+function pointsWord(n: number): string {
+  if (n % 10 === 1 && n % 100 !== 11) return "балл";
+  if ([2, 3, 4].includes(n % 10) && ![12, 13, 14].includes(n % 100)) return "балла";
+  return "баллов";
+}
+
+/** XP2: «как получить одобрение» при отказе по грейду. */
+export const APPROVAL_PLAN = {
+  title: "Как получить одобрение",
+  summary: (current: number, grade: string, target: number, targetGrade: string) =>
+    `Сейчас ${current} ${pointsWord(current)} из 100 — грейд ${grade}. Эти шаги дают ${target} — ` +
+    `грейд ${targetGrade}: ${
+      targetGrade === "C"
+        ? "с ним заявку рассмотрит сотрудник банка."
+        : "с ним банк сможет одобрить заявку."
+    }`,
+  points: (n: number) => `+${n} ${pointsWord(n)}`,
+  note: "Предварительная оценка по данным вашего счёта, не решение банка.",
+} as const;
+
 export interface MetricText {
   /** Понятное название для клиента. */
   title: string;
@@ -277,6 +298,27 @@ export const METRIC: Record<string, MetricText> = {
     hint: "Сколько дней сейчас просрочен платёж по кредиту.",
     format: "days",
   },
+  accounts_suspended: {
+    title: "Операции по счетам",
+    hint: "Не приостановила ли налоговая операции по счетам компании — с такими счетами кредит не выдать.",
+    format: "text",
+  },
+  // ЕГРЮЛ marks that send the application to an officer (apps/scoring/review.py, SRC5)
+  egrul_unreliable_address: {
+    title: "Достоверность адреса",
+    hint: "Есть ли в ЕГРЮЛ отметка, что адрес компании недостоверен. Это не отказ: проверит сотрудник.",
+    format: "text",
+  },
+  egrul_unreliable_director: {
+    title: "Достоверность сведений о руководителе",
+    hint: "Есть ли в ЕГРЮЛ отметка, что сведения о руководителе недостоверны. Это не отказ: проверит сотрудник.",
+    format: "text",
+  },
+  egrul_pending_exclusion: {
+    title: "Исключение из реестра",
+    hint: "Не готовит ли налоговая исключение компании из ЕГРЮЛ. Это не отказ: проверит сотрудник.",
+    format: "text",
+  },
   // Product fit in the match (apps/recommendations/service.py)
   product_requirements: {
     title: "Требования продукта",
@@ -359,7 +401,9 @@ export const BANK_QUEUE = {
   openApplication: (id: number) => `Заявка №${id}`,
   inn: (inn: string) => `ИНН ${inn}`,
   hoursInStatus: (hours: number) => `${hours} ч`,
-  overdue: "дольше суток",
+  /** Past the status norm (XP4): shown as text next to the icon, not by colour alone. */
+  overdue: (hours: number) => (hours > 0 ? `просрочено на ${hours} ч` : "просрочено, меньше часа"),
+  overdueOnly: "Только просроченные",
   sourceUnavailable: "Источник недоступен",
   unassigned: "Не назначен",
   noValue: "—",
@@ -399,6 +443,9 @@ export const CHECK_STATUS: Record<Schemas["Check"]["status"], string> = {
   warning: "Есть замечания",
   failed: "Не пройдена",
   unavailable: "Источник не ответил",
+  not_found: "Нет в реестре",
+  restricted: "Сведения скрыты",
+  consent_missing: "Не запрашивали — нет согласия",
 };
 
 export const DECIDED_BY: Record<Schemas["Decision"]["decided_by"], string> = {
@@ -627,22 +674,43 @@ export const COMPANY = {
     you: "вы",
     rolesHint:
       "Подписант отправляет заявки, принимает предложения и подписывает. Готовит заявки — заполняет черновики, загружает документы, отвечает банку.",
-    readOnly: "Добавлять и убирать сотрудников может подписант.",
+    readOnly: "Приглашать и убирать сотрудников может подписант.",
     empty: "Сотрудников пока нет",
     loading: "Загружаем сотрудников",
-    add: "Добавить сотрудника",
-    addHint: "Сотрудник сначала регистрируется сам, затем вы добавляете его по логину.",
+    invite: "Пригласить сотрудника",
+    inviteHint:
+      "Сотрудник регистрируется сам, а вы приглашаете его по логину. В компании он появится, когда примет приглашение в своём кабинете.",
     username: "Логин сотрудника",
     position: "Должность",
     positionPlaceholder: "Например, главный бухгалтер",
     role: "Роль",
-    added: "Сотрудник добавлен",
+    invited: "Приглашение создано — сотрудник увидит его, когда войдёт в кабинет",
+    pending: "Ждут ответа",
+    pendingLoading: "Загружаем приглашения",
+    invitedAs: (role: string, position: string) => `${role} · ${position}`,
+    cancel: (username: string) => `Отозвать приглашение для ${username}`,
+    cancelShort: "Отозвать",
+    cancelled: "Приглашение отозвано",
     remove: (name: string) => `Убрать ${name}`,
     removeShort: "Убрать",
     removeTitle: "Убрать сотрудника?",
     removeText: (name: string) =>
       `${name} больше не увидит заявки компании и не сможет с ними работать.`,
     removed: "Сотрудник убран",
+  },
+  invitations: {
+    title: "Вас пригласили в компанию",
+    hint: "Примите приглашение — и сразу начнёте работать в компании. Подключать свою компанию тогда не нужно.",
+    list: "Приглашения в компании",
+    loading: "Загружаем приглашения",
+    invitedBy: (name: string) => `Пригласил: ${name}`,
+    accept: "Принять",
+    acceptLabel: (company: string) => `Принять приглашение от ${company}`,
+    decline: "Отклонить",
+    declineLabel: (company: string) => `Отклонить приглашение от ${company}`,
+    accepted: "Вы в компании",
+    declined: "Приглашение отклонено",
+    orOwn: "Или подключите свою компанию по ИНН",
   },
   integrations: {
     title: "Источники данных",
@@ -666,6 +734,7 @@ export const COMPANY = {
     name: "Напишите название",
     tooLong: (max: number) => `Не длиннее ${max} символов`,
     username: "Напишите логин",
+    usernameFormat: "В логине — только буквы, цифры и символы . @ + - _, без пробелов",
     position: "Напишите должность",
   },
 } as const;
@@ -713,7 +782,10 @@ export const BANK_ACTIONS = {
     title: "Запросить информацию",
     text: "Заявка перейдёт к клиенту и вернётся к вам, когда он ответит.",
     message: "Что нужно от клиента",
-    messageHint: "Клиент увидит этот текст. Если нужны документы — перечислите их.",
+    messageHint: "Клиент увидит этот текст.",
+    documents: "Какие документы загрузить",
+    documentsHint:
+      "Клиенту предложим загрузить именно их. Можно не отмечать, если нужен только ответ.",
     confirm: "Отправить запрос",
     done: "Запрос отправлен клиенту",
   },
@@ -820,6 +892,12 @@ export const BANK_DASHBOARD = {
   hours: "Среднее время в статусе",
   hoursValue: (value: string) => `${value} ч`,
   noData: "Данных пока нет.",
+  overdue: "Просрочено по нормативу",
+  overdueValue: (count: number, total: number) => `${count} из ${total}`,
+  overdueNone: "Сейчас нет заявок, которые ждут банк",
+  norms: "Нормативы",
+  normValue: (status: string, hours: number) => `${status} — ${hours} ч`,
+  overdueLink: "Показать просроченные в очереди",
 } as const;
 
 /** B7: demo panel. */
@@ -850,4 +928,24 @@ export const BANK_DEMO = {
   resetConfirmTitle: "Сбросить демо-данные?",
   resetConfirmText: "Все заявки и уведомления будут удалены. Это нельзя отменить.",
   resetDone: "Демо-данные сброшены",
+} as const;
+
+/** XP1: «что если» под предложением банка — расчёт, предложение не меняется. */
+export const WHAT_IF = {
+  title: "Что если",
+  subtitle: "Подвиньте сумму и срок — посчитаем платёж и покажем, пройдут ли такие условия.",
+  amount: "Сумма",
+  amountExact: "Сумма точно, ₽",
+  term: "Срок",
+  months: (n: number) => `${n} мес`,
+  payment: "Платёж в месяц",
+  maxAmount: (term: number) => `Допустимо на ${term} мес`,
+  noMaxAmount: "Посчитать нельзя",
+  coverage: "Покрытие платежей",
+  coverageValue: (value: string, norm: string) => `${value} при норме от ${norm}`,
+  fits: "Такие условия прошли бы",
+  notFits: "Такие условия не пройдут",
+  why: "Почему",
+  counting: "Считаем…",
+  note: "Это расчёт: предложение банка от него не меняется. Предварительная оценка, не решение банка.",
 } as const;

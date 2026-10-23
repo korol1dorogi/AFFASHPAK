@@ -6,7 +6,7 @@ import type { Schemas } from "@/api/client";
 import { routes } from "@/app/routes";
 import { Skeleton } from "@/components/States";
 import { StatusBadge } from "@/components/StatusBadge";
-import { OVERDUE_HOURS, PAGE_SIZE } from "@/features/bank-queue/params";
+import { PAGE_SIZE } from "@/features/bank-queue/params";
 import { formatMoney } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { BANK_QUEUE, PRODUCT_KIND } from "@/texts";
@@ -50,14 +50,22 @@ function Head() {
   );
 }
 
-function InStatus({ hours }: { hours: number }) {
-  if (hours <= OVERDUE_HOURS)
-    return <span className="tabular">{BANK_QUEUE.hoursInStatus(hours)}</span>;
+/** Hours in status; past the status norm (server, XP4) — an icon and words, not colour alone. */
+function InStatus({ item }: { item: Item }) {
+  const hours = (
+    <span className="tabular whitespace-nowrap">
+      {BANK_QUEUE.hoursInStatus(item.hours_in_status)}
+    </span>
+  );
+  if (!item.is_overdue) return hours;
+  // Narrow on purpose: the words wrap inside the column instead of widening the 1280 px table.
   return (
-    <span className="inline-flex items-center gap-1 font-semibold text-status-danger">
-      <AlarmClock className="size-4" aria-hidden="true" />
-      <span className="tabular">{BANK_QUEUE.hoursInStatus(hours)}</span>
-      <span className="sr-only">, {BANK_QUEUE.overdue}</span>
+    <span className="inline-flex flex-col items-end gap-0.5 leading-4">
+      {hours}
+      <span className="flex max-w-24 items-start justify-end gap-1 text-xs font-semibold text-status-danger">
+        <AlarmClock className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+        <span>{BANK_QUEUE.overdue(item.overdue_hours)}</span>
+      </span>
     </span>
   );
 }
@@ -73,9 +81,13 @@ function Row({ item }: { item: Item }) {
   return (
     <tr
       onClick={open}
-      className="cursor-pointer border-b border-line last:border-b-0 hover:bg-sunken"
+      data-overdue={item.is_overdue || undefined}
+      className={cn(
+        "cursor-pointer border-b border-line last:border-b-0 hover:bg-sunken",
+        item.is_overdue && "bg-status-danger-soft",
+      )}
     >
-      <td className={td}>
+      <td className={cn(td, item.is_overdue && "border-l-4 border-l-status-danger")}>
         <Link
           to={to}
           aria-label={BANK_QUEUE.openApplication(item.id)}
@@ -122,8 +134,8 @@ function Row({ item }: { item: Item }) {
           <span className="text-ink-muted">{BANK_QUEUE.unassigned}</span>
         )}
       </td>
-      <td className={cn(td, "text-right whitespace-nowrap")}>
-        <InStatus hours={item.hours_in_status} />
+      <td className={cn(td, "text-right")}>
+        <InStatus item={item} />
       </td>
     </tr>
   );

@@ -1,4 +1,13 @@
-import { CircleAlert, CircleCheck, CircleHelp, CircleX, WifiOff } from "lucide-react";
+import {
+  CircleAlert,
+  CircleCheck,
+  CircleHelp,
+  CircleX,
+  EyeOff,
+  SearchX,
+  ShieldOff,
+  WifiOff,
+} from "lucide-react";
 
 import type { Schemas } from "@/api/client";
 import { EmptyState } from "@/components/States";
@@ -17,6 +26,10 @@ const LOOK: Record<Check["status"], { Icon: typeof CircleCheck; tone: string }> 
   warning: { Icon: CircleAlert, tone: "bg-status-action-soft text-status-action" },
   failed: { Icon: CircleX, tone: "bg-status-danger-soft text-status-danger" },
   unavailable: { Icon: WifiOff, tone: "bg-status-neutral-soft text-status-neutral" },
+  not_found: { Icon: SearchX, tone: "bg-status-danger-soft text-status-danger" },
+  // No data is not «bad» (SRC2): the same neutral tone as an outage.
+  restricted: { Icon: EyeOff, tone: "bg-status-neutral-soft text-status-neutral" },
+  consent_missing: { Icon: ShieldOff, tone: "bg-status-neutral-soft text-status-neutral" },
 };
 
 function CheckRow({ source, check }: { source: Schemas["CheckSource"]; check?: Check }) {

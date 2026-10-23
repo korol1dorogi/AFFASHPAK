@@ -1,18 +1,20 @@
 import { useQuery } from "@tanstack/react-query";
 import { useId } from "react";
-import { useSearchParams } from "react-router";
+import { Link, useSearchParams } from "react-router";
 
-import { api } from "@/api/client";
+import { api, type Schemas } from "@/api/client";
+import { routes } from "@/app/routes";
 import { ErrorState, PageHeader, PageSkeleton } from "@/components/States";
 import { Card, CardTitle } from "@/components/ui/card";
 import { NativeSelect } from "@/components/ui/input";
 import { unwrap } from "@/lib/errors";
 import { formatDecimal } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import { STATUS, BANK_DASHBOARD as T } from "@/texts";
 
 const PERIODS = [7, 30, 90] as const;
 
-/** B6: pipeline funnel, average hours in each status, share of automatic decisions. */
+/** B6: pipeline funnel, average hours in each status, share of automatic decisions; XP4: SLA. */
 export function BankDashboardPage() {
   const [params, setParams] = useSearchParams();
   const periodId = useId();
@@ -68,7 +70,7 @@ export function BankDashboardPage() {
   return (
     <div className="flex flex-col gap-6">
       {header}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <Card>
           <p className="m-0 text-sm text-ink-muted">{T.total}</p>
           <p className="m-0 font-display text-3xl font-semibold tabular">
@@ -90,6 +92,7 @@ export function BankDashboardPage() {
             {data.funnel.find((row) => row.stage === "issued")?.count ?? 0}
           </p>
         </Card>
+        <OverdueCard data={data} />
       </div>
       <Card>
         <CardTitle className="m-0">{T.funnel}</CardTitle>
@@ -126,5 +129,45 @@ export function BankDashboardPage() {
         )}
       </Card>
     </div>
+  );
+}
+
+type Dashboard = Schemas["BankDashboard"];
+
+/** XP4: how many applications waiting for the bank are past their status norm, and the norms. */
+function OverdueCard({ data }: { data: Dashboard }) {
+  const share = data.overdue_share;
+  const norms = Object.entries(data.sla_hours).map(([status, hours]) =>
+    T.normValue(STATUS[status as keyof typeof STATUS]?.label ?? status, hours),
+  );
+  return (
+    <Card aria-label={T.overdue}>
+      <p className="m-0 text-sm text-ink-muted">{T.overdue}</p>
+      {share === null ? (
+        <p className="m-0 text-sm">{T.overdueNone}</p>
+      ) : (
+        <p className="m-0 flex items-baseline gap-2">
+          <span
+            className={cn(
+              "font-display text-3xl font-semibold tabular",
+              data.overdue_count > 0 && "text-status-danger",
+            )}
+          >
+            {`${formatDecimal(String(Math.round(Number(share) * 1000) / 10))} %`}
+          </span>
+          <span className="text-sm text-ink-muted tabular">
+            {T.overdueValue(data.overdue_count, data.sla_open_count)}
+          </span>
+        </p>
+      )}
+      <p className="m-0 text-xs text-ink-muted">
+        {T.norms}: {norms.join(", ")}
+      </p>
+      {data.overdue_count > 0 ? (
+        <Link to={`${routes.bank}?overdue=1`} className="w-fit text-sm">
+          {T.overdueLink}
+        </Link>
+      ) : null}
+    </Card>
   );
 }

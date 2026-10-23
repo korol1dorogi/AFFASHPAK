@@ -59,3 +59,24 @@ export const members: Schemas["Member"][] = [
     position: "Главный бухгалтер",
   },
 ];
+
+/** An invitation addressed to the current user (GET /api/invitations). */
+export function incomingInvitation(
+  changes: Partial<Schemas["IncomingInvitation"]> = {},
+): Schemas["IncomingInvitation"] {
+  return {
+    id: 7,
+    company: {
+      id: 4,
+      name: "ООО «Дубрава Мебель» (демо)",
+      short_name: null,
+      legal_form: "ooo",
+      inn: "0001000042",
+    },
+    role: "preparer",
+    position: "Главный бухгалтер",
+    invited_by: { id: 10, full_name: "Пётр Демо" },
+    created_at: "2026-10-22T09:00:00Z",
+    ...changes,
+  };
+}

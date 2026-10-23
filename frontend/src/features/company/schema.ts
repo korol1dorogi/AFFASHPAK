@@ -6,7 +6,7 @@ import { COMPANY } from "@/texts";
 
 const E = COMPANY.errors;
 
-// Limits mirror Inn, CompanyUpdate and MemberCreate in docs/openapi.yaml; the INN check digits
+// Limits mirror Inn, CompanyUpdate and InvitationCreate in docs/openapi.yaml; the INN check digits
 // follow the ФНС algorithm (the API checks them too, every registry INN passes).
 export const innSchema = z.object({
   inn: z
@@ -25,10 +25,15 @@ export const nameSchema = z.object({
 
 export type NameValues = z.infer<typeof nameSchema>;
 
-export const memberSchema = z.object({
-  username: z.string().trim().min(1, E.username).max(150, E.tooLong(150)),
+export const inviteSchema = z.object({
+  username: z
+    .string()
+    .trim()
+    .min(1, E.username)
+    .max(150, E.tooLong(150))
+    .regex(/^[\w.@+-]+$/, E.usernameFormat),
   position: z.string().trim().min(1, E.position).max(100, E.tooLong(100)),
   role: z.enum(["signatory", "preparer"]),
 });
 
-export type MemberValues = z.infer<typeof memberSchema>;
+export type InviteValues = z.infer<typeof inviteSchema>;

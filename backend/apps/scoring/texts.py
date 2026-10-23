@@ -20,6 +20,18 @@ BKI_UNAVAILABLE = "БКИ не ответило — историю провер�
 TRANSPARENT_BUSINESS_UNAVAILABLE = (
     "«Прозрачный бизнес» сейчас не отвечает — заявку проверит сотрудник банка. Это не отказ"
 )
+# No data of another kind (SRC2): the same neutral points, a text that says why.
+BKI_NO_DATA = {
+    "unavailable": BKI_UNAVAILABLE,
+    "restricted": "Сведения в БКИ скрыты — историю проверит сотрудник",
+    "consent_missing": "Нет согласия на запрос в БКИ — историю проверит сотрудник",
+}
+TRANSPARENT_BUSINESS_NO_DATA = {
+    "unavailable": TRANSPARENT_BUSINESS_UNAVAILABLE,
+    "restricted": (
+        "Сведения «Прозрачного бизнеса» скрыты — заявку проверит сотрудник банка. Это не отказ"
+    ),
+}
 BKI_CLEAN = "Кредитная история без серьёзных просрочек"
 TRANSPARENT_BUSINESS_CLEAN = "Признаков риска в ФНС нет"
 
@@ -61,3 +73,28 @@ def days(count: int) -> str:
     else:
         word = "дней"
     return f"{count} {word}"
+
+
+def plan_step(metric: str, current: Decimal, target: Decimal) -> str:
+    """One step of «как получить одобрение» (XP2): what to do, the target and where it is now."""
+    if metric == "business_age_months":
+        return f"Подайте заявку снова, когда бизнесу будет {target:f} мес (сейчас {current:f})"
+    if metric == "dscr":
+        return (
+            f"Доведите покрытие платежей потоком до {number(target)} (сейчас {number(current)}): "
+            "снизьте платежи по долгам или увеличьте свободный денежный поток"
+        )
+    if metric == "debt_to_ebitda":
+        return (
+            f"Снизьте долг до {number(target)} годовой прибыли (EBITDA) (сейчас {number(current)})"
+        )
+    if metric == "revenue_trend":
+        return (
+            f"Верните выручку хотя бы к {percent(target)} прошлогодней (сейчас {percent(current)})"
+        )
+    if metric == "counterparty_concentration":
+        return (
+            f"Снизьте долю крупнейшего покупателя до {percent(target)} и меньше "
+            f"(сейчас {percent(current)})"
+        )
+    raise ValueError(f"no plan step for {metric}")

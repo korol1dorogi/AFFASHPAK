@@ -1,7 +1,30 @@
-# Local development: db + backend (+ Prism mock with --profile mock).
-# The frontend runs locally via npm (frontend/: npm run dev) and proxies /api to the backend.
-# All ports are bound to 127.0.0.1 only.
+# Local development and the jury run: db → init (migrate + seed) → backend → web.
+# The frontend runs locally via npm (frontend/: npm run dev) and proxies /api to the backend;
+# `web` serves the built SPA for a clean clone. Prism mock: --profile mock.
+# All ports are bound to 127.0.0.1 only. Every long-running service has a healthcheck, so
+# `docker compose up -d --wait` returns only when the cabinet really works.
 name: alfa-cabinet
+
+x-backend: &backend
+  build:
+    context: .
+    dockerfile: backend/Dockerfile
+    args:
+      REQUIREMENTS: requirements-dev.txt
+  env_file: .env
+  environment:
+    CASE_DATA_DIR: /case-data
+    # Demo stand: personas and /api/demo/* (docs/openapi.yaml). 0 in .env turns them off.
+    DEMO_MODE: ${DEMO_MODE:-1}
+    # e2e signs in many times from one IP; the stand keeps the strict defaults (settings.py).
+    THROTTLE_LOGIN: ${THROTTLE_LOGIN:-300/min}
+    THROTTLE_ANON: ${THROTTLE_ANON:-1200/min}
+    # Bind-mount of ./backend hides /app/media; /tmp is writable by the app user.
+    MEDIA_ROOT: /tmp/media
+  volumes:
+    - ./backend:/app
+    - ./docs:/docs:ro
+    - ${CASE_DATA_DIR:-./data/sample}:/case-data:ro
 
 services:
   db:
@@ -18,32 +41,26 @@ services:
       timeout: 3s
       retries: 20
 
-  backend:
-    build:
-      context: .
-      dockerfile: backend/Dockerfile
-      args:
-        REQUIREMENTS: requirements-dev.txt
-    env_file: .env
-    environment:
-      CASE_DATA_DIR: /case-data
-      # Demo stand: personas and /api/demo/* (docs/openapi.yaml). 0 in .env turns them off.
-      DEMO_MODE: ${DEMO_MODE:-1}
-      # e2e signs in many times from one IP; the stand keeps the strict defaults (settings.py).
-      THROTTLE_LOGIN: ${THROTTLE_LOGIN:-300/min}
-      THROTTLE_ANON: ${THROTTLE_ANON:-1200/min}
-      # Bind-mount of ./backend hides /app/media; /tmp is writable by the app user.
-      MEDIA_ROOT: /tmp/media
-    command: sh -c "mkdir -p /tmp/media && python manage.py migrate --noinput && python manage.py seed_demo && python manage.py runserver 0.0.0.0:8000"
-    volumes:
-      - ./backend:/app
-      - ./docs:/docs:ro
-      - ${CASE_DATA_DIR:-./data/sample}:/case-data:ro
-    ports:
-      - "127.0.0.1:8000:8000"
+  # One-shot: schema, product catalog, demo personas and the bank queue (seed_demo is
+  # idempotent). The backend starts only after it exited with 0.
+  init:
+    <<: *backend
+    command: sh -c "python manage.py migrate --noinput && python manage.py seed_demo"
+    restart: "no"
     depends_on:
       db:
         condition: service_healthy
+
+  backend:
+    <<: *backend
+    command: sh -c "mkdir -p /tmp/media && python manage.py runserver 0.0.0.0:8000"
+    ports:
+      - "127.0.0.1:${BACKEND_PORT:-8000}:8000"  # set BACKEND_PORT in .env if 8000 is taken
+    depends_on:
+      db:
+        condition: service_healthy
+      init:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=3)"]
       interval: 5s
@@ -59,6 +76,11 @@ services:
       SWAGGER_JSON: /spec/openapi.yaml
     volumes:
       - ./docs/openapi.yaml:/spec/openapi.yaml:ro
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/api/docs/"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
 
   # The whole cabinet from a clean clone: the built SPA + /api through Caddy, plain HTTP.
   # Same image as the stand (deploy/caddy); for frontend work `npm run dev` stays faster.
@@ -75,7 +97,13 @@ services:
       backend:
         condition: service_healthy
       swagger:
-        condition: service_started
+        condition: service_healthy
+    healthcheck:
+      # Through Caddy to Django: the SPA and the API answer on one origin.
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/api/ready"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
 
   mock:
     image: stoplight/prism:5.15.10
@@ -85,6 +113,11 @@ services:
       - ./docs:/docs:ro
     ports:
       - "127.0.0.1:4010:4010"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:4010/api/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
 
 volumes:
   db-data:

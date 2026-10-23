@@ -29,7 +29,7 @@ class StopFactor:
 def _liquidation(inp: ScoringInput) -> StopFactor | None:
     egrul = inp.check("egrul")
     statuses = [inp.registry_status]
-    if egrul is not None and not egrul.is_unavailable:
+    if egrul is not None and not egrul.has_no_data:
         statuses.append(egrul.data.get("registry_status"))
     status = next((s for s in statuses if s in LIQUIDATION), None)
     if status is None:
@@ -39,7 +39,8 @@ def _liquidation(inp: ScoringInput) -> StopFactor | None:
 
 def _not_in_registry(inp: ScoringInput) -> StopFactor | None:
     egrul = inp.check("egrul")
-    if egrul is None or egrul.status != "failed":
+    # not_found since SRC2; failed is how the registry said it before (old checks, fixtures).
+    if egrul is None or egrul.status not in {"not_found", "failed"}:
         return None
     reason = Reason("egrul_found", None, None, False, "Компанию не нашли в ЕГРЮЛ/ЕГРИП")
     return StopFactor("С2", reason, "Проверьте ИНН компании")
@@ -58,7 +59,7 @@ def _no_operating_profit(inp: ScoringInput) -> StopFactor | None:
 
 def _current_overdue(inp: ScoringInput, limit: int) -> StopFactor | None:
     bki = inp.check("bki")
-    if bki is None or bki.is_unavailable:
+    if bki is None or bki.has_no_data:
         return None
     current = int(bki.data["current_overdue_days"])
     if current <= limit:
@@ -87,10 +88,25 @@ def _too_young(inp: ScoringInput, minimum: int) -> StopFactor | None:
     )
 
 
+def _accounts_suspended(inp: ScoringInput) -> StopFactor | None:
+    """С6 (SRC5): the tax service suspended operations on the company's accounts (НК РФ, ст. 76)
+    — the loan could not even be paid out. Hidden or missing data is not read (SRC2)."""
+    tb = inp.check("transparent_business")
+    if tb is None or tb.has_no_data or not tb.data.get("accounts_suspended"):
+        return None
+    reason = Reason(
+        "accounts_suspended", None, None, False,
+        "ФНС приостановила операции по счетам компании — кредит оформить нельзя",
+    )  # fmt: skip
+    return StopFactor(
+        "С6", reason, "Снимите приостановку операций по счетам в ФНС и подайте заявку снова"
+    )
+
+
 def stop_factors(
     inp: ScoringInput, policy_version: str = CURRENT_POLICY_VERSION
 ) -> list[StopFactor]:
-    """All stop factors found, in С1…С5 order; empty list — none."""
+    """All stop factors found, in С1…С6 order; empty list — none."""
     policy = get_policy(policy_version)
     found = (
         _liquidation(inp),
@@ -98,5 +114,6 @@ def stop_factors(
         _no_operating_profit(inp),
         _current_overdue(inp, policy.stop_current_overdue_days),
         _too_young(inp, policy.stop_min_business_age_months),
+        _accounts_suspended(inp),
     )
     return [stop for stop in found if stop is not None]

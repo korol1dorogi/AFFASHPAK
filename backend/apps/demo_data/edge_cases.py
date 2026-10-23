@@ -18,6 +18,7 @@ from apps.demo_data.personas import (
     FIXED_SEED,
     PERSONAS_BY_CODE,
     persona_inputs,
+    persona_rng,
     statement_months,
 )
 from apps.demo_data.rng import Rng
@@ -61,6 +62,9 @@ class Edge:
     application: dict = field(default_factory=dict)
     unavailable: tuple[str, ...] = ()
     no_snapshot: bool = False
+    # The persona's own registry stream: same founders, so no new founder INN is issued and
+    # the population's founder numbering does not shift (SRC5 cases; the older ones draw anew).
+    persona_people: bool = False
 
 
 def _debt_service(amount: str) -> Change:
@@ -138,6 +142,20 @@ def _window_of(inputs: CompanyInputs) -> tuple[str, ...]:
     return inputs.months[-12:]
 
 
+def _accounts_suspended() -> Change:
+    def change(inputs: CompanyInputs, as_of: date) -> None:
+        inputs.accounts_suspended = True
+
+    return change
+
+
+def _egrul_flag(name: str) -> Change:
+    def change(inputs: CompanyInputs, as_of: date) -> None:
+        inputs.egrul_flags = {**inputs.egrul_flags, name: True}
+
+    return change
+
+
 def _all(*changes: Change) -> Change:
     def change(inputs: CompanyInputs, as_of: date) -> None:
         for one in changes:
@@ -203,6 +221,13 @@ EDGES = (
          outcome="info_requested", application={"invoice_amount": None}),
     Edge("e_young_wcl", "garden_store", "83 → B; П6 → alternative_product, overdraft_basic",
          outcome="alternative_product", grade="B", total=83, change=_age(8, tau="1.00")),
+    # SRC5 — appended last, so the numbers (and INNs) of the cases above stay the same.
+    Edge("e_accounts_suspended", "coffee_shop", "SRC5: ФНС приостановила операции по счетам → "
+         "С6, declined; балльная карта та же", outcome="declined",
+         change=_accounts_suspended(), persona_people=True),
+    Edge("e_unreliable_address", "retail_supplier", "SRC5: недостоверный адрес в ЕГРЮЛ → "
+         "manual_review, не отказ; балльная карта та же", outcome="manual_review",
+         change=_egrul_flag("unreliable_address"), persona_people=True),
 )  # fmt: skip
 
 
@@ -234,9 +259,14 @@ def build_edge_cases(generator_version: str, as_of: date, registries: Registries
         inputs.number = counters[spec.legal_form].next()
         if edge.change is not None:
             edge.change(inputs, as_of)
+        registry_rng = (
+            persona_rng(generator_version, "company", edge.base)
+            if edge.persona_people
+            else Rng(FIXED_SEED, generator_version, "edge", edge.code)
+        )
         bundle = assemble(
             inputs,
-            Rng(FIXED_SEED, generator_version, "edge", edge.code),
+            registry_rng,
             Rng(FIXED_SEED, generator_version, "edge_statement", edge.code),
             registries,
             as_of,

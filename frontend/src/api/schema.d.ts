@@ -169,8 +169,105 @@ export interface paths {
         /** Сотрудники компании и их роли */
         get: operations["listCompanyMembers"];
         put?: never;
-        /** Добавить сотрудника по логину (только signatory) */
-        post: operations["addCompanyMember"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/company/invitations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Приглашения компании, ждущие ответа */
+        get: operations["listCompanyInvitations"];
+        put?: never;
+        /**
+         * Пригласить сотрудника по логину (только signatory)
+         * @description Сотрудник появится в компании, только когда сам примет приглашение (acceptInvitation).
+         *     Ответ одинаковый для любого логина правильного формата — есть ли такой клиент, работает ли
+         *     он в другой компании или это сотрудник банка, подписант не узнаёт (docs/security.md).
+         *     409 — логин уже в этой компании (member_exists) или уже приглашён (invitation_exists).
+         */
+        post: operations["inviteCompanyMember"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/company/invitations/{invitation_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                invitation_id: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Отозвать приглашение, пока на него не ответили (только signatory) */
+        delete: operations["cancelCompanyInvitation"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/invitations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Приглашения в компании, адресованные текущему пользователю (403 — сотрудник банка) */
+        get: operations["listMyInvitations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/invitations/{invitation_id}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                invitation_id: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Принять приглашение и войти в компанию (409 — пользователь уже работает в компании) */
+        post: operations["acceptInvitation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/invitations/{invitation_id}/decline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                invitation_id: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Отклонить приглашение */
+        post: operations["declineInvitation"];
         delete?: never;
         options?: never;
         head?: never;
@@ -349,7 +446,7 @@ export interface paths {
         put?: never;
         /**
          * Отправить (draft → submitted). Идемпотентно по Idempotency-Key
-         * @description Вместе с отправкой подписант даёт согласие на запрос в бюро кредитных историй (218-ФЗ): без `bki_consent: true` и актуальной `consent_version` — 400, заявка остаётся черновиком. Согласие сохраняется и пишется в журнал событием `consent_given`.
+         * @description Вместе с отправкой подписант даёт согласие на запрос в бюро кредитных историй (218-ФЗ): без `bki_consent: true` и актуальной `consent_version` — 400, заявка остаётся черновиком. Согласие сохраняется и пишется в журнал событием `consent_given`. Поля, без которых банк не начнёт проверку (продукт, цель от 10 символов, сумма и срок в границах продукта, сумма отгрузки у факторинга), проверяются здесь же — 400 с ошибкой по полю: после отправки их уже не изменить. Документы можно догрузить и после отправки.
          */
         post: operations["submitApplication"];
         delete?: never;
@@ -426,7 +523,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Принять активный оффер или контроффер (offer → signing; signatory) */
+        /** Принять активный оффер или контроффер (offer → signing; signatory); истёкший оффер — 409 */
         post: operations["acceptOffer"];
         delete?: never;
         options?: never;
@@ -447,6 +544,31 @@ export interface paths {
         put?: never;
         /** Отказаться от оффера (offer → cancelled; signatory) */
         post: operations["declineOffer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/{id}/what-if": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ApplicationId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * «Что если» под оффером — платёж, DSCR и допустимая сумма на другой срок (расчёт, не решение)
+         * @description Только расчёт: оффер банка не меняется. Ставка — из действующего оффера, допустимая сумма —
+         *     те же правила, что у подбора (credit_math: max_loan_by_dscr, лимиты продукта). Доступно при
+         *     действующем оффере на продукт с фиксированным платежом (КПО, инвестиционный кредит, лизинг);
+         *     сумма вне лимитов продукта не ошибка, а fits = false с причиной. Заявки чужой компании — 404.
+         */
+        post: operations["calculateWhatIf"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1062,10 +1184,43 @@ export interface components {
             /** @example Главный бухгалтер */
             position: string;
         };
-        MemberCreate: {
+        InvitationCreate: {
             username: string;
             role: components["schemas"]["MemberRole"];
             position: string;
+        };
+        /** @description Приглашение компании в том виде, как его отправил подписант */
+        Invitation: {
+            /** @example 1 */
+            id: number;
+            /** @example demo_accountant */
+            username: string;
+            role: components["schemas"]["MemberRole"];
+            /** @example Главный бухгалтер */
+            position: string;
+            /** Format: date-time */
+            created_at: string;
+        };
+        /** @description Приглашение, адресованное текущему пользователю */
+        IncomingInvitation: {
+            /** @example 1 */
+            id: number;
+            company: {
+                /** @example 1 */
+                id: number;
+                /** @example ООО «Демо Мебель» */
+                name: string;
+                short_name: string | null;
+                legal_form: components["schemas"]["LegalForm"];
+                inn: components["schemas"]["Inn"];
+            };
+            role: components["schemas"]["MemberRole"];
+            /** @example Главный бухгалтер */
+            position: string;
+            /** @description Кто пригласил; null — его учётная запись удалена */
+            invited_by: components["schemas"]["UserRef"] | null;
+            /** Format: date-time */
+            created_at: string;
         };
         /** @enum {string} */
         SnapshotSource: "case" | "demo" | "simulator" | "manual";
@@ -1205,6 +1360,25 @@ export interface components {
             /** @constant */
             is_preliminary: true;
         };
+        WhatIfRequest: {
+            amount: components["schemas"]["Money"];
+            /** @description В пределах срока продукта оффера, иначе 400 */
+            term_months: number;
+        };
+        WhatIfResult: {
+            amount: components["schemas"]["Money"];
+            term_months: number;
+            rate: components["schemas"]["Rate"];
+            monthly_payment: components["schemas"]["Money"];
+            /** @description Допустимая сумма на этот срок; null — посчитать нельзя (причина в reasons) */
+            max_amount: components["schemas"]["Money"] | null;
+            /** @description DSCR с новым платежом; null — посчитать нельзя */
+            dscr_after: components["schemas"]["DecimalString"] | null;
+            min_dscr: components["schemas"]["DecimalString"];
+            /** @description Все проверки пройдены — такие условия прошли бы */
+            fits: boolean;
+            reasons: components["schemas"]["Reason"][];
+        };
         AnnuityRequest: {
             principal: components["schemas"]["Money"];
             annual_rate: components["schemas"]["Rate"];
@@ -1338,6 +1512,37 @@ export interface components {
             comment: string | null;
             /** Format: date-time */
             created_at: string;
+            /**
+             * @description «Как получить одобрение» (XP2): для автоматического отказа по грейду ниже C — самый короткий
+             *     набор шагов по факторам балльной карты, после которых грейд стал бы C. null — плана нет:
+             *     отказ по стоп-фактору, решение сотрудника, грейд C и выше или цель недостижима
+             *     изменяемыми факторами. Бэкенд отдаёт поле всегда.
+             */
+            approval_plan?: components["schemas"]["ApprovalPlan"] | null;
+        };
+        ApprovalPlan: {
+            /** @description Баллы сейчас */
+            current_total: number;
+            /** @description Баллы после всех шагов */
+            target_total: number;
+            target_grade: components["schemas"]["Grade"];
+            steps: components["schemas"]["ApprovalStep"][];
+        };
+        ApprovalStep: {
+            /**
+             * @description Фактор балльной карты (ScoreFactor.name)
+             * @example counterparty_concentration
+             */
+            metric: string;
+            current: components["schemas"]["DecimalString"];
+            target: components["schemas"]["DecimalString"];
+            /** @description Сколько баллов добавит шаг */
+            points: number;
+            /**
+             * @description Что сделать — простым языком
+             * @example Снизьте долю крупнейшего покупателя до 50 % и меньше (сейчас 80 %)
+             */
+            message: string;
         };
         InfoRequest: {
             /** @example 1 */
@@ -1373,6 +1578,12 @@ export interface components {
              * @example bki-2026-10
              */
             consent_version: string;
+            /**
+             * @description Версия черновика, который подписант видел на шаге «Проверка и отправка». Если черновик
+             *     успели изменить (бухгалтер в другой вкладке) — 409 version_conflict. Кабинет передаёт
+             *     всегда; без поля версия не проверяется
+             */
+            version?: components["schemas"]["Version"];
         };
         InfoRequestResponse: {
             message: string;
@@ -1444,10 +1655,14 @@ export interface components {
         Check: {
             source: components["schemas"]["CheckSource"];
             /**
-             * @description unavailable — источник не ответил (сценарий 7)
+             * @description ok, warning, failed — источник ответил; unavailable — источник не ответил (сценарий 7);
+             *     not_found — ИНН нет в реестре (ЕГРЮЛ/ЕГРИП → отказ, стоп-фактор С2);
+             *     restricted — источник ответил, но сведения скрыты (→ ручное рассмотрение);
+             *     consent_missing — БКИ не запрашивали: нет согласия клиента (→ ручное рассмотрение).
+             *     Нет данных — не отказ (SRC2).
              * @enum {string}
              */
-            status: "ok" | "warning" | "failed" | "unavailable";
+            status: "ok" | "warning" | "failed" | "unavailable" | "not_found" | "restricted" | "consent_missing";
             summary: string;
             data: {
                 [key: string]: unknown;
@@ -1458,7 +1673,8 @@ export interface components {
         ScoreFactor: {
             /** @example dscr */
             name: string;
-            value: components["schemas"]["DecimalString"] | string | null;
+            /** @description Значение фактора числом-строкой; null — посчитать нельзя (причина в message) */
+            value: components["schemas"]["DecimalString"] | null;
             points: number;
             message: string;
         };
@@ -1486,6 +1702,12 @@ export interface components {
             /** Format: date-time */
             status_changed_at: string;
             hours_in_status: number;
+            /** @description До какого момента заявка должна уйти из статуса по нормативу; null — у статуса нет норматива (ждём клиента или финал) */
+            sla_due_at: string | null;
+            /** @description Срок по нормативу прошёл */
+            is_overdue: boolean;
+            /** @description Сколько полных часов прошло после срока; 0 — не просрочено или меньше часа */
+            overdue_hours: number;
             version: components["schemas"]["Version"];
         };
         BankQueuePage: components["schemas"]["Page"] & {
@@ -1558,6 +1780,24 @@ export interface components {
             };
             /** @description Доля решений без участия сотрудника (0..1); null — решений ещё нет */
             auto_decision_share: components["schemas"]["DecimalString"] | null;
+            /**
+             * @description Норматив в часах для статусов, где действует банк
+             * @example {
+             *       "submitted": 1,
+             *       "processing": 1,
+             *       "manual_review": 24,
+             *       "signed": 1
+             *     }
+             */
+            sla_hours: {
+                [key: string]: number;
+            };
+            /** @description Заявок периода сейчас в статусах с нормативом */
+            sla_open_count: number;
+            /** @description Из них просрочено по нормативу */
+            overdue_count: number;
+            /** @description Доля просроченных среди sla_open_count (0..1); null — таких заявок нет */
+            overdue_share: components["schemas"]["DecimalString"] | null;
         };
         AssistantMessageRequest: {
             text: string;
@@ -2095,7 +2335,29 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
-    addCompanyMember: {
+    listCompanyInvitations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Приглашения */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Invitation"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    inviteCompanyMember: {
         parameters: {
             query?: never;
             header?: never;
@@ -2104,17 +2366,17 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["MemberCreate"];
+                "application/json": components["schemas"]["InvitationCreate"];
             };
         };
         responses: {
-            /** @description Добавлен */
+            /** @description Приглашение создано */
             201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Member"];
+                    "application/json": components["schemas"]["Invitation"];
                 };
             };
             400: components["responses"]["ValidationError"];
@@ -2122,6 +2384,100 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+        };
+    };
+    cancelCompanyInvitation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                invitation_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Отозвано */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listMyInvitations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Приглашения, ждущие ответа */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IncomingInvitation"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    acceptInvitation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                invitation_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Компания, в которую вошёл пользователь */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Company"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    declineInvitation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                invitation_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Отклонено */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
     removeCompanyMember: {
@@ -2557,6 +2913,36 @@ export interface operations {
             409: components["responses"]["Conflict"];
         };
     };
+    calculateWhatIf: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ApplicationId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WhatIfRequest"];
+            };
+        };
+        responses: {
+            /** @description Расчёт */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WhatIfResult"];
+                };
+            };
+            400: components["responses"]["ValidationError"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
     startSignature: {
         parameters: {
             query?: never;
@@ -2808,6 +3194,8 @@ export interface operations {
                 /** @description me — мои, none — никому не назначены, или id сотрудника */
                 assignee?: string;
                 min_hours_in_status?: number;
+                /** @description true — только заявки, просроченные по нормативу статуса (SLA) */
+                overdue?: boolean;
                 /** @description ИНН или название компании */
                 search?: string;
                 ordering?: "status_changed_at" | "-status_changed_at" | "requested_amount" | "-requested_amount" | "created_at" | "-created_at";

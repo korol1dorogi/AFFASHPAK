@@ -13,7 +13,12 @@ from typing import Any
 from apps.credit_math import round_money, round_ratio, to_decimal
 
 SOURCES = ("egrul", "transparent_business", "bki", "bank_account")
-CHECK_STATUSES = frozenset({"ok", "warning", "failed", "unavailable"})
+CHECK_STATUSES = frozenset(
+    {"ok", "warning", "failed", "unavailable", "not_found", "restricted", "consent_missing"}
+)
+# No usable data: the source did not answer, hid the data, or was not asked (no consent).
+# «No data» is not «bad»: the factor gets neutral points and an officer looks (SRC2).
+NO_DATA_STATUSES = frozenset({"unavailable", "restricted", "consent_missing"})
 SNAPSHOT_FIELDS = (
     "cleaned_credit_turnover", "cfads", "debt_service", "revenue", "cogs", "ebitda", "debt",
     "cash", "receivables", "inventory", "payables", "counterparty_concentration", "revenue_trend",
@@ -28,7 +33,12 @@ class CheckResult:
 
     @property
     def is_unavailable(self) -> bool:
+        """The source did not answer: outage, timeout or an open breaker (scenario 7)."""
         return self.status == "unavailable"
+
+    @property
+    def has_no_data(self) -> bool:
+        return self.status in NO_DATA_STATUSES
 
 
 @dataclass(frozen=True)
