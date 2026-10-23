@@ -116,4 +116,6 @@ erDiagram
 
 **AssistantMessage** — журнал ассистента: `user`, `application` | null, `role`: `user` | `assistant` | `tool`, `content`, `tool_calls` (JSON: имя, аргументы, результат), `created_at`
 
+**PendingAction** — действие, которое предложил ассистент (AI1): `id` (UUID), `user`, `kind`: `create_application` | `submit_application`, `payload` (JSON, проверяется сериализатором API ещё раз при подтверждении), `summary` (текст для клиента), `application` | null (заполняется после выполнения), `status`: `pending` | `done`, `created_at`, `expires_at` (30 минут), `confirmed_at` | null. Выполняется только когда тот же пользователь подтвердит; чужое или неизвестное → 404, повтор или просрочка → 409.
+
 **DemoState** (только стенд, `DEMO_MODE=1`) — флаги сбоев симуляторов: `source` → `failing` (bool).
