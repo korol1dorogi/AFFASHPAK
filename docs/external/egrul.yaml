@@ -1,0 +1,157 @@
+openapi: 3.1.0
+info:
+  title: Симулятор ЕГРЮЛ/ЕГРИП (демо)
+  version: datagen-2026.10-v1
+  description: |
+    Упрощённый контракт симулятора реестра юрлиц и ИП (SRC8). Сейчас симулятор отвечает внутри
+    бэкенда (`backend/apps/integrations/adapters.py`) из набора синтетики; в S1 он станет
+    HTTP-сервисом с этим контрактом, и конвейер не изменится: он читает только `status` и `data`.
+
+    Ключи `data` — [data-spec.md](../data-spec.md), раздел 5.1. Модель решения читает
+    `registry_status` (С1) и отметки `unreliable_address`, `unreliable_director`,
+    `pending_exclusion` (П3); остальное — для интерфейса и автозаполнения.
+
+    Реальный источник в продакшене — реестр ФНС
+    ([THIRD_PARTY_NOTICES.md](../../THIRD_PARTY_NOTICES.md), «Внешние источники»).
+    Все примеры — синтетика генератора, помечены «демо».
+paths:
+  /egrul/{inn}:
+    get:
+      operationId: getEgrulRecord
+      summary: Запись реестра по ИНН
+      parameters:
+        - $ref: "#/components/parameters/Inn"
+      responses:
+        "200":
+          description: |
+            Реестр ответил. ok — действует, без отметок; warning — ликвидируется или
+            ликвидирована (С1), либо есть отметка недостоверности или предстоящего исключения (П3);
+            not_found — такого ИНН в реестре нет (С2, отказ); restricted — сведения скрыты
+            (→ ручное рассмотрение).
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/Found"
+                  - $ref: "#/components/schemas/NotFound"
+                  - $ref: "#/components/schemas/Restricted"
+              examples:
+                persona_1:
+                  summary: ИП, действует (персона 1, демо)
+                  value:
+                    status: ok
+                    data:
+                      registry_status: active
+                      registered_at: "2023-10-01"
+                      okved: "56.10"
+                      okved_name: Деятельность ресторанов и услуги по доставке продуктов питания
+                      address: "000001, Демо-регион, г. Условный, ул. Кофейная, д. 7 (демо)"
+                      director_name: Лаврова Анна Сергеевна (демо)
+                      founders:
+                        - name: Лаврова Анна Сергеевна (демо)
+                          inn: "000100000170"
+                          share: "1.0000"
+                      kpp: null
+                      unreliable_address: false
+                      unreliable_director: false
+                      pending_exclusion: false
+                liquidating:
+                  summary: ООО ликвидируется (граничный случай g5, демо)
+                  value:
+                    status: warning
+                    data:
+                      registry_status: liquidating
+                      registered_at: "2021-10-01"
+                      okved: "62.01"
+                      okved_name: Разработка компьютерного программного обеспечения
+                      address: "000029, Демо-регион, г. Тестовск, ул. Сиреневая, д. 51 (демо)"
+                      director_name: Зуев Павел Олегович (демо)
+                      founders:
+                        - { name: Зуев Павел Олегович (демо), inn: "000300000932", share: "0.5000" }
+                        - { name: Ильин Кирилл Петрович (демо), inn: "000300001037", share: "0.3000" }
+                        - { name: Морозов Кирилл Борисович (демо), inn: "000300001100", share: "0.2000" }
+                      kpp: "000101001"
+                      unreliable_address: false
+                      unreliable_director: false
+                      pending_exclusion: false
+                not_found:
+                  summary: ИНН нет в реестре
+                  value: { status: not_found, data: {} }
+        "503":
+          $ref: "#/components/responses/Unavailable"
+components:
+  parameters:
+    Inn:
+      name: inn
+      in: path
+      required: true
+      description: ИНН — 10 цифр у юрлица, 12 у ИП (в синтетике код региона 00)
+      schema: { type: string, pattern: "^(\\d{10}|\\d{12})$" }
+  responses:
+    Unavailable:
+      description: |
+        Источник не ответил. Адаптер делает три попытки, ждёт не дольше 2 с, затем записывает
+        Check.status = unavailable — это не отказ (SRC2), заявка уходит сотруднику.
+  schemas:
+    Found:
+      type: object
+      required: [status, data]
+      additionalProperties: false
+      properties:
+        status: { type: string, enum: [ok, warning] }
+        data: { $ref: "#/components/schemas/EgrulData" }
+    NotFound:
+      type: object
+      required: [status, data]
+      additionalProperties: false
+      properties:
+        status: { const: not_found }
+        data: { type: object, maxProperties: 0 }
+    Restricted:
+      type: object
+      required: [status, data]
+      additionalProperties: false
+      properties:
+        status: { const: restricted }
+        data: { type: object, maxProperties: 0 }
+    EgrulData:
+      type: object
+      required:
+        - registry_status
+        - unreliable_address
+        - unreliable_director
+        - pending_exclusion
+      additionalProperties: false
+      properties:
+        registry_status:
+          type: string
+          enum: [active, liquidating, liquidated]
+          description: liquidating и liquidated — стоп-фактор С1
+        unreliable_address:
+          type: boolean
+          description: Отметка о недостоверности адреса (П3, SRC5)
+        unreliable_director:
+          type: boolean
+          description: Отметка о недостоверности руководителя; у ИП всегда false (П3, SRC5)
+        pending_exclusion:
+          type: boolean
+          description: Предстоящее исключение из реестра (П3, SRC5)
+        registered_at: { type: string, format: date }
+        okved: { type: string, pattern: "^\\d{2}(\\.\\d{1,2}){0,2}$" }
+        okved_name: { type: string }
+        address: { type: string }
+        director_name: { type: string }
+        founders:
+          type: array
+          description: У ИП — сам предприниматель с долей 1; у ООО — 1–3 учредителя
+          items:
+            type: object
+            required: [name, inn, share]
+            additionalProperties: false
+            properties:
+              name: { type: string }
+              inn: { type: string, pattern: "^(\\d{10}|\\d{12})$" }
+              share: { type: string, pattern: "^(0|1)\\.\\d{4}$", description: Доля, 0–1 }
+        kpp:
+          description: КПП — только у ООО; у ИП null
+          oneOf: [{ type: string, pattern: "^\\d{9}$" }, { type: "null" }]

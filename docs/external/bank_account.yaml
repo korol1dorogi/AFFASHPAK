@@ -1,0 +1,72 @@
+openapi: 3.1.0
+info:
+  title: Симулятор расчётного счёта (демо)
+  version: datagen-2026.10-v1
+  description: |
+    Упрощённый контракт симулятора счёта клиента (SRC8). Ответ говорит только, есть ли выписка;
+    сами обороты и показатели — запись FinancialSnapshot, которую строит
+    `backend/apps/credit_math/statement.py` из выписки (D14), а не этот ответ.
+
+    Сейчас симулятор отвечает внутри бэкенда (`backend/apps/integrations/adapters.py`):
+    `{status: ok, data: {months}}`, если у компании есть снимок; если счёт не подключён —
+    адаптер записывает `unavailable` с `data.not_connected = true`. Ключи `period` и
+    `account_masked` есть в синтетике граничных случаев и появятся в ответе в S1, поэтому они
+    необязательные.
+
+    Реальный источник в продакшене — счета клиента в банке
+    ([THIRD_PARTY_NOTICES.md](../../THIRD_PARTY_NOTICES.md), «Внешние источники»).
+    Все примеры — синтетика, помечены «демо».
+paths:
+  /bank_account/{inn}:
+    get:
+      operationId: getAccountStatement
+      summary: Есть ли выписка по счёту клиента
+      parameters:
+        - name: inn
+          in: path
+          required: true
+          description: ИНН — 10 цифр у юрлица, 12 у ИП
+          schema: { type: string, pattern: "^(\\d{10}|\\d{12})$" }
+      responses:
+        "200":
+          description: Выписка есть — ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Answered" }
+              examples:
+                now:
+                  summary: Что отвечает симулятор сейчас
+                  value: { status: ok, data: { months: 18 } }
+                s1:
+                  summary: С ключами S1 (граничный случай g1, демо)
+                  value:
+                    status: ok
+                    data: { period: "2026-09", months: 18, account_masked: "40802810••••••••0034" }
+        "503":
+          description: |
+            Источник не ответил: адаптер записывает Check.status = unavailable — это не отказ
+            (SRC2). Если счёт не подключён, симулятор не вызывается вовсе.
+components:
+  schemas:
+    Answered:
+      type: object
+      required: [status, data]
+      additionalProperties: false
+      properties:
+        status: { const: ok }
+        data:
+          type: object
+          required: [months]
+          additionalProperties: false
+          properties:
+            months:
+              type: integer
+              minimum: 1
+              description: Сколько месяцев выписки есть
+            period:
+              type: string
+              pattern: "^\\d{4}-\\d{2}$"
+              description: Последний полный месяц выписки
+            account_masked:
+              type: string
+              description: Номер счёта с маской — первые 8 и последние 4 цифры

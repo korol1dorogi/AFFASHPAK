@@ -1,0 +1,120 @@
+openapi: 3.1.0
+info:
+  title: Симулятор бюро кредитных историй (демо)
+  version: datagen-2026.10-v1
+  description: |
+    Упрощённый контракт симулятора БКИ (SRC8). Сейчас симулятор отвечает внутри бэкенда
+    (`backend/apps/integrations/adapters.py`) из набора синтетики; в S1 он станет HTTP-сервисом
+    с этим контрактом.
+
+    **Только с согласием клиента.** Бюро вызывается, только если к заявке есть согласие
+    (`BkiConsent`, SRC1; 218-ФЗ «О кредитных историях»). Без согласия запроса нет вовсе:
+    адаптер сам записывает Check.status = consent_missing, поэтому такого статуса в ответе бюро
+    нет.
+
+    Ключи `data` — [data-spec.md](../data-spec.md), раздел 5.1. Модель решения читает
+    `current_overdue_days` (стоп-фактор С4 при > 30) и `past_overdue_max_days` (фактор
+    балльной карты); `obligations` — для интерфейса и сотрудника.
+
+    Реальный источник в продакшене — бюро кредитных историй по договору
+    ([THIRD_PARTY_NOTICES.md](../../THIRD_PARTY_NOTICES.md), «Внешние источники»).
+    Все примеры — синтетика генератора, помечены «демо».
+paths:
+  /bki/{inn}:
+    get:
+      operationId: getCreditReport
+      summary: Кредитный отчёт по ИНН
+      parameters:
+        - name: inn
+          in: path
+          required: true
+          description: ИНН — 10 цифр у юрлица, 12 у ИП
+          schema: { type: string, pattern: "^(\\d{10}|\\d{12})$" }
+      responses:
+        "200":
+          description: |
+            Бюро ответило. ok — текущей просрочки нет, прошлая не больше 30 дней; warning —
+            прошлая больше 30 дней или текущая 1–30; failed — текущая больше 30 дней (С4);
+            restricted — сведения скрыты (→ ручное рассмотрение).
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/Answered"
+                  - $ref: "#/components/schemas/Restricted"
+              examples:
+                persona_1:
+                  summary: Чистая история, долгов нет (персона 1, демо)
+                  value:
+                    status: ok
+                    data: { current_overdue_days: 0, past_overdue_max_days: 0, obligations: [] }
+                past_overdue:
+                  summary: Прошлая просрочка 65 дней (популяция, демо)
+                  value:
+                    status: warning
+                    data:
+                      current_overdue_days: 0
+                      past_overdue_max_days: 65
+                      obligations:
+                        - kind: loan
+                          monthly_payment: "182857.00"
+                          balance: "2377141.00"
+                          opened_at: "2025-04-19"
+                        - kind: loan
+                          monthly_payment: "182857.00"
+                          balance: "6765709.00"
+                          opened_at: "2025-01-21"
+                current_overdue:
+                  summary: Текущая просрочка 31 день (граничный случай e_overdue_30_31, демо)
+                  value:
+                    status: failed
+                    data: { current_overdue_days: 31, past_overdue_max_days: 31, obligations: [] }
+        "503":
+          description: |
+            Бюро не ответило: адаптер записывает Check.status = unavailable — это не отказ
+            (SRC2), заявка уходит сотруднику (сценарий 7).
+components:
+  schemas:
+    Money:
+      type: string
+      pattern: "^-?\\d+\\.\\d{2}$"
+      description: Рубли с копейками строкой, как во всём API
+    Answered:
+      type: object
+      required: [status, data]
+      additionalProperties: false
+      properties:
+        status: { type: string, enum: [ok, warning, failed] }
+        data: { $ref: "#/components/schemas/CreditReport" }
+    Restricted:
+      type: object
+      required: [status, data]
+      additionalProperties: false
+      properties:
+        status: { const: restricted }
+        data: { type: object, maxProperties: 0 }
+    CreditReport:
+      type: object
+      required: [current_overdue_days, past_overdue_max_days]
+      additionalProperties: false
+      properties:
+        current_overdue_days:
+          type: integer
+          minimum: 0
+          description: Текущая просрочка, дней; больше 30 — стоп-фактор С4
+        past_overdue_max_days:
+          type: integer
+          minimum: 0
+          description: Самая долгая прошлая просрочка, дней
+        obligations:
+          type: array
+          description: Действующие кредиты и лизинг; сумма платежей = платежи по долгам в снимке
+          items:
+            type: object
+            required: [kind, monthly_payment, balance, opened_at]
+            additionalProperties: false
+            properties:
+              kind: { type: string, enum: [loan, leasing] }
+              monthly_payment: { $ref: "#/components/schemas/Money" }
+              balance: { $ref: "#/components/schemas/Money" }
+              opened_at: { type: string, format: date }
