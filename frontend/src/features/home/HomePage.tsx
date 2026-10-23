@@ -63,10 +63,8 @@ export function HomePage() {
                 </div>
                 <MoneyText value={item.requested_amount} className="font-semibold" />
                 <StatusBadge status={item.status} />
-                <Button
-                  asChild
-                  variant={STATUS[item.status].group === "action" ? "default" : "secondary"}
-                >
+                {/* One accent (red) button per screen, as in the design book: lists are secondary. */}
+                <Button asChild variant="secondary">
                   <Link to={routes.application(item.id)}>Открыть</Link>
                 </Button>
               </Card>
