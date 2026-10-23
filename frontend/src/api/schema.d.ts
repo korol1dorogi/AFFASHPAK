@@ -903,6 +903,45 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/bank/applications/{id}/assistant/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ApplicationId"];
+            };
+            cookie?: never;
+        };
+        /** История диалога сотрудника с ассистентом по заявке (журнал вызовов инструментов) */
+        get: operations["listBankAssistantMessages"];
+        put?: never;
+        /** Сообщение ассистенту сотрудника (AI11). Инструменты только читают; pending_action всегда null: статус, решение и комментарий меняет сотрудник сам */
+        post: operations["sendBankAssistantMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/bank/applications/{id}/assistant/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ApplicationId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** «Сводка для решения» (И2а): риски по убыванию веса, что перепроверить, черновик комментария и источники. Ничего не сохраняет в заявке */
+        post: operations["createBankAssistantSummary"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/bank/applications/{id}/documents/{document_id}": {
         parameters: {
             query?: never;
@@ -1879,6 +1918,17 @@ export interface components {
             reply: string;
             tool_calls: components["schemas"]["AssistantToolCall"][];
             pending_action: components["schemas"]["PendingAction"] | null;
+        };
+        BankAssistantMessageRequest: {
+            text: string;
+        };
+        /** @description «Сводка для решения» сотрудника (И2а). Каждая строка — из результатов инструментов; у риска в скобках источник (проверка или фактор скоринга) */
+        AssistantSummary: {
+            risks: string[];
+            to_verify: string[];
+            /** @description Текст */
+            draft_comment: string;
+            sources: string[];
         };
         AssistantActionResult: {
             /** Format: uuid */
@@ -3494,6 +3544,88 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    listBankAssistantMessages: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ApplicationId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Сообщения этого сотрудника по этой заявке, от старых к новым */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssistantMessage"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    sendBankAssistantMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ApplicationId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BankAssistantMessageRequest"];
+            };
+        };
+        responses: {
+            /** @description Ответ и вызванные инструменты */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssistantReply"];
+                };
+            };
+            400: components["responses"]["ValidationError"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    createBankAssistantSummary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ApplicationId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Сводка */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssistantSummary"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     downloadBankApplicationDocument: {

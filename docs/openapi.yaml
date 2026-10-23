@@ -1115,6 +1115,67 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /api/bank/applications/{id}/assistant/messages:
+    parameters:
+      - $ref: "#/components/parameters/ApplicationId"
+    get:
+      tags: [bank, assistant]
+      operationId: listBankAssistantMessages
+      summary: История диалога сотрудника с ассистентом по заявке (журнал вызовов инструментов)
+      responses:
+        "200":
+          description: Сообщения этого сотрудника по этой заявке, от старых к новым
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/AssistantMessage" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      tags: [bank, assistant]
+      operationId: sendBankAssistantMessage
+      summary: >-
+        Сообщение ассистенту сотрудника (AI11). Инструменты только читают; pending_action всегда
+        null: статус, решение и комментарий меняет сотрудник сам
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BankAssistantMessageRequest" }
+      responses:
+        "200":
+          description: Ответ и вызванные инструменты
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AssistantReply" }
+        "400": { $ref: "#/components/responses/ValidationError" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
+  /api/bank/applications/{id}/assistant/summary:
+    parameters:
+      - $ref: "#/components/parameters/ApplicationId"
+    post:
+      tags: [bank, assistant]
+      operationId: createBankAssistantSummary
+      summary: >-
+        «Сводка для решения» (И2а): риски по убыванию веса, что перепроверить, черновик
+        комментария и источники. Ничего не сохраняет в заявке
+      responses:
+        "200":
+          description: Сводка
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AssistantSummary" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
   /api/bank/applications/{id}/documents/{document_id}:
     parameters:
       - $ref: "#/components/parameters/ApplicationId"
@@ -2553,6 +2614,34 @@ components:
           items: { $ref: "#/components/schemas/AssistantToolCall" }
         pending_action:
           oneOf: [{ $ref: "#/components/schemas/PendingAction" }, { type: "null" }]
+
+    BankAssistantMessageRequest:
+      type: object
+      required: [text]
+      additionalProperties: false
+      properties:
+        text: { type: string, minLength: 1, maxLength: 2000 }
+
+    AssistantSummary:
+      type: object
+      required: [risks, to_verify, draft_comment, sources]
+      description: >-
+        «Сводка для решения» сотрудника (И2а). Каждая строка — из результатов инструментов;
+        у риска в скобках источник (проверка или фактор скоринга)
+      properties:
+        risks:
+          type: array
+          maxItems: 8
+          items: { type: string, examples: ["[риск] (скоринг: dscr)"] }
+        to_verify:
+          type: array
+          maxItems: 8
+          items: { type: string }
+        draft_comment: { type: string, description: Текст, который сотрудник вставляет и правит сам }
+        sources:
+          type: array
+          maxItems: 8
+          items: { type: string, examples: ["скоринг: dscr"] }
 
     AssistantActionResult:
       type: object
