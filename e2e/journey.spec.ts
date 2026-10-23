@@ -173,7 +173,7 @@ test.describe("scenario 3: seasonal store — counteroffer by DSCR", () => {
 
 test.describe("scenario 4: manufacturer — manual review and info request", () => {
   // One test: both halves need the same application, and tests must not depend on each other.
-  test("grade C → manual review → bank requests a document → client uploads and responds → bank approves → issued (B4, B5, C6, C7)", async ({
+  test("accountant hands off → director notified → grade C → manual review → bank requests a document → client uploads and responds → bank approves → issued (B4, B5, C6, C7, XP5)", async ({
     browser,
   }) => {
     const accountant = await personaPage(
@@ -185,7 +185,7 @@ test.describe("scenario 4: manufacturer — manual review and info request", () 
     const bank = await personaPage(browser, "Сотрудник банка", /\/bank/);
     let id = 0;
 
-    await test.step("the accountant prepares the draft but cannot send it", async () => {
+    await test.step("the accountant prepares the draft, cannot send it and hands it to the director", async () => {
       id = await createDraft(
         accountant,
         {
@@ -201,6 +201,22 @@ test.describe("scenario 4: manufacturer — manual review and info request", () 
       await accountant.goto(`/app/applications/${id}/edit/review`);
       await expect(accountant.getByText("Отправить заявку может подписант")).toBeVisible();
       await expect(accountant.getByRole("button", { name: "Отправить в банк" })).toHaveCount(0);
+      await accountant.getByRole("button", { name: "Передать директору" }).click();
+      await expect(accountant.getByRole("status")).toContainText(
+        "Передано: подписант получил уведомление",
+      );
+    });
+
+    await test.step("the director gets the notification and opens the draft from it (XP5)", async () => {
+      await director.goto("/app");
+      await director.getByRole("link", { name: /^Уведомления, непрочитанных/ }).click();
+      const note = director
+        .getByRole("listitem")
+        .filter({ hasText: `Заявка № ${id} готова к отправке` });
+      await expect(note).toContainText("отправить может только подписант");
+      await note.getByRole("link", { name: "Открыть заявку" }).click();
+      await expect(director).toHaveURL(new RegExp(`/app/applications/${id}$`));
+      await expect(director.getByText("Заявка передана подписанту на отправку.")).toBeVisible();
     });
 
     await test.step("the director sends it; grade C goes to an officer", async () => {

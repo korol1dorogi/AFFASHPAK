@@ -113,6 +113,13 @@ export function useSubmit(id: number) {
   );
 }
 
+/** XP5: a preparer hands the ready draft to the signatories; they get a notification. */
+export function useHandOff(id: number) {
+  return useDetailMutation(id, async () =>
+    unwrap(await api.POST("/api/applications/{id}/hand-off", path(id))),
+  );
+}
+
 export function useCancel(id: number) {
   return useDetailMutation(id, async () =>
     unwrap(await api.POST("/api/applications/{id}/cancel", path(id))),
