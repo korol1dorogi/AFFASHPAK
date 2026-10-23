@@ -1050,6 +1050,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/demo/sources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Живой статус источников — сбой и circuit breaker (XP6, сотрудник банка)
+         * @description Для демо-панели: по каждому из четырёх источников — включён ли сбой и когда погаснет сам
+         *     (через 15 минут после включения), и состояние circuit breaker. Breaker общий для всех
+         *     процессов стенда: три неудачных вызова подряд открывают его на 30 секунд, затем один
+         *     пробный вызов (half_open), удачный — закрывает. Выключение сбоя закрывает breaker
+         *     источника. Только на стенде (`DEMO_MODE=1`).
+         */
+        get: operations["getDemoSources"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/demo/failures": {
         parameters: {
             query?: never;
@@ -1946,6 +1970,27 @@ export interface components {
             /** @description Номер сценария из docs/plan.md (8 — D15) */
             scenario: number;
             kind: components["schemas"]["UserKind"];
+        };
+        DemoSource: {
+            source: components["schemas"]["CheckSource"];
+            /** @description Сбой включён на демо-панели */
+            failing: boolean;
+            /** @description Когда сбой погаснет сам; null — сбоя нет */
+            failing_until: string | null;
+            breaker: {
+                /**
+                 * @description closed — вызовы идут; open — вызовов нет до open_until, источник сразу
+                 *     «не отвечает»; half_open — следующий вызов пробный
+                 * @enum {string}
+                 */
+                state: "closed" | "open" | "half_open";
+                /** @description Неудачных вызовов подряд */
+                failures: number;
+                /** @description До какого момента breaker открыт; null — не открывался */
+                open_until: string | null;
+                /** @description Последний неудачный вызов; null — с последнего успеха не было */
+                last_failure_at: string | null;
+            };
         };
         /** @description true — источник «падает» (симулятор отвечает ошибкой или таймаутом) */
         DemoFailures: {
@@ -3804,6 +3849,29 @@ export interface operations {
                     "application/json": components["schemas"]["Me"];
                 };
             };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getDemoSources: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Четыре источника в порядке egrul, transparent_business, bki, bank_account */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DemoSource"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
         };

@@ -1319,6 +1319,29 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /api/demo/sources:
+    get:
+      tags: [demo]
+      operationId: getDemoSources
+      summary: Живой статус источников — сбой и circuit breaker (XP6, сотрудник банка)
+      description: |
+        Для демо-панели: по каждому из четырёх источников — включён ли сбой и когда погаснет сам
+        (через 15 минут после включения), и состояние circuit breaker. Breaker общий для всех
+        процессов стенда: три неудачных вызова подряд открывают его на 30 секунд, затем один
+        пробный вызов (half_open), удачный — закрывает. Выключение сбоя закрывает breaker
+        источника. Только на стенде (`DEMO_MODE=1`).
+      responses:
+        "200":
+          description: Четыре источника в порядке egrul, transparent_business, bki, bank_account
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/DemoSource" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   /api/demo/failures:
     get:
       tags: [demo]
@@ -2661,6 +2684,35 @@ components:
         username: { type: string }
         scenario: { type: integer, minimum: 1, maximum: 8, description: Номер сценария из docs/plan.md (8 — D15) }
         kind: { $ref: "#/components/schemas/UserKind" }
+
+    DemoSource:
+      type: object
+      required: [source, failing, failing_until, breaker]
+      additionalProperties: false
+      properties:
+        source: { $ref: "#/components/schemas/CheckSource" }
+        failing: { type: boolean, description: Сбой включён на демо-панели }
+        failing_until:
+          description: Когда сбой погаснет сам; null — сбоя нет
+          oneOf: [{ type: string, format: date-time }, { type: "null" }]
+        breaker:
+          type: object
+          required: [state, failures, open_until, last_failure_at]
+          additionalProperties: false
+          properties:
+            state:
+              type: string
+              enum: [closed, open, half_open]
+              description: |
+                closed — вызовы идут; open — вызовов нет до open_until, источник сразу
+                «не отвечает»; half_open — следующий вызов пробный
+            failures: { type: integer, minimum: 0, description: Неудачных вызовов подряд }
+            open_until:
+              description: До какого момента breaker открыт; null — не открывался
+              oneOf: [{ type: string, format: date-time }, { type: "null" }]
+            last_failure_at:
+              description: Последний неудачный вызов; null — с последнего успеха не было
+              oneOf: [{ type: string, format: date-time }, { type: "null" }]
 
     DemoFailures:
       type: object
