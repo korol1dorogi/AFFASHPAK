@@ -180,3 +180,79 @@ def test_openai_provider_hides_error_details():
     with pytest.raises(LLMError) as exc_info:
         client.complete(user("привет"), [])
     assert "secret-key-in-url" not in str(exc_info.value)
+
+
+class StatusError(Exception):
+    def __init__(self, status_code, retry_after=None):
+        super().__init__(f"status {status_code}")
+        self.status_code = status_code
+        self.response = SimpleNamespace(headers={"retry-after": retry_after} if retry_after else {})
+
+
+class PerModel:
+    """Fake completions: an error or a completion per model; records the models asked."""
+
+    def __init__(self, outcomes):
+        self.outcomes = outcomes
+        self.asked = []
+
+    def create(self, **kwargs):
+        self.asked.append(kwargs["model"])
+        outcome = self.outcomes[kwargs["model"]]
+        if isinstance(outcome, Exception):
+            raise outcome
+        return outcome
+
+
+@pytest.fixture(autouse=False)
+def fresh_cooldown():
+    from apps.assistant.llm import openai_compat
+
+    openai_compat._cooldown.clear()
+    yield openai_compat._cooldown
+    openai_compat._cooldown.clear()
+
+
+def test_a_rate_limited_model_hands_over_to_the_next_at_once(fresh_cooldown):
+    completions = PerModel({"a": StatusError(429, "20"), "b": completion(content="ответ b")})
+    client = OpenAICompatibleClient(
+        base_url="", api_key="", model="a, b", sdk_client=fake_sdk(completions)
+    )
+    assert client.complete(user("привет"), []).content == "ответ b"
+    assert completions.asked == ["a", "b"]
+    assert "a" in fresh_cooldown  # skipped next time until retry-after passes
+
+    completions.asked.clear()
+    client.complete(user("ещё"), [])
+    assert completions.asked == ["b"]
+
+
+def test_every_model_failing_is_an_llm_error(fresh_cooldown):
+    completions = PerModel({"a": StatusError(503), "b": StatusError(429)})
+    client = OpenAICompatibleClient(
+        base_url="", api_key="", model="a,b", sdk_client=fake_sdk(completions)
+    )
+    with pytest.raises(LLMError):
+        client.complete(user("привет"), [])
+    assert completions.asked == ["a", "b"]
+
+
+def test_a_bad_request_is_not_retried_on_other_models(fresh_cooldown):
+    completions = PerModel({"a": StatusError(400), "b": completion(content="b")})
+    client = OpenAICompatibleClient(
+        base_url="", api_key="", model="a,b", sdk_client=fake_sdk(completions)
+    )
+    with pytest.raises(LLMError):
+        client.complete(user("привет"), [])
+    assert completions.asked == ["a"]
+
+
+def test_all_cooling_down_still_asks_the_one_that_frees_first(fresh_cooldown):
+    import time
+
+    fresh_cooldown.update({"a": time.monotonic() + 50, "b": time.monotonic() + 5})
+    completions = PerModel({"a": completion(content="a"), "b": completion(content="b")})
+    client = OpenAICompatibleClient(
+        base_url="", api_key="", model="a,b", sdk_client=fake_sdk(completions)
+    )
+    assert client.complete(user("привет"), []).content == "b"

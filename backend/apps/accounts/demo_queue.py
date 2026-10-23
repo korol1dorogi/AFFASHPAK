@@ -10,8 +10,11 @@ Deterministic (by position) and seeded once: rows marked QUEUE_MARK exist → no
 import uuid
 from datetime import timedelta
 from decimal import ROUND_HALF_UP, Decimal
+from functools import cache
 
+from django.apps import apps
 from django.core.files.base import ContentFile
+from django.db import models
 from django.db.models import F
 
 from apps.accounts.demo import load_companies
@@ -21,7 +24,6 @@ from apps.applications.models import (
     BKI_CONSENT_VERSION,
     ActorKind,
     Application,
-    ApplicationEvent,
     ApplicationStatus,
 )
 from apps.business.models import Company, FinancialSnapshot, MemberRole, Membership
@@ -76,19 +78,43 @@ def seed_queue(size: int = DEFAULT_SIZE) -> int:
         application.refresh_from_db()
         if application.status == ApplicationStatus.OFFER and index % ISSUE_EVERY == 0:
             _issue(application, signatory)
-        # Age the whole application by the same shift, journal included: the card's history,
-        # the queue's hours in status / SLA and the dashboard then tell one story.
-        shift = timedelta(hours=(index * 7) % 61)  # 0…60 h: some rows are past the norm
-        Application.objects.filter(pk=application.pk).update(
-            status_changed_at=F("status_changed_at") - shift,
-            submitted_at=F("submitted_at") - shift,
-            created_at=F("created_at") - shift - timedelta(hours=1),  # drafted before sending
-        )
-        ApplicationEvent.objects.filter(application=application).update(
-            created_at=F("created_at") - shift
-        )
+        _age(application, timedelta(hours=(index * 7) % 61))  # 0…60 h: some are past the norm
         created += 1
     return created
+
+
+def _age(application: Application, shift: timedelta) -> None:
+    """Every timestamp of the application by the same shift (fix 3.1): its dates, journal,
+    checks, score, decisions, offers with their expiry, signature, disbursement, notifications —
+    the card's history, the queue's hours in status / SLA and the dashboard then tell one story.
+    Related models are found through their foreign keys, so a new one is aged too."""
+    dates = _shifted(_timestamps(Application), shift)
+    dates["created_at"] = F("created_at") - shift - timedelta(hours=1)  # drafted before sending
+    Application.objects.filter(pk=application.pk).update(**dates)
+    for model, link in _related_to_application():
+        model.objects.filter(**{link: application}).update(**_shifted(_timestamps(model), shift))
+
+
+def _shifted(fields: list[str], shift: timedelta) -> dict:
+    return {name: F(name) - shift for name in fields}
+
+
+@cache
+def _timestamps(model: type[models.Model]) -> list[str]:
+    return [f.name for f in model._meta.concrete_fields if isinstance(f, models.DateTimeField)]
+
+
+@cache
+def _related_to_application() -> list[tuple[type[models.Model], str]]:
+    """(model, field) for every model with a foreign key to Application that has timestamps."""
+    return [
+        (model, field.name)
+        for model in apps.get_models()
+        for field in model._meta.concrete_fields
+        if isinstance(field, models.ForeignKey)
+        and field.related_model is Application
+        and _timestamps(model)
+    ]
 
 
 def _apply(index: int, company: Company, user) -> Application:

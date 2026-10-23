@@ -217,6 +217,9 @@ LLM_BASE_URL = env("LLM_BASE_URL", "")
 LLM_API_KEY = env("LLM_API_KEY", "")
 LLM_MODEL = env("LLM_MODEL", "")
 LLM_TIMEOUT_SECONDS = env_int("LLM_TIMEOUT_SECONDS", 30)
+# Model ↔ tools round trips per answer (AI2); each tool call of a model without parallel calls
+# is a step of its own, so 4 is enough for the bank summary (two tools) with room to spare.
+LLM_MAX_STEPS = env_int("LLM_MAX_STEPS", 4)
 
 # --- Demo stand: /api/demo/* and the seed of personas exist only with DEMO_MODE=1 ---
 DEMO_MODE = env_bool("DEMO_MODE", default=False)

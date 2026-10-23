@@ -71,8 +71,11 @@ TRANSITIONS: dict[str, Transition] = {
     "decline_offer": _t({S.OFFER}, {S.CANCELLED}, SIGNATORY),
     "confirm_signature": _t({S.SIGNING}, {S.SIGNED}, SIGNATORY),
     "disburse": _t({S.SIGNED}, {S.ISSUED}, SYSTEM),
+    # Up to the signature the client may walk away, signing included (fix 3.2).
     "cancel": _t(
-        {S.DRAFT, S.SUBMITTED, S.MANUAL_REVIEW, S.INFO_REQUESTED, S.OFFER}, {S.CANCELLED}, SIGNATORY
+        {S.DRAFT, S.SUBMITTED, S.MANUAL_REVIEW, S.INFO_REQUESTED, S.OFFER, S.SIGNING},
+        {S.CANCELLED},
+        SIGNATORY,
     ),
 }
 

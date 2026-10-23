@@ -1,4 +1,4 @@
-"""Entry point for the view and the assistant tool `get_recommendations` (S7).
+"""Entry point for the view and the assistant tool `recommend_products` (AI1).
 
 Acts on behalf of the user: their company only, input validated by the same serializer.
 """
