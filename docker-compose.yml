@@ -176,14 +176,18 @@ services:
 
   # AI4: a local open-weight model for a machine without GPU and without a key (README,
   # «Подключить модель»). `docker compose --profile llm up -d llm`, then in .env:
-  # LLM_PROVIDER=openai, LLM_BASE_URL=http://llm:11434/v1, LLM_API_KEY=ollama, LLM_MODEL=qwen3:4b,
-  # LLM_TIMEOUT_SECONDS=120 — and restart backend. The weights download on the first start.
+  # LLM_PROVIDER=openai, LLM_BASE_URL=http://llm:11434/v1, LLM_API_KEY=ollama,
+  # LLM_MODEL=qwen3:4b-instruct,
+  # LLM_TIMEOUT_SECONDS=180 — and restart backend. The weights download on the first start.
+  # The instruct build answers without a long «thinking» part — on CPU that is minutes saved.
   llm:
     image: ollama/ollama:0.35.1
     profiles: ["llm"]
     entrypoint: ["/bin/sh", "/pull-and-serve.sh"]
     environment:
-      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen3:4b}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen3:4b-instruct}
+      # the prompt and the tools take ~4k tokens; the default window would cut them
+      OLLAMA_CONTEXT_LENGTH: 8192
       OLLAMA_KEEP_ALIVE: 24h
     volumes:
       - ollama-data:/root/.ollama

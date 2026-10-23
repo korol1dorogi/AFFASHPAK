@@ -254,13 +254,25 @@ def test_client_tools_are_unavailable_to_the_bank(bank, monkeypatch):
 
 
 def test_the_loop_stops_after_max_steps(seeded, monkeypatch, settings):
+    """Steps spent on tools → one request without tools makes the model answer (AI7: a model
+    without parallel calls spent all four steps on the bank's tools and left no answer)."""
     settings.LLM_MAX_STEPS = 3
+    call = ToolCall("c", "explain_term", {"term": "грейд"})
+    looping = [LLMResponse(content="", tool_calls=(call,))] * 3
+    client = use(monkeypatch, Scripted(*looping, LLMResponse("Грейд — итог балльной оценки.")))
+    answer = engine.reply(user_of("demo_coffee_shop"), "client", "Что такое грейд?")
+    assert answer["reply"] == "Грейд — итог балльной оценки."
+    assert len(client.sent) == 4
+    assert len(answer["tool_calls"]) == 3
+
+
+def test_a_model_that_still_wants_tools_gets_the_steps_message(seeded, monkeypatch, settings):
+    settings.LLM_MAX_STEPS = 2
     call = ToolCall("c", "explain_term", {"term": "грейд"})
     client = use(monkeypatch, Scripted(*[LLMResponse(content="", tool_calls=(call,))] * 3))
     answer = engine.reply(user_of("demo_coffee_shop"), "client", "Что такое грейд?")
     assert answer["reply"] == engine.STEPS_EXCEEDED
     assert len(client.sent) == 3
-    assert len(answer["tool_calls"]) == 3
 
 
 def test_no_more_than_six_tool_calls_per_turn(seeded, monkeypatch):

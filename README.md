@@ -177,7 +177,7 @@ LLM_API_KEY=<ключ>
 LLM_MODEL=qwen/qwen3.8-27b,openai/gpt-oss-120b,openai/gpt-oss-20b
 ```
 
-`docker compose up -d backend`, затем `docker compose exec backend python -m apps.assistant.llm.smoke` — напишет «готово» или что не так. Без внешней сети и ключа — локальная модель: `docker compose --profile llm up -d llm` и настройки из [docs/assistant.md](docs/assistant.md#как-подключить-модель).
+`docker compose up -d backend`, затем `docker compose exec backend python -m apps.assistant.llm.smoke` — напишет «готово» или что не так. Без внешней сети и ключа — локальная модель: `docker compose --profile llm up -d llm` и настройки из [docs/assistant.md](docs/assistant.md#как-подключить-модель). Стек с локальной моделью занимает около 5,3 ГБ памяти (модель — 4,8 ГБ; замер на 12 CPU без GPU), ответ — 18–80 с: это запасной режим без сети, качество — у модели стенда.
 
 ## Как проверить качество
 | Что | Команда | Что нужно |
@@ -188,7 +188,7 @@ LLM_MODEL=qwen/qwen3.8-27b,openai/gpt-oss-120b,openai/gpt-oss-20b
 | e2e, сценарии 1–8 в браузере | в `e2e/`: `npm ci && npx playwright install chromium && npx playwright test` | стек поднят (API на `127.0.0.1:8000`), `npm ci` в `frontend/` — Playwright сам запускает dev-сервер фронта; против другого адреса — `E2E_BASE_URL=<адрес>` |
 | Коллекция запросов (newman) | в `postman/`: `npm ci && npm test` | стек поднят, API на `127.0.0.1:8000` |
 | Чистый клон + сценарий 1 | `scripts/check-clean-clone.sh` | Git, bash, Docker |
-| Качество ассистента: 47 сценариев и атаки | `docker compose exec backend python manage.py assistant_eval` (`--provider openai` — на модели из `.env`) | стек поднят |
+| Качество ассистента: 52 сценария и атаки | `docker compose exec backend python manage.py assistant_eval` (`--provider openai` — на модели из `.env`) | стек поднят |
 
 CI ([.github/workflows/ci.yml](.github/workflows/ci.yml)) на каждый PR и push в main:
 

@@ -101,7 +101,10 @@ class Turn:
                     Message(role="tool", content=json.dumps(result, ensure_ascii=False),
                             tool_call_id=call.id)
                 )  # fmt: skip
-        return STEPS_EXCEEDED
+        # The steps ran out with results in hand: one more request without tools makes the
+        # model answer from them (a model without parallel calls spends a step per tool).
+        final = client.complete(self.messages, [])
+        return final.content if final.content and not final.tool_calls else STEPS_EXCEEDED
 
     def _execute(self, allowed: set[str], name: str, arguments: dict) -> dict:
         refusal = guards.check_tool_call(allowed, name, self.calls)
