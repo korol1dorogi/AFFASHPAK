@@ -112,3 +112,77 @@ docker compose up -d --build --wait
 | 8 | персона 8: «Нужно купить оборудование или транспорт» → заявка на инвест-кредит 12 000 000 ₽ без залога → отправить | предложение по другому продукту — лизинг 11 443 551 ₽ на 36 мес → подписать → выдача |
 
 Шаги с запросами API и ожидаемыми ответами — [docs/test-scenarios.md](docs/test-scenarios.md). Все 8 сценариев автоматизированы в e2e ([e2e/journey.spec.ts](e2e/journey.spec.ts)), сценарий 1 по HTTP — [scripts/smoke_scenario_1.py](scripts/smoke_scenario_1.py).
+
+## Архитектура
+Монолит Django + DRF и React SPA на одном origin за Caddy. Контракт API — [docs/openapi.yaml](docs/openapi.yaml): бэкенд проверяет по нему свои ответы в тестах, фронт генерирует из него клиент. После отправки заявки конвейер — проверка полноты → источники параллельно → скоринг → правила решения — и выдача уходят в Celery worker через Redis. Статус меняет только сервис переходов стейт-машины, и это одна заявка для клиента и для банка. Кнопки на экране рисуются только по `available_actions` с сервера. Вход — сессия + CSRF, без JWT и CORS. Диаграммы контекста, контейнеров, модулей и последовательности, а также решения с альтернативами — [docs/architecture.md](docs/architecture.md).
+
+| Сервис `docker-compose.yml` | Что | Версия |
+|---|---|---|
+| `db` | PostgreSQL | 18.6 |
+| `init` | одноразовый: миграции + `seed_demo` (каталог продуктов, 8 персон, сотрудники банка, 30 заявок популяции через настоящий конвейер) | образ бэкенда |
+| `redis` | брокер задач Celery, без хранения, 32 МБ | 7.4.2 |
+| `worker` | Celery: конвейер заявки и выдача; при старте дозапускает потерянные задачи | Celery 5.5.3 |
+| `backend` | API: Python 3.12, Django 6.1, DRF 3.18; порт `127.0.0.1:8000` | Python 3.12.15 |
+| `swagger` | Swagger UI по контракту на `/api/docs` | swagger-ui 5.17.14 |
+| `web` | Caddy: собранный SPA (React 19, TypeScript strict, Vite, react-router, Tailwind + shadcn/ui, TanStack Query, react-hook-form + zod) + прокси `/api/*`; порт `127.0.0.1:8080` | Caddy 2.11.7, Node 24.22.0 при сборке |
+| `mock` (профиль `mock`) | Prism: мок API по контракту для фронта без бэкенда | Prism 5.15.10 |
+
+Все версии закреплены: образы — тегами, Python-пакеты — `backend/requirements*.txt`, npm — `package-lock.json`. Сторонние компоненты и лицензии — [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+**Смоделированные интеграции.** Кейс требует автономности, поэтому ничего не ходит наружу. Ниже — что именно заменено симуляторами; как каждая интеграция будет устроена в продакшене, описано в [docs/assumptions.md](docs/assumptions.md).
+
+| Внешняя система | Чем заменена |
+|---|---|
+| ЕГРЮЛ/ЕГРИП | синтетический реестр по ИНН: автозаполнение компании и проверка в конвейере |
+| «Прозрачный бизнес» ФНС | ответы генератора: массовый адрес, налоговая задолженность |
+| Бюро кредитных историй | ответы генератора; согласие клиента на запрос сохраняется по-настоящему |
+| Выписка по счёту, ЭДО | синтетическая выписка за 18 месяцев → финансовый снимок компании |
+| Сбои источников | флаг на Демо-панели; ретраи, таймаут 2 с и circuit breaker работают в коде |
+| Подписание | одноразовый код на экране вместо SMS и ДБО |
+| Выдача | симуляция: после подписи деньги помечаются выданными |
+| LLM | `mock` без сети; опционально — OpenAI-совместимый API к модели с открытыми весами |
+
+## Конфигурация
+Все переменные — в [.env.example](.env.example); `cp .env.example .env` даёт рабочую конфигурацию без правок. Секретов в репозитории нет: в примере только заглушки для локального запуска.
+
+| Переменная | По умолчанию | Зачем |
+|---|---|---|
+| `DJANGO_SECRET_KEY` | заглушка для локального запуска | ключ Django; на стенде — свой случайный |
+| `DJANGO_DEBUG` | `1` | режим отладки; на стенде `0` |
+| `DJANGO_ALLOWED_HOSTS` | `localhost,127.0.0.1` | хосты, на которые отвечает API |
+| `DJANGO_CSRF_TRUSTED_ORIGINS` | пусто | только за прокси на другом origin (стенд: `https://домен`) |
+| `DJANGO_ADMIN_URL` | `admin/` | путь админки Django |
+| `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` | `alfa`, `alfa`, заглушка | база в контейнере `db` |
+| `POSTGRES_HOST`, `POSTGRES_PORT` | `db`, `5432` | адрес базы для бэкенда |
+| `WEB_PORT` | `8080` | порт кабинета на хосте |
+| `BACKEND_PORT` | `8000` (нет в примере, задаётся в `docker-compose.yml`) | порт API на хосте — для фронта в режиме разработки, e2e и коллекции |
+| `DEMO_MODE` | `1` | демо-персоны, быстрый вход и `/api/demo/*` (Демо-панель); `0` — выключить |
+| `SLA_HOURS` | пусто = `submitted=1, processing=1, manual_review=24, signed=1` | норматив в часах по статусам для отметки «просрочено» в очереди банка |
+| `LLM_PROVIDER` | `mock` | `mock` — детерминированный, без сети и ключа; `openai` — OpenAI-совместимый API к модели с открытыми весами |
+| `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL` | пусто | только для `LLM_PROVIDER=openai` |
+| `LLM_TIMEOUT_SECONDS` | `30` | таймаут запроса к LLM |
+| `CASE_DATA_DIR` | `./data/sample` | папка с данными, монтируется только на чтение; по умолчанию синтетика ([data/SCHEMA.md](data/SCHEMA.md)) |
+
+Задано в `docker-compose.yml`, в `.env` менять не нужно: `CELERY_BROKER_URL` (Redis; пусто — конвейер выполняется прямо в запросе), `THROTTLE_LOGIN` и `THROTTLE_ANON` (лимиты запросов, ослаблены для e2e).
+
+## Как проверить качество
+| Что | Команда | Что нужно |
+|---|---|---|
+| Тесты бэкенда (unit, API, контракт) | `docker compose run --rm backend pytest` | Docker |
+| Линт бэкенда | `docker compose run --rm backend sh -c "ruff check . && ruff format --check ."` | Docker |
+| Фронтенд: линт, типы, тесты | в `frontend/`: `npm ci && npm run lint && npm run typecheck && npm test` | Node из [.nvmrc](.nvmrc) (24.22.0) |
+| e2e, сценарии 1–8 в браузере | в `e2e/`: `npm ci && npx playwright install chromium && npx playwright test` | стек поднят (API на `127.0.0.1:8000`), `npm ci` в `frontend/` — Playwright сам запускает dev-сервер фронта; против другого адреса — `E2E_BASE_URL=<адрес>` |
+| Коллекция запросов (newman) | в `postman/`: `npm ci && npm test` | стек поднят, API на `127.0.0.1:8000` |
+| Чистый клон + сценарий 1 | `scripts/check-clean-clone.sh` | Git, bash, Docker |
+
+CI ([.github/workflows/ci.yml](.github/workflows/ci.yml)) на каждый PR и push в main:
+
+| Задача | Что проверяет |
+|---|---|
+| `backend` | ruff, pytest (включая медленные), `manage.py check --deploy` с боевыми настройками, миграции совпадают с моделями |
+| `frontend` | Biome, `tsc --noEmit`, Vitest, сборка, сгенерированный клиент API совпадает с `docs/openapi.yaml` |
+| `e2e` | Playwright по сценариям против `docker compose` |
+| `collection` | newman по [postman/collection.json](postman/collection.json) против `docker compose` |
+| `gitleaks` | секреты во всей истории git |
+| `audit` | известные уязвимости: pip-audit, npm audit (не блокирует) |
+| `deploy` | после зелёного мержа в main — автодеплой на стенд ([docs/deploy.md](docs/deploy.md)) |
