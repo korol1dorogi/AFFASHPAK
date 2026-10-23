@@ -488,6 +488,20 @@ export const SNAPSHOT_SOURCE: Record<Schemas["SnapshotSource"], string> = {
   manual: "Введено вручную",
 };
 
+/**
+ * Where an amount comes from (SRC7, docs/products.md «Входные данные»): the label next to it and
+ * a hint on hover. `officer` — the amount a bank officer set in a decision.
+ */
+export const AMOUNT_SOURCE = {
+  client: { label: "со слов клиента", hint: "Сумму указал клиент" },
+  statement: { label: "по выписке", hint: "Посчитано по выписке с расчётного счёта" },
+  calc: {
+    label: "расчёт",
+    hint: "Рассчитано по формулам банка из данных выписки и условий продукта",
+  },
+  officer: { label: "решение банка", hint: "Сумму установил сотрудник банка" },
+} as const;
+
 type SnapshotMetric = Exclude<keyof Schemas["FinancialSnapshot"], "id" | "period" | "source">;
 
 /** Snapshot metrics in display order: money, then ratios shown as they are. */
