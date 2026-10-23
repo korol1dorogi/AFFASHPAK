@@ -11,8 +11,6 @@
 | Mock-провайдер (`apps/assistant/llm`) | по умолчанию: детерминированные ответы без сети и ключа | собственный код |
 | Qwen3.8 27B — `qwen/qwen3.8-27b` (Alibaba Qwen, открытые веса) | модель стенда через Groq (`LLM_PROVIDER=openai`) | Apache-2.0 |
 | gpt-oss-120b, gpt-oss-20b — `openai/gpt-oss-*` (открытые веса) | запасные модели стенда: модель на лимите передаёт ход следующей | Apache-2.0 |
-| Qwen3 4B Instruct 2507 — `qwen3:4b-instruct` в Ollama, веса с [Hugging Face](https://huggingface.co/Qwen/Qwen3-4B-Instruct-2507) | локальная модель без GPU и ключа (профиль compose `llm`, AI4) | Apache-2.0 |
-| Ollama — образ `ollama/ollama:0.35.1` | сервер локальной модели, OpenAI-совместимый API | MIT |
 | Groq Cloud | внешний сервис: хостинг открытых моделей по OpenAI-совместимому API; ключ — только в `.env` стенда, в модель уходят лишь данные текущего пользователя ([docs/assistant.md](docs/assistant.md)) | условия сервиса Groq |
 | `openai` (Python SDK) 3.35.1 | клиент OpenAI-совместимого API (к модели с открытыми весами, не к сервисам OpenAI) | Apache-2.0 |
 

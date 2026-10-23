@@ -177,7 +177,7 @@ LLM_API_KEY=<ключ>
 LLM_MODEL=qwen/qwen3.8-27b,openai/gpt-oss-120b,openai/gpt-oss-20b
 ```
 
-`docker compose up -d backend`, затем `docker compose exec backend python -m apps.assistant.llm.smoke` — напишет «готово» или что не так. Без внешней сети и ключа — локальная модель: `docker compose --profile llm up -d llm` и настройки из [docs/assistant.md](docs/assistant.md#как-подключить-модель). Стек с локальной моделью занимает около 5,3 ГБ памяти (модель — 4,8 ГБ; замер на 12 CPU без GPU), ответ — 18–80 с: это запасной режим без сети, качество — у модели стенда.
+`docker compose up -d backend`, затем `docker compose exec backend python -m apps.assistant.llm.smoke` — напишет «готово» или что не так. Подробнее — [docs/assistant.md](docs/assistant.md#как-подключить-модель).
 
 ## Как проверить качество
 | Что | Команда | Что нужно |
