@@ -209,6 +209,10 @@ test.describe("scenario 4: manufacturer — manual review and info request", () 
       await expect(director.getByRole("list", { name: "Причины" })).toContainText(
         "Грейд C (65 из 100)",
       );
+      // BKI1: the 10-day overdue of two years ago is explained, not left as a black box (L01, R04)
+      const history = director.getByRole("region", { name: "Кредитная история: что увидел банк" });
+      await expect(history).toContainText("10 дней — в пределах порога банка 30 дней");
+      await expect(history.getByRole("listitem").first()).toContainText("Госуслугах");
     });
 
     await test.step("the officer finds it in the queue, takes it and asks for a document", async () => {

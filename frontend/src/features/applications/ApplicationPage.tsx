@@ -26,6 +26,7 @@ import {
   useProducts,
   useRespondInfo,
 } from "@/features/applications/api";
+import { CreditHistory } from "@/features/applications/CreditHistory";
 import { DocumentList, DocumentUpload } from "@/features/applications/Documents";
 import { showsWhatIf, WhatIf } from "@/features/applications/WhatIf";
 import { ApiError, errorMessage } from "@/lib/errors";
@@ -148,6 +149,8 @@ function DecisionCard({
         // The shortest way to grade C with targets; all the advice stays below it.
         <ApprovalPlan plan={decision.approval_plan} grade={decision.grade} />
       ) : null}
+      {/* BKI1: a past overdue cannot be planned away — say what the bank saw and what to do. */}
+      <CreditHistory reasons={decision.reasons} finished={decision.outcome === "declined"} />
       <ImprovementList items={decision.improvements} />
     </Card>
   );
