@@ -54,14 +54,15 @@ export const STATUS: Record<Schemas["ApplicationStatus"], StatusText> = {
   offer: {
     label: "Есть предложение",
     group: "action",
-    meaning: "Банк готов дать деньги на условиях ниже.",
+    meaning:
+      "Банк сделал предложение — условия ниже. Это ещё не договор: условия закрепятся, когда вы его подпишете.",
     next: "Примите предложение, чтобы перейти к подписанию, или откажитесь.",
   },
   signing: {
     label: "Подписание",
     group: "action",
     meaning: "Предложение принято, осталось подписать договор.",
-    next: "Подпишите договор кодом, который покажем на экране.",
+    next: "Подпишите договор кодом с экрана. Подписать может только подписант компании.",
   },
   signed: {
     label: "Договор подписан",
@@ -73,7 +74,7 @@ export const STATUS: Record<Schemas["ApplicationStatus"], StatusText> = {
     label: "Деньги выданы",
     group: "success",
     meaning: "Деньги поступили на счёт.",
-    next: "Готово. График платежей — в разделе заявки.",
+    next: "Готово. Условия финансирования — на странице заявки.",
   },
   declined: {
     label: "Отказ",
@@ -84,7 +85,7 @@ export const STATUS: Record<Schemas["ApplicationStatus"], StatusText> = {
   cancelled: {
     label: "Отозвана",
     group: "neutral",
-    meaning: "Заявка отозвана.",
+    meaning: "Заявка закрыта: вы отозвали её или отказались от предложения.",
     next: "Чтобы получить деньги, подберите финансирование заново.",
   },
 };
@@ -96,7 +97,7 @@ export const ACTION: Record<Schemas["ApplicationAction"], string> = {
   cancel: "Отозвать заявку",
   respond_info: "Ответить банку",
   accept_offer: "Принять и подписать",
-  decline_offer: "Отказаться",
+  decline_offer: "Отказаться от предложения",
   sign: "Подписать договор",
   assign: "Взять в работу",
   approve: "Одобрить",
@@ -120,7 +121,7 @@ export const NEED: Record<Schemas["NeedType"], NeedText> = {
     hint: "Есть УПД, оплата через 30–90 дней",
   },
   working_capital: { title: "Нужно закупиться к сезону", hint: "Товар, сырьё, запасы" },
-  capex: { title: "Покупаю оборудование или транспорт", hint: "Станок, машина, помещение" },
+  capex: { title: "Нужно купить оборудование или транспорт", hint: "Станок, машина, помещение" },
 };
 
 export const PRODUCT_KIND: Record<Schemas["ProductKind"], string> = {
