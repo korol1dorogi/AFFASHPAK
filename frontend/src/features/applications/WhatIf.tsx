@@ -1,6 +1,7 @@
 import { useEffect, useId, useState } from "react";
 
 import type { Schemas } from "@/api/client";
+import { SourceTag } from "@/components/AmountSource";
 import { Field } from "@/components/Field";
 import { MoneyText } from "@/components/Money";
 import { MoneyInput } from "@/components/MoneyInput";
@@ -138,6 +139,7 @@ export function WhatIf({ application, offer }: { application: ApplicationDetail;
                 <dt className="text-xs text-ink-muted">{T.payment}</dt>
                 <dd className="m-0">
                   <MoneyText value={result.monthly_payment} size="md" />
+                  <SourceTag source="calc" />
                 </dd>
               </div>
               <div>
@@ -146,7 +148,10 @@ export function WhatIf({ application, offer }: { application: ApplicationDetail;
                   {result.max_amount === null ? (
                     <span className="text-sm">{T.noMaxAmount}</span>
                   ) : (
-                    <MoneyText value={result.max_amount} size="md" />
+                    <>
+                      <MoneyText value={result.max_amount} size="md" />
+                      <SourceTag source="calc" />
+                    </>
                   )}
                 </dd>
               </div>

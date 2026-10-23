@@ -3,6 +3,12 @@ import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { Schemas } from "@/api/client";
+import {
+  metricSource,
+  offerAmountSource,
+  SourceTag,
+  snapshotSource,
+} from "@/components/AmountSource";
 import { MoneyInput } from "@/components/MoneyInput";
 import { OfferCard } from "@/components/OfferCard";
 import { ReasonList } from "@/components/ReasonList";
@@ -20,6 +26,67 @@ describe("StatusBadge", () => {
     const badge = screen.getByText(text.label);
     expect(badge).toHaveAttribute("data-status", status);
     expect(badge.querySelector("svg")).not.toBeNull();
+  });
+});
+
+/** The source label next to an amount inside `scope` (SRC7). */
+function sourceOf(scope: HTMLElement) {
+  return Array.from(scope.querySelectorAll("[data-amount-source]")).map((tag) => tag.textContent);
+}
+
+describe("SourceTag", () => {
+  it.each([
+    ["client", "со слов клиента"],
+    ["statement", "по выписке"],
+    ["calc", "расчёт"],
+    ["officer", "решение банка"],
+  ] as const)("%s reads «%s» and explains itself on hover", (source, label) => {
+    render(<SourceTag source={source} />);
+    expect(screen.getByText(label)).toHaveAttribute("title");
+  });
+
+  it("a snapshot field is from the statement, any other money metric is counted", () => {
+    expect(metricSource("cleaned_credit_turnover")).toBe("statement");
+    expect(metricSource("ebitda")).toBe("statement");
+    expect(metricSource("overdraft_limit")).toBe("calc");
+    expect(metricSource("max_loan_by_dscr")).toBe("calc");
+  });
+
+  it("a snapshot typed in by hand is the client's word", () => {
+    expect(snapshotSource("manual")).toBe("client");
+    expect(snapshotSource("simulator")).toBe("statement");
+    expect(snapshotSource("demo")).toBe("statement");
+    expect(snapshotSource("case")).toBe("statement");
+  });
+
+  it("an offer amount set by an officer is the bank's decision, an automatic one is counted", () => {
+    const decision = (
+      decided_by: "auto" | "officer",
+      outcome: Schemas["Decision"]["outcome"],
+      created_at: string,
+    ) =>
+      ({
+        id: 1,
+        application_id: 1,
+        outcome,
+        decided_by,
+        is_preliminary: decided_by === "auto",
+        grade: "C",
+        policy_version: "2026.10-v1",
+        reasons: [],
+        improvements: [],
+        comment: null,
+        created_at,
+      }) satisfies Schemas["Decision"];
+    const auto = decision("auto", "manual_review", "2026-10-20T09:31:00Z");
+    const officer = decision("officer", "counteroffer", "2026-10-20T10:00:00Z");
+    expect(offerAmountSource([auto, officer])).toBe("officer");
+    expect(offerAmountSource([decision("auto", "offer", "2026-10-20T09:31:00Z")])).toBe("calc");
+    // The newest offer wins: an automatic offer after the officer's is counted again.
+    expect(offerAmountSource([officer, decision("auto", "offer", "2026-10-21T09:00:00Z")])).toBe(
+      "calc",
+    );
+    expect(offerAmountSource([])).toBe("calc");
   });
 });
 
@@ -69,6 +136,23 @@ describe("ReasonList", () => {
     expect(screen.getByText("900 000 ₽")).toBeInTheDocument();
     expect(screen.getByText("порог 5 300 000 ₽")).toBeInTheDocument();
     expect(screen.queryByText(/^0$/)).toBeNull();
+  });
+
+  it("a money value says where it comes from; a threshold and «нет данных» do not", () => {
+    const ebitda: Schemas["Reason"] = {
+      metric: "ebitda",
+      value: "-120000.00",
+      threshold: "0",
+      passed: false,
+      message: "Операционный убыток",
+    };
+    render(<ReasonList reasons={[...reasons, ebitda]} />);
+    const items = screen.getAllByRole("listitem") as HTMLElement[];
+    expect(sourceOf(items[0] as HTMLElement)).toEqual(["расчёт"]); // overdraft limit
+    expect(sourceOf(items[1] as HTMLElement)).toEqual(["расчёт"]); // not its threshold too
+    expect(sourceOf(items[2] as HTMLElement)).toEqual([]); // no data, not money
+    expect(sourceOf(items[3] as HTMLElement)).toEqual([]); // DSCR is a ratio
+    expect(sourceOf(items[4] as HTMLElement)).toEqual(["по выписке"]);
   });
 
   it("uses plain titles for everyone and adds metric codes for the bank", () => {
@@ -164,6 +248,28 @@ describe("OfferCard", () => {
     expect(screen.getByText("24 %")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Принять и подписать" }));
     expect(onAccept).toHaveBeenCalledOnce();
+  });
+
+  it("every amount says where it comes from: counted, asked by the client, the payment", () => {
+    render(<OfferCard offer={counteroffer} actions={[]} />);
+    const card = screen.getByRole("article", { name: "Предложение банка" });
+    // The first 2 009 314 ₽ is the offer amount, the second one the reason's value.
+    expect(screen.getAllByText("2 009 314 ₽")[0]?.parentElement).toHaveTextContent(
+      "2 009 314 ₽расчёт",
+    );
+    expect(screen.getByText("Вы просили 5 300 000 ₽")).toHaveTextContent(
+      "Вы просили 5 300 000 ₽со слов клиента",
+    );
+    expect(screen.getByText("189 999,92 ₽").parentElement).toHaveTextContent("расчёт");
+    // amount, asked, payment and the reason's value
+    expect(sourceOf(card)).toEqual(["расчёт", "со слов клиента", "расчёт", "расчёт"]);
+  });
+
+  it("an amount an officer set is labelled «решение банка»", () => {
+    render(<OfferCard offer={counteroffer} actions={[]} amountSource="officer" />);
+    expect(screen.getAllByText("2 009 314 ₽")[0]?.parentElement).toHaveTextContent(
+      "2 009 314 ₽решение банка",
+    );
   });
 
   it("hides the buttons when the user may not act (preparer)", () => {

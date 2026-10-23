@@ -1,6 +1,7 @@
 import { Check, Minus, X } from "lucide-react";
 
 import type { Schemas } from "@/api/client";
+import { metricSource, SourceTag } from "@/components/AmountSource";
 import { formatDecimal, formatMoney, formatRate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { METRIC, type MetricText, metricTitle } from "@/texts";
@@ -56,6 +57,7 @@ const MARK_TONE = {
 /**
  * Reasons of a preliminary evaluation or decision: plain titles from texts/ for everyone; the bank
  * variant also shows the metric code under the title. A null value is «нет данных», never 0.
+ * A money value says where it comes from (SRC7); a threshold is a rule of the product, it does not.
  */
 export function ReasonList({
   reasons,
@@ -100,6 +102,9 @@ export function ReasonList({
                   {formatValue(reason.value, text?.format)}
                 </b>
               )}
+              {text?.format === "money" && reason.value !== null ? (
+                <SourceTag source={metricSource(reason.metric)} />
+              ) : null}
               {reason.threshold !== null ? (
                 <span className="block text-ink-muted">
                   порог {formatValue(reason.threshold, text?.format)}

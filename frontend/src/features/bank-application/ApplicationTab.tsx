@@ -1,4 +1,5 @@
 import type { Schemas } from "@/api/client";
+import { offerAmountSource, SourceTag } from "@/components/AmountSource";
 import { Facts } from "@/components/Facts";
 import { MoneyText, RateText } from "@/components/Money";
 import { ImprovementList, ReasonList } from "@/components/ReasonList";
@@ -28,11 +29,29 @@ function Params({ application }: { application: Schemas["Application"] }) {
         items={[
           { label: T.need, value: NEED[application.need_type].title },
           { label: T.purpose, value: application.purpose },
-          { label: T.requested, value: <MoneyText value={application.requested_amount} /> },
+          {
+            label: T.requested,
+            value: (
+              <>
+                <MoneyText value={application.requested_amount} />
+                <SourceTag source="client" />
+              </>
+            ),
+          },
           { label: T.term, value: T.months(application.term_months) },
           ...(application.invoice_amount === null
             ? []
-            : [{ label: T.invoice, value: <MoneyText value={application.invoice_amount} /> }]),
+            : [
+                {
+                  label: T.invoice,
+                  value: (
+                    <>
+                      <MoneyText value={application.invoice_amount} />
+                      <SourceTag source="client" />
+                    </>
+                  ),
+                },
+              ]),
           { label: T.collateral, value: application.collateral_description ?? T.noCollateral },
           { label: T.created, value: formatDateTime(application.created_at) },
           {
@@ -48,7 +67,13 @@ function Params({ application }: { application: Schemas["Application"] }) {
   );
 }
 
-function OfferBlock({ offer }: { offer: Schemas["Offer"] }) {
+function OfferBlock({
+  offer,
+  decisions,
+}: {
+  offer: Schemas["Offer"];
+  decisions: Schemas["Decision"][];
+}) {
   return (
     <Card>
       <div className="flex flex-wrap items-center gap-2">
@@ -60,9 +85,27 @@ function OfferBlock({ offer }: { offer: Schemas["Offer"] }) {
       <Facts
         items={[
           { label: BANK_CARD.header.product, value: offer.product.name },
-          { label: BANK_CARD.header.amount, value: <MoneyText value={offer.amount} /> },
+          {
+            label: BANK_CARD.header.amount,
+            value: (
+              <>
+                <MoneyText value={offer.amount} />
+                <SourceTag source={offerAmountSource(decisions)} />
+              </>
+            ),
+          },
           ...(offer.is_counteroffer
-            ? [{ label: T.offerRequested, value: <MoneyText value={offer.requested_amount} /> }]
+            ? [
+                {
+                  label: T.offerRequested,
+                  value: (
+                    <>
+                      <MoneyText value={offer.requested_amount} />
+                      <SourceTag source="client" />
+                    </>
+                  ),
+                },
+              ]
             : []),
           { label: T.rate, value: <RateText value={offer.rate} /> },
           { label: T.term, value: T.months(offer.term_months) },
@@ -72,7 +115,10 @@ function OfferBlock({ offer }: { offer: Schemas["Offer"] }) {
               offer.monthly_payment === null ? (
                 T.revolvingPayment
               ) : (
-                <MoneyText value={offer.monthly_payment} />
+                <>
+                  <MoneyText value={offer.monthly_payment} />
+                  <SourceTag source="calc" />
+                </>
               ),
           },
           { label: T.expires, value: formatDate(offer.expires_at) },
@@ -163,7 +209,7 @@ export function ApplicationTab({ card }: { card: BankApplicationDetail }) {
   return (
     <>
       <Params application={card.application} />
-      {card.offer ? <OfferBlock offer={card.offer} /> : null}
+      {card.offer ? <OfferBlock offer={card.offer} decisions={card.decisions} /> : null}
       {card.info_requests.length ? <InfoRequests requests={card.info_requests} /> : null}
       <Decisions decisions={card.decisions} />
     </>

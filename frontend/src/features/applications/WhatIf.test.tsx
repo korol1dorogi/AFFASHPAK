@@ -189,6 +189,11 @@ describe("WhatIf — the calculation comes from the backend", () => {
     expect(sent[0]).toEqual({ amount: "2009314.00", term_months: 12 });
     expect(within(block).getByText("Допустимо на 12 мес")).toBeInTheDocument();
     expect(within(block).getByText(/189\s999,92\s₽/)).toBeInTheDocument();
+    // Both amounts are counted by the bank (SRC7).
+    expect(within(block).getByText(/189\s999,92\s₽/).parentElement).toHaveTextContent("расчёт");
+    expect(within(block).getByText("Допустимо на 12 мес").nextElementSibling).toHaveTextContent(
+      /₽расчёт$/,
+    );
     expect(within(block).getByText("1,26 при норме от 1,25")).toBeInTheDocument();
     expect(within(block).getByRole("slider", { name: "Срок" })).toHaveAttribute("min", "3");
     expect(within(block).getByRole("slider", { name: "Срок" })).toHaveAttribute("max", "24");

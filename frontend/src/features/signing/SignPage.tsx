@@ -4,6 +4,7 @@ import { Link, Navigate, useNavigate, useParams } from "react-router";
 import { toast } from "sonner";
 
 import { routes } from "@/app/routes";
+import { offerAmountSource, SourceTag } from "@/components/AmountSource";
 import { Field } from "@/components/Field";
 import { MoneyText, RateText } from "@/components/Money";
 import { ErrorState, PageHeader, PageSkeleton } from "@/components/States";
@@ -67,6 +68,7 @@ export function SignPage() {
           <span>
             <span className="block text-xs text-ink-muted">Сумма</span>
             <MoneyText value={offer.amount} size="md" className="text-brass" />
+            <SourceTag source={offerAmountSource(data.decision ? [data.decision] : [])} />
           </span>
           <span>
             <span className="block text-xs text-ink-muted">Ставка</span>

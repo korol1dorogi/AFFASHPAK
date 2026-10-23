@@ -2,6 +2,7 @@ import { Lock, SearchX, WifiOff } from "lucide-react";
 import { Link, useParams } from "react-router";
 
 import { routes } from "@/app/routes";
+import { SourceTag } from "@/components/AmountSource";
 import { MoneyText } from "@/components/Money";
 import { DemoBadge, EmptyState, ErrorState, PageHeader, PageSkeleton } from "@/components/States";
 import { StatusBadge } from "@/components/StatusBadge";
@@ -37,7 +38,15 @@ function Header({ card }: { card: BankApplicationDetail }) {
   // The card has no source_unavailable of its own (the queue item has); it is the same fact.
   const sourceUnavailable = card.checks.some((check) => check.status === "unavailable");
   const facts = [
-    { label: BANK_CARD.header.amount, value: <MoneyText value={application.requested_amount} /> },
+    {
+      label: BANK_CARD.header.amount,
+      value: (
+        <>
+          <MoneyText value={application.requested_amount} />
+          <SourceTag source="client" />
+        </>
+      ),
+    },
     { label: BANK_CARD.header.product, value: product },
     { label: BANK_CARD.header.grade, value: grade },
     { label: BANK_CARD.header.assignee, value: card.assignee?.full_name ?? BANK_CARD.noAssignee },

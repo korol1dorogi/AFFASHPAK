@@ -5,6 +5,7 @@ import { useNavigate, useSearchParams } from "react-router";
 
 import { api, type Schemas } from "@/api/client";
 import { routes } from "@/app/routes";
+import { SourceTag } from "@/components/AmountSource";
 import { Field } from "@/components/Field";
 import { MoneyText, RateText } from "@/components/Money";
 import { MoneyInput } from "@/components/MoneyInput";
@@ -121,11 +122,14 @@ function OfferResult({
           <span className="text-xs font-medium tracking-[0.02em] text-ink-muted">
             {offer.product.is_revolving ? "ЛИМИТ" : "СУММА"}
           </span>
-          <MoneyText
-            value={offer.amount}
-            size={recommended ? "lg" : "md"}
-            className={recommended ? "text-brass" : undefined}
-          />
+          <p className="m-0">
+            <MoneyText
+              value={offer.amount}
+              size={recommended ? "lg" : "md"}
+              className={recommended ? "text-brass" : undefined}
+            />
+            <SourceTag source="calc" />
+          </p>
           <span className="text-sm text-ink-muted">
             <RateText value={offer.rate} /> · {offer.term_months} мес ·{" "}
             {offer.monthly_payment === null ? (
@@ -133,6 +137,7 @@ function OfferResult({
             ) : (
               <>
                 платёж <MoneyText value={offer.monthly_payment} />
+                <SourceTag source="calc" />
               </>
             )}
           </span>

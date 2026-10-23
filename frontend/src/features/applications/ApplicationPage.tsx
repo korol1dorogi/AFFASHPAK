@@ -4,6 +4,7 @@ import { toast } from "sonner";
 
 import type { Schemas } from "@/api/client";
 import { routes } from "@/app/routes";
+import { offerAmountSource } from "@/components/AmountSource";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { NextStep } from "@/components/NextStep";
 import { OfferCard } from "@/components/OfferCard";
@@ -236,6 +237,7 @@ export function ApplicationPage() {
             <OfferCard
               offer={data.offer}
               actions={actions}
+              amountSource={offerAmountSource(data.decision ? [data.decision] : [])}
               pending={accept.isPending ? "accept" : decline.isPending ? "decline" : null}
               onAccept={() =>
                 accept.mutate(undefined, {
