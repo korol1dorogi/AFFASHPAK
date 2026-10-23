@@ -12,10 +12,16 @@ export const BANK_TABS = [
   "scoring",
   "documents",
   "journal",
+  "assistant",
 ] as const;
 export type BankTab = (typeof BANK_TABS)[number];
 
 type Id = number | string;
+
+/** Patterns for useMatch outside the route tree (the assistant panel lives in the header). */
+export const routePatterns = {
+  applicationAny: "/app/applications/:id/*",
+} as const;
 
 export const routes = {
   landing: "/",

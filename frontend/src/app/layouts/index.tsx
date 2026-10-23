@@ -9,6 +9,7 @@ import { ROLE_LABEL, useCompany, useLogout, useMe } from "@/app/session";
 import { DemoBadge } from "@/components/States";
 import { Button } from "@/components/ui/button";
 import { AssistantPanel } from "@/features/assistant/AssistantPanel";
+import { AssistantProvider } from "@/features/assistant/context";
 import { unwrap } from "@/lib/errors";
 import { cn } from "@/lib/utils";
 import { PRODUCT_NAME } from "@/texts";
@@ -128,36 +129,39 @@ export function ClientLayout() {
   const me = useMe();
   const company = useCompany(Boolean(me.data?.company_id !== null));
   return (
-    <Shell
-      header={
-        <>
-          <Brand />
-          {me.data?.is_demo || company.data?.is_demo ? <DemoBadge /> : null}
-          {company.data ? (
-            <span className="text-sm text-ink-muted">
-              {company.data.short_name ?? company.data.name}
-            </span>
-          ) : null}
-          <div className="flex-1" />
-          <AssistantPanel />
-          <NotificationBell />
-          <UserBlock />
-        </>
-      }
-      nav={
-        <>
-          <NavItem to={routes.home} end>
-            Главная
-          </NavItem>
-          <NavItem to={routes.match}>Подобрать финансирование</NavItem>
-          <NavItem to={routes.applications}>Заявки</NavItem>
-          <NavItem to={routes.products}>Продукты</NavItem>
-          <NavItem to={routes.company}>Компания</NavItem>
-        </>
-      }
-    >
-      <Outlet />
-    </Shell>
+    // One assistant for the whole cabinet: context buttons on any page open the same panel (AI6).
+    <AssistantProvider>
+      <Shell
+        header={
+          <>
+            <Brand />
+            {me.data?.is_demo || company.data?.is_demo ? <DemoBadge /> : null}
+            {company.data ? (
+              <span className="text-sm text-ink-muted">
+                {company.data.short_name ?? company.data.name}
+              </span>
+            ) : null}
+            <div className="flex-1" />
+            <AssistantPanel />
+            <NotificationBell />
+            <UserBlock />
+          </>
+        }
+        nav={
+          <>
+            <NavItem to={routes.home} end>
+              Главная
+            </NavItem>
+            <NavItem to={routes.match}>Подобрать финансирование</NavItem>
+            <NavItem to={routes.applications}>Заявки</NavItem>
+            <NavItem to={routes.products}>Продукты</NavItem>
+            <NavItem to={routes.company}>Компания</NavItem>
+          </>
+        }
+      >
+        <Outlet />
+      </Shell>
+    </AssistantProvider>
   );
 }
 

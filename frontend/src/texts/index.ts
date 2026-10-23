@@ -311,6 +311,91 @@ export const PERSONA_STORY: Record<string, string> = {
   bank: "Очередь, карточка заявки, решения, дашборд и демо-панель сбоев",
 };
 
+/** AI5, AI6, AI9: the assistant panels of the client and of the bank officer. */
+export const ASSISTANT = {
+  open: "Ассистент",
+  title: "Ассистент",
+  subtitle: "Подберёт финансирование, посчитает платёж и объяснит решение. Решения принимает банк.",
+  aboutApplication: (id: number) => `Говорим о заявке № ${id}`,
+  general: "Общий вопрос",
+  placeholder: "Например: зарплата 5-го, а клиенты платят 10-го",
+  send: "Отправить",
+  sending: "Ассистент думает…",
+  empty: "Спросите, зачем бизнесу деньги, сколько платить или что значит решение по заявке.",
+  examples: [
+    "Зарплата 5-го, а клиенты платят 10-го",
+    "Сколько платить, если взять 1 000 000 под 24% на 12 месяцев?",
+    "Что такое овердрафт?",
+  ],
+  loadError: "Не получилось загрузить историю",
+  throttled: "Слишком много сообщений — подождите минуту.",
+  you: "Вы",
+  assistant: "Ассистент",
+  toolsTitle: "Что сделал ассистент",
+  toolError: "не получилось",
+  pendingTitle: "Ассистент предлагает",
+  confirm: "Подтвердить",
+  cancel: "Отмена",
+  confirmed: "Черновик создан",
+  openDraft: "Открыть черновик",
+  cancelled: "Предложение отменено — ничего не создано.",
+  apply: "Оформить",
+  applying: "Оформляем…",
+  fits: "подходит",
+  notFits: "не проходит",
+  payment: "Платёж в месяц",
+  totalPaid: "Всего выплат",
+  overpayment: "Переплата",
+  revolving: "Зависит от использования",
+  preliminary: "Предварительная оценка, не решение банка.",
+  close: "Закрыть",
+  tools: {
+    recommend_products: "Подобрал продукты",
+    calc_payment: "Посчитал платёж",
+    explain_status: "Посмотрел статус заявки",
+    explain_decision: "Посмотрел решение",
+    create_draft: "Подготовил черновик заявки",
+    what_if: "Пересчитал условия",
+    approval_plan: "Посмотрел план одобрения",
+    explain_check_status: "Посмотрел проверки",
+    company_metrics: "Посмотрел показатели компании",
+    required_documents: "Посмотрел документы",
+    explain_term: "Нашёл термин в словаре",
+    application_summary: "Собрал картину по заявке",
+    checks_with_provenance: "Посмотрел проверки и источники",
+    score_breakdown: "Разобрал скоринг",
+    dscr_and_limits: "Посмотрел платёжеспособность и лимиты",
+    policy_compare: "Сверил с кредитной политикой",
+    missing_documents: "Проверил, чего не хватает",
+    draft_officer_comment: "Подготовил черновик комментария",
+  } as Record<string, string>,
+  // AI6: the questions the context buttons ask.
+  ask: {
+    whyDecision: "Почему такое решение?",
+    howToApprove: "Как получить одобрение?",
+    whatIfLonger: (amount: string, months: number) =>
+      `Что если взять ${amount} на ${months} месяцев?`,
+    whatIsStatus: "Что значит этот статус?",
+  },
+  bank: {
+    title: "Ассистент сотрудника",
+    subtitle: "Собирает факты по заявке и готовит черновик. Решение и комментарий — за вами.",
+    summary: "Сводка для решения",
+    summaryLoading: "Собираем сводку…",
+    risks: "Риски",
+    toVerify: "Что перепроверить",
+    draft: "Черновик комментария",
+    sources: "Источники",
+    noRisks: "Существенных рисков по фактам заявки нет.",
+    nothingToVerify: "Перепроверять нечего.",
+    insert: "Вставить в комментарий",
+    inserted: "Текст в поле комментария — проверьте и сохраните сами.",
+    placeholder: "Например: почему грейд C?",
+    empty: "Спросите про грейд, проверки, платёжеспособность или что запросить у клиента.",
+    error: "Не получилось собрать сводку",
+  },
+} as const;
+
 export interface MetricText {
   /** Понятное название для клиента. */
   title: string;
@@ -578,6 +663,7 @@ export const BANK_TAB: Record<BankTab, string> = {
   scoring: "Скоринг",
   documents: "Документы",
   journal: "Журнал",
+  assistant: "Ассистент",
 };
 
 export const CHECK_SOURCE: Record<Schemas["CheckSource"], string> = {
