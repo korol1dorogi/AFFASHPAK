@@ -30,9 +30,10 @@ import {
 import { CreditHistory } from "@/features/applications/CreditHistory";
 import { DocumentList, DocumentUpload } from "@/features/applications/Documents";
 import { showsWhatIf, WhatIf } from "@/features/applications/WhatIf";
+import { AskAssistant } from "@/features/assistant/AskAssistant";
 import { ApiError, errorMessage } from "@/lib/errors";
 import { formatDate, formatMoney } from "@/lib/format";
-import { ACTION, DECISION_OUTCOME, DOCUMENT_KIND, NEED } from "@/texts";
+import { ACTION, ASSISTANT, DECISION_OUTCOME, DOCUMENT_KIND, NEED } from "@/texts";
 
 const FIELD_LABEL: Record<string, string> = {
   purpose: "цель",
@@ -129,11 +130,14 @@ function InfoRequestCard({
  */
 function DecisionCard({
   decision,
+  applicationId,
   withReasons = true,
 }: {
   decision: Schemas["Decision"];
+  applicationId: number;
   withReasons?: boolean;
 }) {
+  const explainable = ["declined", "counteroffer", "alternative_product", "manual_review"];
   return (
     <Card>
       <div className="flex flex-wrap items-center gap-2">
@@ -145,10 +149,16 @@ function DecisionCard({
         </Badge>
       </div>
       {decision.comment ? <p className="m-0">{decision.comment}</p> : null}
+      {explainable.includes(decision.outcome) ? (
+        <AskAssistant question={ASSISTANT.ask.whyDecision} applicationId={applicationId} />
+      ) : null}
       {withReasons ? <ReasonList reasons={decision.reasons} /> : null}
       {decision.approval_plan && decision.grade ? (
         // The shortest way to grade C with targets; all the advice stays below it.
-        <ApprovalPlan plan={decision.approval_plan} grade={decision.grade} />
+        <>
+          <ApprovalPlan plan={decision.approval_plan} grade={decision.grade} />
+          <AskAssistant question={ASSISTANT.ask.howToApprove} applicationId={applicationId} />
+        </>
       ) : null}
       {/* BKI1: a past overdue cannot be planned away — say what the bank saw and what to do. */}
       <CreditHistory reasons={decision.reasons} finished={decision.outcome === "declined"} />
@@ -224,6 +234,7 @@ export function ApplicationPage() {
       </PageHeader>
 
       <NextStep status={data.status} title={nextStepTitle(data)} action={mainAction}>
+        <AskAssistant question={ASSISTANT.ask.whatIsStatus} applicationId={data.id} />
         {data.status === "offer" && data.offer ? (
           <p className="m-0 text-sm">
             Предложение действует до {formatDate(data.offer.expires_at)}.
@@ -258,6 +269,7 @@ export function ApplicationPage() {
           {data.decision ? (
             <DecisionCard
               decision={data.decision}
+              applicationId={data.id}
               // OfferCard lists the reasons only for a changed amount or product
               withReasons={
                 !(
