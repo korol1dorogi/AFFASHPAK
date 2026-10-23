@@ -94,6 +94,6 @@ echo 'restrict,command="/usr/local/bin/alfa-deploy" ssh-ed25519 AAAA... github-a
 - Swagger: `https://<домен>/api/docs`.
 
 ## 8. Обслуживание
-- Логи: `docker compose logs -f --tail 100 caddy backend`
+- Логи: `docker compose logs -f --tail 100 caddy backend`. Ротация — у каждого контейнера не больше 3 файлов по 10 МБ (`x-logging` в [docker-compose.prod.yml](../docker-compose.prod.yml)); на уже запущенном стенде она включится после `docker compose up -d`, который пересоздаст контейнеры.
 - Бэкап БД: `docker compose exec -T db sh -c 'pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB"' | gzip > ~/backup-$(date +%F-%H%M).sql.gz`
 - После хакатона (docs/submission.md): ротировать LLM-ключ, удалить данные кейса с сервера.
