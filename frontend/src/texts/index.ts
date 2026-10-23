@@ -1174,3 +1174,28 @@ export const WHAT_IF = {
   counting: "Считаем…",
   note: "Это расчёт: предложение банка от него не меняется. Предварительная оценка, не решение банка.",
 } as const;
+
+/** UX2: loading, empty and error states of blocks inside a screen (documents, history, metrics). */
+export const BLOCK_STATE = {
+  retry: "Повторить",
+  documentsLoading: "Загружаем документы",
+  documentsEmpty: "Документов пока нет.",
+  documentsError: "Не получилось загрузить документы.",
+  historyLoading: "Загружаем историю",
+  historyEmpty: "Событий пока нет: здесь появится каждый шаг по заявке.",
+  historyError: "Не получилось загрузить историю.",
+  companyLoading: "Загружаем данные компании",
+  companyError: "Не получилось загрузить данные компании.",
+  metricsLoading: "Загружаем показатели по счёту",
+  metricsError: "Не получилось загрузить показатели по счёту.",
+} as const;
+
+/** UX2: /status — what the check found and what to do. */
+export const HEALTH = {
+  title: "Состояние системы",
+  subtitle: "Проверка связи кабинета с API (GET /api/health)",
+  checking: "Проверяем…",
+  ok: "Бэкенд работает",
+  degraded: "База данных недоступна",
+  unavailable: "API недоступен",
+} as const;
