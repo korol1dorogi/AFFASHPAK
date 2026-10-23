@@ -3,6 +3,8 @@
 Everything here is 404 unless DEMO_MODE=1.
 """
 
+import logging
+
 from django.conf import settings
 from django.contrib.auth import login
 from django.contrib.auth.models import User
@@ -21,6 +23,7 @@ from apps.core.permissions import IsBankUser
 from apps.integrations import flags
 
 NOT_FOUND = "Не найдено."
+logger = logging.getLogger(__name__)
 
 
 class DemoLoginSerializer(serializers.Serializer):
@@ -91,14 +94,22 @@ class DemoFailuresView(_DemoView):
 
 
 class DemoResetView(_DemoView):
-    """POST /api/demo/reset: back to the seeded state between demo runs (bank user).
+    """POST /api/demo/reset: seeded companies back to their starting state (bank user).
 
-    Applications (with their files), notifications and outage flags go; the catalog, personas
-    and the demo queue are seeded again. Accounts people registered stay.
+    Applications of the personas and the demo queue (with their files and notifications) and
+    outage flags go; the catalog, personas and the demo queue are seeded again. Accounts people
+    registered and applications of companies they connected stay. Who reset it goes to the log.
     """
 
     permission_classes = (IsBankUser,)
 
     def post(self, request: Request) -> Response:
-        reset_demo()
+        deleted = reset_demo()
+        logger.info(
+            "demo reset by %s (id %s): %s applications, %s notifications deleted",
+            request.user.get_username(),
+            request.user.pk,
+            deleted["applications"],
+            deleted["notifications"],
+        )
         return Response(status=status.HTTP_204_NO_CONTENT)

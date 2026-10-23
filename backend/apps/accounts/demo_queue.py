@@ -46,12 +46,18 @@ ISSUE_EVERY = 3  # one offer in three is accepted, signed and issued
 PDF = b"%PDF-1.4\n1 0 obj\n<<>>\ntrailer\n%%EOF"
 
 
+def queue_companies(size: int = DEFAULT_SIZE) -> list[dict]:
+    """Population companies of the demo queue: the first `size`, the same ones on every stand."""
+    data = dataset()
+    return [c for c in data["companies"] if c["_key"] in data["_latent"]][:size]
+
+
 def seed_queue(size: int = DEFAULT_SIZE) -> int:
     """Create the demo queue once; returns how many applications were created."""
     if Application.objects.filter(purpose__endswith=QUEUE_MARK).exists():
         return 0
     data = dataset()
-    population = [c for c in data["companies"] if c["_key"] in data["_latent"]][:size]
+    population = queue_companies(size)
     load_companies(data, {c["_key"] for c in population})
     created = 0
     for index, record in enumerate(population):
