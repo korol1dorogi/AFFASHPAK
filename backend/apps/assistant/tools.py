@@ -200,6 +200,9 @@ def recommend_products(user: AbstractBaseUser, arguments: dict) -> dict:
 def calc_payment(user: AbstractBaseUser, arguments: dict) -> dict:
     """Annuity from credit_math — the model never does the arithmetic itself."""
     data = validated(AnnuityRequestSerializer, arguments)
+    if data["annual_rate"] > 1:
+        # Models send percent («24») for a fraction; the calculator would count 2400 %.
+        raise ValidationError({"annual_rate": ["Ставка — годовая доля: 24 % передайте как 0.24."]})
     summary = annuity_summary(data["principal"], data["annual_rate"], data["term_months"])
     return {
         "principal": money(data["principal"]),
