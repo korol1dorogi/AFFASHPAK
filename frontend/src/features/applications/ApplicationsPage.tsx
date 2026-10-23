@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { useApplications } from "@/features/applications/api";
 import { formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { NEED, STATUS } from "@/texts";
+import { EMPTY, NEED, STATUS } from "@/texts";
 
 const FILTERS = [
   {
@@ -87,6 +87,17 @@ export function ApplicationsPage() {
               );
             })}
           </fieldset>
+          {visible.length === 0 ? (
+            <EmptyState
+              title={EMPTY.filteredApplicationsTitle}
+              text={EMPTY.filteredApplicationsText}
+              action={
+                <Button variant="secondary" onClick={() => setFilter("all")}>
+                  {EMPTY.showAll}
+                </Button>
+              }
+            />
+          ) : null}
           <ul className="m-0 flex list-none flex-col gap-3 p-0">
             {visible.map((item) => (
               <li key={item.id}>

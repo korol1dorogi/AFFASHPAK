@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { Schemas } from "@/api/client";
 import { ApplicationPage } from "@/features/applications/ApplicationPage";
+import { ApplicationsPage } from "@/features/applications/ApplicationsPage";
 import { DocumentUpload } from "@/features/applications/Documents";
 import { HomePage } from "@/features/home/HomePage";
 import { mockApi, renderRoutes, renderWithQuery } from "@/test/utils";
@@ -101,5 +102,19 @@ describe("keyboard and names (UX2)", () => {
     renderRoutes([{ path: "/app", element: <HomePage /> }], "/app");
     expect(await screen.findByRole("link", { name: "Открыть заявку № 7" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Открыть заявку № 8" })).toBeInTheDocument();
+  });
+});
+
+describe("applications list — an empty filter (UX2)", () => {
+  it("says the section is empty and leads back to all applications", async () => {
+    mockApi({ "GET /api/applications": [{ ...BASE, id: 7, status: "offer" }] });
+    renderRoutes(
+      [{ path: "/app/applications", element: <ApplicationsPage /> }],
+      "/app/applications",
+    );
+    fireEvent.click(await screen.findByRole("button", { name: /В работе у банка/ }));
+    expect(screen.getByText("В этом разделе заявок нет")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Показать все заявки" }));
+    expect(screen.getByRole("link", { name: /Заявка № 7/ })).toBeInTheDocument();
   });
 });

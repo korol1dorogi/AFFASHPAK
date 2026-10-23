@@ -1207,3 +1207,29 @@ export const LIVE = {
   matchFound: (count: number) => `Подобрали вариантов: ${count}`,
   matchNone: "Подходящих вариантов нет",
 } as const;
+
+/** UX2: empty states — what is (not) here and what to do next. */
+export const EMPTY = {
+  filteredApplicationsTitle: "В этом разделе заявок нет",
+  filteredApplicationsText: "Заявки с другими статусами — в остальных разделах.",
+  showAll: "Показать все заявки",
+  productsTitle: "Каталог продуктов пуст",
+  productsText: "Банк ещё не опубликовал условия. Подбор по задаче покажет, что доступно сейчас.",
+  dashboardTitle: "Заявок за период нет",
+  dashboardText: "Выберите период длиннее — или загляните в очередь.",
+  dashboardLonger: "Показать за 90 дней",
+  toQueue: "Открыть очередь",
+  personasLoading: "Загружаем демо-персон",
+  personasError: "Не получилось загрузить демо-персон.",
+  personasEmptyTitle: "Демо-персон нет",
+  personasEmptyText:
+    "Персоны создаются при засеве стенда (seed_demo). Проверьте ещё раз после засева.",
+  refresh: "Проверить ещё раз",
+} as const;
+
+/** UX2: the payment calculator says what is wrong instead of a grey button. */
+export const CALCULATOR_ERRORS = {
+  amount: "Укажите сумму",
+  term: "Срок — целое число месяцев от 1 до 360",
+  rate: "Ставка — число больше нуля, например 24,5",
+} as const;
