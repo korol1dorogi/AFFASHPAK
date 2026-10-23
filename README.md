@@ -47,7 +47,7 @@ docker compose up -d --build --wait
 ## Если что-то не так
 | Симптом | Что сделать |
 |---|---|
-| `Bind for 0.0.0.0:8080 failed: port is already allocated` (или 8000) | порт занят другой программой. В `.env` задайте свободный: `WEB_PORT=8081` (кабинет) и/или `BACKEND_PORT=8001` (API напрямую, добавьте строку). Затем снова `docker compose up -d --build --wait` и откройте `http://localhost:<WEB_PORT>` |
+| `Bind for …:8080 failed: port is already allocated` (или `…:8000`) | порт занят другой программой. В `.env` задайте свободный: `WEB_PORT=8081` (кабинет) и/или `BACKEND_PORT=8001` (API напрямую, добавьте строку). Затем снова `docker compose up -d --build --wait` и откройте `http://localhost:<WEB_PORT>` |
 | `Cannot connect to the Docker daemon` / `docker: command not found` в WSL | запустите Docker Desktop и дождитесь «Engine running»; в Settings → Resources → WSL integration включите ваш дистрибутив, нажмите Apply & restart и откройте терминал WSL заново |
 | Очень медленная сборка или ошибки доступа к файлам на Windows | репозиторий лежит в `/mnt/c/…`. Склонируйте заново внутрь WSL: `cd ~ && git clone …` |
 | Сервис перезапускается, `--wait` падает по таймауту, в логах `Killed` / код 137 | Docker не хватает памяти — дайте не меньше 4 ГБ. Windows + WSL2: в `%UserProfile%\.wslconfig` в секции `[wsl2]` строка `memory=4GB`, затем `wsl --shutdown` в PowerShell и снова запустить Docker Desktop. macOS и Windows без WSL2: Docker Desktop → Settings → Resources |
