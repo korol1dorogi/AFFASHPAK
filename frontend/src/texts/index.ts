@@ -596,6 +596,109 @@ export const CHECK_STATUS: Record<Schemas["Check"]["status"], string> = {
   consent_missing: "Не запрашивали — нет согласия",
 };
 
+type CheckStatus = Schemas["Check"]["status"];
+
+/**
+ * «Что это значит» под статусом проверки (SRC6) — по docs/decision-model.md: стоп-факторы (§2),
+ * П3 и «Нет данных — не отказ» (§5). Текст для пары «источник + статус», иначе — для статуса.
+ */
+export const CHECK_MEANING: {
+  status: Record<CheckStatus, string>;
+  bySource: Partial<Record<Schemas["CheckSource"], Partial<Record<CheckStatus, string>>>>;
+  notConnected: string;
+} = {
+  status: {
+    ok: "Источник ответил, замечаний нет.",
+    warning: "Источник ответил и нашёл замечания — они ниже.",
+    failed: "Проверка не пройдена — это отказ (стоп-фактор).",
+    unavailable:
+      "Источник не ответил. Это не отказ: заявку рассматривает сотрудник — проверьте вручную.",
+    not_found: "Компании нет в реестре — это отказ (стоп-фактор): её не проверить.",
+    restricted:
+      "Источник ответил, но сведения скрыты. Это не отказ: заявку рассматривает сотрудник.",
+    consent_missing:
+      "Клиент не дал согласие на запрос в БКИ, поэтому бюро не спрашивали (218-ФЗ). Это не отказ: заявку рассматривает сотрудник.",
+  },
+  bySource: {
+    egrul: {
+      ok: "Компания действует, отметок о недостоверности и предстоящем исключении нет.",
+      warning:
+        "Компания ликвидируется — это отказ (стоп-фактор). Или в реестре есть отметка о недостоверности либо предстоящем исключении — тогда заявку проверяет сотрудник.",
+      // Before SRC2 «no such INN» was stored as failed.
+      failed: "Компании нет в реестре — это отказ (стоп-фактор): её не проверить.",
+    },
+    transparent_business: {
+      ok: "Массового адреса и руководителя, налогового долга и приостановки операций по счетам нет.",
+      warning:
+        "Есть массовый адрес или руководитель либо налоговый долг — это снижает баллы. Приостановка операций по счетам — отказ (стоп-фактор).",
+    },
+    bki: {
+      ok: "Текущей просрочки нет, прошлая — не больше 30 дней.",
+      warning: "Прошлая просрочка больше 30 дней или текущая до 30 дней — это снижает баллы.",
+      failed: "Текущая просрочка больше 30 дней — это отказ (стоп-фактор).",
+    },
+    bank_account: {
+      ok: "Выписка получена — показатели снимка посчитаны по ней.",
+    },
+  },
+  notConnected:
+    "Клиент не подключил счёт — выписки нет. Это не отказ: заявку рассматривает сотрудник.",
+};
+
+/** Ключи ответов источников (docs/external/*.yaml) → подпись поля во вкладке «Проверки». */
+export const CHECK_FIELD: Record<string, string> = {
+  registry_status: "Статус в реестре",
+  registered_at: "Дата регистрации",
+  okved: "Вид деятельности (ОКВЭД)",
+  address: "Адрес",
+  director_name: "Руководитель",
+  founders: "Учредители",
+  kpp: "КПП",
+  unreliable_address: "Отметка о недостоверности адреса",
+  unreliable_director: "Отметка о недостоверности сведений о руководителе",
+  pending_exclusion: "Предстоящее исключение из реестра",
+  mass_address: "Массовый адрес регистрации",
+  mass_director: "Массовый руководитель",
+  tax_arrears: "Налоговая задолженность",
+  accounts_suspended: "Приостановка операций по счетам",
+  employees: "Численность сотрудников",
+  tax_regime: "Налоговый режим",
+  msp_category: "Категория МСП",
+  taxes_paid: "Уплачено налогов за год",
+  current_overdue_days: "Текущая просрочка",
+  past_overdue_max_days: "Самая долгая прошлая просрочка",
+  obligations: "Действующие кредиты и лизинг",
+  months: "Выписка",
+  period: "Последний месяц выписки",
+  account_masked: "Счёт",
+};
+
+/** Значения полей проверок, которые приходят кодами. */
+export const CHECK_VALUE = {
+  yes: "да",
+  no: "нет",
+  noKpp: "нет — у ИП КПП не бывает",
+  days: (n: number) => `${n} дн.`,
+  months: (n: number) => `${n} мес`,
+  people: (n: number) => `${n} чел.`,
+  founder: (name: string, inn: string, share: string) => `${name} — ИНН ${inn}, доля ${share}`,
+  obligation: (kind: string, payment: string, balance: string, opened: string) =>
+    `${kind}: платёж ${payment} в месяц, остаток ${balance}, с ${opened}`,
+  taxRegime: {
+    psn: "Патент (ПСН)",
+    usn_income: "УСН «доходы»",
+    usn_income_minus_expenses: "УСН «доходы минус расходы»",
+    osn: "Общая система (ОСН)",
+  } as Record<string, string>,
+  mspCategory: {
+    micro: "Микропредприятие",
+    small: "Малое предприятие",
+    medium: "Среднее предприятие",
+    not_msp: "Не входит в реестр МСП",
+  } as Record<string, string>,
+  obligationKind: { loan: "Кредит", leasing: "Лизинг" } as Record<string, string>,
+} as const;
+
 export const DECIDED_BY: Record<Schemas["Decision"]["decided_by"], string> = {
   auto: "Система",
   officer: "Сотрудник банка",
@@ -761,6 +864,8 @@ export const BANK_CARD = {
     missing: "Нет результата",
     checkedAt: "Проверено",
     list: "Проверки по источникам",
+    facts: "Сведения источника",
+    risk: "признак риска",
     provenance: {
       title: "Происхождение",
       receivedAt: "Ответ получен",
