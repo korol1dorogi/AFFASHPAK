@@ -650,7 +650,7 @@ export const SNAPSHOT_FIELD: Record<SnapshotMetric, { title: string; format: "mo
     revenue: { title: "Выручка за 12 мес", format: "money" },
     cogs: { title: "Себестоимость за 12 мес", format: "money" },
     ebitda: { title: "EBITDA за 12 мес", format: "money" },
-    debt: { title: "Финансовый долг", format: "money" },
+    debt: { title: "Долг", format: "money" },
     cash: { title: "Денежные средства", format: "money" },
     receivables: { title: "Дебиторская задолженность", format: "money" },
     inventory: { title: "Запасы", format: "money" },
@@ -801,7 +801,7 @@ export const COMPANY = {
     status: "Статус в реестре",
   },
   notActive:
-    "Компания в процессе ликвидации или уже ликвидирована — кредит ей не выдать. Подключить её можно, но по заявке будет отказ.",
+    "Компания в процессе ликвидации или уже ликвидирована: кредит не выдадут. Подключить её можно, но заявку банк отклонит.",
   create: {
     title: "Подключите компанию",
     subtitle: "Введите ИНН — реквизиты подтянем из ЕГРЮЛ/ЕГРИП, вводить их вручную не нужно.",
