@@ -561,6 +561,9 @@ paths:
         Вместе с отправкой подписант даёт согласие на запрос в бюро кредитных историй (218-ФЗ):
         без `bki_consent: true` и актуальной `consent_version` — 400, заявка остаётся черновиком.
         Согласие сохраняется и пишется в журнал событием `consent_given`.
+        Поля, без которых банк не начнёт проверку (продукт, цель от 10 символов, сумма и срок в
+        границах продукта, сумма отгрузки у факторинга), проверяются здесь же — 400 с ошибкой по
+        полю: после отправки их уже не изменить. Документы можно догрузить и после отправки.
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -638,7 +641,7 @@ paths:
     post:
       tags: [applications]
       operationId: acceptOffer
-      summary: Принять активный оффер или контроффер (offer → signing; signatory)
+      summary: Принять активный оффер или контроффер (offer → signing; signatory); истёкший оффер — 409
       responses:
         "200":
           description: Оффер принят
@@ -665,6 +668,34 @@ paths:
               schema: { $ref: "#/components/schemas/ApplicationDetail" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /api/applications/{id}/what-if:
+    parameters:
+      - $ref: "#/components/parameters/ApplicationId"
+    post:
+      tags: [applications]
+      operationId: calculateWhatIf
+      summary: «Что если» под оффером — платёж, DSCR и допустимая сумма на другой срок (расчёт, не решение)
+      description: |
+        Только расчёт: оффер банка не меняется. Ставка — из действующего оффера, допустимая сумма —
+        те же правила, что у подбора (credit_math: max_loan_by_dscr, лимиты продукта). Доступно при
+        действующем оффере на продукт с фиксированным платежом (КПО, инвестиционный кредит, лизинг);
+        сумма вне лимитов продукта не ошибка, а fits = false с причиной. Заявки чужой компании — 404.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WhatIfRequest" }
+      responses:
+        "200":
+          description: Расчёт
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WhatIfResult" }
+        "400": { $ref: "#/components/responses/ValidationError" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/Conflict" }
 
@@ -875,6 +906,10 @@ paths:
         - name: min_hours_in_status
           in: query
           schema: { type: integer, minimum: 0 }
+        - name: overdue
+          in: query
+          description: true — только заявки, просроченные по нормативу статуса (SLA)
+          schema: { type: boolean }
         - name: search
           in: query
           description: ИНН или название компании
@@ -1799,6 +1834,38 @@ components:
           items: { $ref: "#/components/schemas/Reason" }
         is_preliminary: { type: boolean, const: true }
 
+    WhatIfRequest:
+      type: object
+      required: [amount, term_months]
+      additionalProperties: false
+      properties:
+        amount: { $ref: "#/components/schemas/Money" }
+        term_months:
+          type: integer
+          minimum: 1
+          maximum: 360
+          description: В пределах срока продукта оффера, иначе 400
+
+    WhatIfResult:
+      type: object
+      required: [amount, term_months, rate, monthly_payment, max_amount, dscr_after, min_dscr, fits, reasons]
+      properties:
+        amount: { $ref: "#/components/schemas/Money" }
+        term_months: { type: integer, minimum: 1 }
+        rate: { $ref: "#/components/schemas/Rate" }
+        monthly_payment: { $ref: "#/components/schemas/Money" }
+        max_amount:
+          description: Допустимая сумма на этот срок; null — посчитать нельзя (причина в reasons)
+          oneOf: [{ $ref: "#/components/schemas/Money" }, { type: "null" }]
+        dscr_after:
+          description: DSCR с новым платежом; null — посчитать нельзя
+          oneOf: [{ $ref: "#/components/schemas/DecimalString" }, { type: "null" }]
+        min_dscr: { $ref: "#/components/schemas/DecimalString" }
+        fits: { type: boolean, description: Все проверки пройдены — такие условия прошли бы }
+        reasons:
+          type: array
+          items: { $ref: "#/components/schemas/Reason" }
+
     AnnuityRequest:
       type: object
       required: [principal, annual_rate, term_months]
@@ -2023,6 +2090,35 @@ components:
           description: Комментарий сотрудника для клиента
           oneOf: [{ type: string, examples: ["Одобрили сумму, которую выдерживает ваш денежный поток"] }, { type: "null" }]
         created_at: { type: string, format: date-time }
+        approval_plan:
+          description: |
+            «Как получить одобрение» (XP2): для автоматического отказа по грейду ниже C — самый короткий
+            набор шагов по факторам балльной карты, после которых грейд стал бы C. null — плана нет:
+            отказ по стоп-фактору, решение сотрудника, грейд C и выше или цель недостижима
+            изменяемыми факторами. Бэкенд отдаёт поле всегда.
+          oneOf: [{ $ref: "#/components/schemas/ApprovalPlan" }, { type: "null" }]
+
+    ApprovalPlan:
+      type: object
+      required: [current_total, target_total, target_grade, steps]
+      properties:
+        current_total: { type: integer, description: Баллы сейчас }
+        target_total: { type: integer, description: Баллы после всех шагов }
+        target_grade: { $ref: "#/components/schemas/Grade" }
+        steps:
+          type: array
+          minItems: 1
+          items: { $ref: "#/components/schemas/ApprovalStep" }
+
+    ApprovalStep:
+      type: object
+      required: [metric, current, target, points, message]
+      properties:
+        metric: { type: string, description: Фактор балльной карты (ScoreFactor.name), examples: [counterparty_concentration] }
+        current: { $ref: "#/components/schemas/DecimalString" }
+        target: { $ref: "#/components/schemas/DecimalString" }
+        points: { type: integer, minimum: 1, description: Сколько баллов добавит шаг }
+        message: { type: string, description: Что сделать — простым языком, examples: ["Снизьте долю крупнейшего покупателя до 50 % и меньше (сейчас 80 %)"] }
 
     InfoRequest:
       type: object
@@ -2062,6 +2158,12 @@ components:
           maxLength: 32
           example: bki-2026-10
           description: Версия текста согласия, который видел клиент (frontend/src/texts). Устаревшая — 400
+        version:
+          allOf: [{ $ref: "#/components/schemas/Version" }]
+          description: |
+            Версия черновика, который подписант видел на шаге «Проверка и отправка». Если черновик
+            успели изменить (бухгалтер в другой вкладке) — 409 version_conflict. Кабинет передаёт
+            всегда; без поля версия не проверяется
 
     InfoRequestResponse:
       type: object
@@ -2147,7 +2249,8 @@ components:
 
     Check:
       type: object
-      required: [source, status, summary, data, checked_at]
+      required:
+        [source, status, summary, data, checked_at, received_at, response_sha256, simulator_version]
       properties:
         source: { $ref: "#/components/schemas/CheckSource" }
         status:
@@ -2162,6 +2265,19 @@ components:
         summary: { type: string }
         data: { type: object, additionalProperties: true }
         checked_at: { type: string, format: date-time }
+        received_at:
+          oneOf: [{ type: string, format: date-time }, { type: "null" }]
+          description: |
+            Происхождение (SRC4): когда пришёл ответ источника. null — источник не ответил
+            (unavailable) или его не спрашивали (consent_missing); тогда null и два поля ниже.
+        response_sha256:
+          oneOf: [{ type: string, pattern: "^[0-9a-f]{64}$" }, { type: "null" }]
+          description: |
+            sha256 ответа источника — канонического JSON {status, data} (ключи по алфавиту,
+            UTF-8, без пробелов). Тот же ответ — тот же хэш.
+        simulator_version:
+          oneOf: [{ type: string, examples: [datagen-2026.10-v1] }, { type: "null" }]
+          description: Версия симулятора, который ответил (версия генератора синтетики)
 
     ScoreFactor:
       type: object
@@ -2200,6 +2316,9 @@ components:
         - source_unavailable
         - status_changed_at
         - hours_in_status
+        - sla_due_at
+        - is_overdue
+        - overdue_hours
         - version
       properties:
         id: { type: integer, examples: [1] }
@@ -2216,6 +2335,11 @@ components:
         source_unavailable: { type: boolean, description: Хотя бы один источник не ответил }
         status_changed_at: { type: string, format: date-time }
         hours_in_status: { type: integer, minimum: 0 }
+        sla_due_at:
+          description: До какого момента заявка должна уйти из статуса по нормативу; null — у статуса нет норматива (ждём клиента или финал)
+          oneOf: [{ type: string, format: date-time }, { type: "null" }]
+        is_overdue: { type: boolean, description: Срок по нормативу прошёл }
+        overdue_hours: { type: integer, minimum: 0, description: Сколько полных часов прошло после срока; 0 — не просрочено или меньше часа }
         version: { $ref: "#/components/schemas/Version" }
 
     BankQueuePage:
@@ -2319,7 +2443,7 @@ components:
 
     BankDashboard:
       type: object
-      required: [period_days, funnel, avg_hours_in_status, auto_decision_share, total_applications]
+      required: [period_days, funnel, avg_hours_in_status, auto_decision_share, total_applications, sla_hours, sla_open_count, overdue_count, overdue_share]
       properties:
         period_days: { type: integer }
         total_applications: { type: integer, minimum: 0 }
@@ -2337,6 +2461,16 @@ components:
           additionalProperties: { $ref: "#/components/schemas/DecimalString" }
         auto_decision_share:
           description: Доля решений без участия сотрудника (0..1); null — решений ещё нет
+          oneOf: [{ $ref: "#/components/schemas/DecimalString" }, { type: "null" }]
+        sla_hours:
+          type: object
+          description: Норматив в часах для статусов, где действует банк
+          additionalProperties: { type: integer, minimum: 1 }
+          examples: [{ submitted: 1, processing: 1, manual_review: 24, signed: 1 }]
+        sla_open_count: { type: integer, minimum: 0, description: Заявок периода сейчас в статусах с нормативом }
+        overdue_count: { type: integer, minimum: 0, description: Из них просрочено по нормативу }
+        overdue_share:
+          description: Доля просроченных среди sla_open_count (0..1); null — таких заявок нет
           oneOf: [{ $ref: "#/components/schemas/DecimalString" }, { type: "null" }]
 
     # ── assistant ──

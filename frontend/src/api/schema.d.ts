@@ -446,7 +446,7 @@ export interface paths {
         put?: never;
         /**
          * Отправить (draft → submitted). Идемпотентно по Idempotency-Key
-         * @description Вместе с отправкой подписант даёт согласие на запрос в бюро кредитных историй (218-ФЗ): без `bki_consent: true` и актуальной `consent_version` — 400, заявка остаётся черновиком. Согласие сохраняется и пишется в журнал событием `consent_given`.
+         * @description Вместе с отправкой подписант даёт согласие на запрос в бюро кредитных историй (218-ФЗ): без `bki_consent: true` и актуальной `consent_version` — 400, заявка остаётся черновиком. Согласие сохраняется и пишется в журнал событием `consent_given`. Поля, без которых банк не начнёт проверку (продукт, цель от 10 символов, сумма и срок в границах продукта, сумма отгрузки у факторинга), проверяются здесь же — 400 с ошибкой по полю: после отправки их уже не изменить. Документы можно догрузить и после отправки.
          */
         post: operations["submitApplication"];
         delete?: never;
@@ -523,7 +523,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Принять активный оффер или контроффер (offer → signing; signatory) */
+        /** Принять активный оффер или контроффер (offer → signing; signatory); истёкший оффер — 409 */
         post: operations["acceptOffer"];
         delete?: never;
         options?: never;
@@ -544,6 +544,31 @@ export interface paths {
         put?: never;
         /** Отказаться от оффера (offer → cancelled; signatory) */
         post: operations["declineOffer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/{id}/what-if": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ApplicationId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * «Что если» под оффером — платёж, DSCR и допустимая сумма на другой срок (расчёт, не решение)
+         * @description Только расчёт: оффер банка не меняется. Ставка — из действующего оффера, допустимая сумма —
+         *     те же правила, что у подбора (credit_math: max_loan_by_dscr, лимиты продукта). Доступно при
+         *     действующем оффере на продукт с фиксированным платежом (КПО, инвестиционный кредит, лизинг);
+         *     сумма вне лимитов продукта не ошибка, а fits = false с причиной. Заявки чужой компании — 404.
+         */
+        post: operations["calculateWhatIf"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1335,6 +1360,25 @@ export interface components {
             /** @constant */
             is_preliminary: true;
         };
+        WhatIfRequest: {
+            amount: components["schemas"]["Money"];
+            /** @description В пределах срока продукта оффера, иначе 400 */
+            term_months: number;
+        };
+        WhatIfResult: {
+            amount: components["schemas"]["Money"];
+            term_months: number;
+            rate: components["schemas"]["Rate"];
+            monthly_payment: components["schemas"]["Money"];
+            /** @description Допустимая сумма на этот срок; null — посчитать нельзя (причина в reasons) */
+            max_amount: components["schemas"]["Money"] | null;
+            /** @description DSCR с новым платежом; null — посчитать нельзя */
+            dscr_after: components["schemas"]["DecimalString"] | null;
+            min_dscr: components["schemas"]["DecimalString"];
+            /** @description Все проверки пройдены — такие условия прошли бы */
+            fits: boolean;
+            reasons: components["schemas"]["Reason"][];
+        };
         AnnuityRequest: {
             principal: components["schemas"]["Money"];
             annual_rate: components["schemas"]["Rate"];
@@ -1468,6 +1512,37 @@ export interface components {
             comment: string | null;
             /** Format: date-time */
             created_at: string;
+            /**
+             * @description «Как получить одобрение» (XP2): для автоматического отказа по грейду ниже C — самый короткий
+             *     набор шагов по факторам балльной карты, после которых грейд стал бы C. null — плана нет:
+             *     отказ по стоп-фактору, решение сотрудника, грейд C и выше или цель недостижима
+             *     изменяемыми факторами. Бэкенд отдаёт поле всегда.
+             */
+            approval_plan?: components["schemas"]["ApprovalPlan"] | null;
+        };
+        ApprovalPlan: {
+            /** @description Баллы сейчас */
+            current_total: number;
+            /** @description Баллы после всех шагов */
+            target_total: number;
+            target_grade: components["schemas"]["Grade"];
+            steps: components["schemas"]["ApprovalStep"][];
+        };
+        ApprovalStep: {
+            /**
+             * @description Фактор балльной карты (ScoreFactor.name)
+             * @example counterparty_concentration
+             */
+            metric: string;
+            current: components["schemas"]["DecimalString"];
+            target: components["schemas"]["DecimalString"];
+            /** @description Сколько баллов добавит шаг */
+            points: number;
+            /**
+             * @description Что сделать — простым языком
+             * @example Снизьте долю крупнейшего покупателя до 50 % и меньше (сейчас 80 %)
+             */
+            message: string;
         };
         InfoRequest: {
             /** @example 1 */
@@ -1503,6 +1578,12 @@ export interface components {
              * @example bki-2026-10
              */
             consent_version: string;
+            /**
+             * @description Версия черновика, который подписант видел на шаге «Проверка и отправка». Если черновик
+             *     успели изменить (бухгалтер в другой вкладке) — 409 version_conflict. Кабинет передаёт
+             *     всегда; без поля версия не проверяется
+             */
+            version?: components["schemas"]["Version"];
         };
         InfoRequestResponse: {
             message: string;
@@ -1588,6 +1669,18 @@ export interface components {
             };
             /** Format: date-time */
             checked_at: string;
+            /**
+             * @description Происхождение (SRC4): когда пришёл ответ источника. null — источник не ответил
+             *     (unavailable) или его не спрашивали (consent_missing); тогда null и два поля ниже.
+             */
+            received_at: string | null;
+            /**
+             * @description sha256 ответа источника — канонического JSON {status, data} (ключи по алфавиту,
+             *     UTF-8, без пробелов). Тот же ответ — тот же хэш.
+             */
+            response_sha256: string | null;
+            /** @description Версия симулятора, который ответил (версия генератора синтетики) */
+            simulator_version: string | null;
         };
         ScoreFactor: {
             /** @example dscr */
@@ -1621,6 +1714,12 @@ export interface components {
             /** Format: date-time */
             status_changed_at: string;
             hours_in_status: number;
+            /** @description До какого момента заявка должна уйти из статуса по нормативу; null — у статуса нет норматива (ждём клиента или финал) */
+            sla_due_at: string | null;
+            /** @description Срок по нормативу прошёл */
+            is_overdue: boolean;
+            /** @description Сколько полных часов прошло после срока; 0 — не просрочено или меньше часа */
+            overdue_hours: number;
             version: components["schemas"]["Version"];
         };
         BankQueuePage: components["schemas"]["Page"] & {
@@ -1693,6 +1792,24 @@ export interface components {
             };
             /** @description Доля решений без участия сотрудника (0..1); null — решений ещё нет */
             auto_decision_share: components["schemas"]["DecimalString"] | null;
+            /**
+             * @description Норматив в часах для статусов, где действует банк
+             * @example {
+             *       "submitted": 1,
+             *       "processing": 1,
+             *       "manual_review": 24,
+             *       "signed": 1
+             *     }
+             */
+            sla_hours: {
+                [key: string]: number;
+            };
+            /** @description Заявок периода сейчас в статусах с нормативом */
+            sla_open_count: number;
+            /** @description Из них просрочено по нормативу */
+            overdue_count: number;
+            /** @description Доля просроченных среди sla_open_count (0..1); null — таких заявок нет */
+            overdue_share: components["schemas"]["DecimalString"] | null;
         };
         AssistantMessageRequest: {
             text: string;
@@ -2808,6 +2925,36 @@ export interface operations {
             409: components["responses"]["Conflict"];
         };
     };
+    calculateWhatIf: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ApplicationId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WhatIfRequest"];
+            };
+        };
+        responses: {
+            /** @description Расчёт */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WhatIfResult"];
+                };
+            };
+            400: components["responses"]["ValidationError"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
     startSignature: {
         parameters: {
             query?: never;
@@ -3059,6 +3206,8 @@ export interface operations {
                 /** @description me — мои, none — никому не назначены, или id сотрудника */
                 assignee?: string;
                 min_hours_in_status?: number;
+                /** @description true — только заявки, просроченные по нормативу статуса (SLA) */
+                overdue?: boolean;
                 /** @description ИНН или название компании */
                 search?: string;
                 ordering?: "status_changed_at" | "-status_changed_at" | "requested_amount" | "-requested_amount" | "created_at" | "-created_at";

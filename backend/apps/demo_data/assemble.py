@@ -57,6 +57,9 @@ class CompanyInputs:
     bki_overdue: tuple[int, int]
     transparent_business: dict
     revenue_override: list[Decimal] | None = None
+    # SRC5 risk marks, off unless an edge case switches them on (reference.py, SRC5).
+    egrul_flags: dict[str, bool] = field(default_factory=dict)
+    accounts_suspended: bool = False
 
 
 @dataclass
@@ -136,14 +139,23 @@ def assemble(
         rng, inputs.obligations, REMAINING_MONTHS, inputs.reporting.get("debt")
     )
     current, past = inputs.bki_overdue
+    transparent_business = inputs.transparent_business
+    if inputs.persona is None:  # data-spec §9.3 pins the personas' answers as they are
+        window = min(12, len(inputs.months))
+        profile = simulators.fns_profile(
+            rng.stream("fns_profile", inputs.key), inputs.legal_form, inputs.window_sum / window
+        )
+        transparent_business = simulators.with_fns_profile(
+            transparent_business, profile, accounts_suspended=inputs.accounts_suspended
+        )
     return Bundle(
         company=company,
         users=users,
         memberships=memberships,
         statement=built.record,
         snapshot=snapshot,
-        egrul=simulators.egrul(company, founders) if inputs.in_egrul else None,
-        transparent_business=inputs.transparent_business,
+        egrul=simulators.egrul(company, founders, inputs.egrul_flags) if inputs.in_egrul else None,
+        transparent_business=transparent_business,
         bki=simulators.bki(current, past, inputs.obligations, balances),
         monthly=built.totals,
     )

@@ -120,7 +120,7 @@ def test_approve_creates_offer_on_requested_terms(world):
 
 
 def test_approve_without_product_is_400(world):
-    application = make_application(world["company"], status=S.MANUAL_REVIEW)
+    application = make_application(world["company"], status=S.MANUAL_REVIEW, product=None)
     response = world["as_bank"].post(
         bank_url(application.pk, "/approve"), {"version": 0}, format="json"
     )

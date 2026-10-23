@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/input";
+import { ApprovalPlan } from "@/features/applications/ApprovalPlan";
 import {
   type ApplicationDetail,
   useAcceptOffer,
@@ -25,13 +26,16 @@ import {
   useProducts,
   useRespondInfo,
 } from "@/features/applications/api";
+import { CreditHistory } from "@/features/applications/CreditHistory";
 import { DocumentList, DocumentUpload } from "@/features/applications/Documents";
+import { showsWhatIf, WhatIf } from "@/features/applications/WhatIf";
 import { ApiError, errorMessage } from "@/lib/errors";
 import { formatDate, formatMoney } from "@/lib/format";
 import { ACTION, DECISION_OUTCOME, DOCUMENT_KIND, NEED } from "@/texts";
 
 const FIELD_LABEL: Record<string, string> = {
   purpose: "цель",
+  product_code: "продукт",
   requested_amount: "сумма",
   term_months: "срок",
   invoice_amount: "сумма отгрузки",
@@ -141,6 +145,12 @@ function DecisionCard({
       </div>
       {decision.comment ? <p className="m-0">{decision.comment}</p> : null}
       {withReasons ? <ReasonList reasons={decision.reasons} /> : null}
+      {decision.approval_plan && decision.grade ? (
+        // The shortest way to grade C with targets; all the advice stays below it.
+        <ApprovalPlan plan={decision.approval_plan} grade={decision.grade} />
+      ) : null}
+      {/* BKI1: a past overdue cannot be planned away — say what the bank saw and what to do. */}
+      <CreditHistory reasons={decision.reasons} finished={decision.outcome === "declined"} />
       <ImprovementList items={decision.improvements} />
     </Card>
   );
@@ -235,6 +245,10 @@ export function ApplicationPage() {
               }
               onDecline={() => setConfirm("decline")}
             />
+          ) : null}
+          {data.offer && showsWhatIf(data) ? (
+            // A new offer starts the calculation from its own terms.
+            <WhatIf key={data.offer.id} application={data} offer={data.offer} />
           ) : null}
           {data.open_info_requests.map((request) => (
             <InfoRequestCard key={request.id} application={data} request={request} />

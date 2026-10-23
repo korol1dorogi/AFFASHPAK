@@ -32,6 +32,14 @@ export function errorMessage(error: unknown): string {
   return "Что-то пошло не так. Попробуйте ещё раз.";
 }
 
+/** All messages of a 400 `details` (field → messages), for screens without matching fields. */
+export function fieldMessages(error: unknown): string[] {
+  if (!(error instanceof ApiError) || !error.details) return [];
+  return Object.values(error.details).flatMap((value) =>
+    Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [],
+  );
+}
+
 export const isConflict = (error: unknown) => error instanceof ApiError && error.status === 409;
 
 /** Put API field errors (`details`) onto form fields; returns what did not match a field. */

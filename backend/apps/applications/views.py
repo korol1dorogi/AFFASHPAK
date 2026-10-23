@@ -111,7 +111,10 @@ class ApplicationSubmitView(APIView):
             consent = SubmitSerializer(data=request.data)
             consent.is_valid(raise_exception=True)
             application = services.submit(
-                application, actor, consent_version=consent.validated_data["consent_version"]
+                application,
+                actor,
+                consent_version=consent.validated_data["consent_version"],
+                version=consent.validated_data.get("version"),
             )
             body = _detail(request, application, actor)
             IdempotencyKey.objects.create(

@@ -81,7 +81,7 @@ erDiagram
 
 **BkiConsent** — согласие на запрос кредитной истории в БКИ (218-ФЗ, ст. 6), SRC1
 - `application` (1:1), `user` → User (подписант, который отправил заявку), `text_version` (версия текста согласия, `bki-2026-10`), `given_at`
-- Даётся галочкой на шаге «Проверка и отправка» вместе с `submit`. Нет согласия — конвейер не запрашивает БКИ: проверка `bki` получает `unavailable` с `data.consent_missing = true`, заявка уходит сотруднику, а не в отказ.
+- Даётся галочкой на шаге «Проверка и отправка» вместе с `submit`. Нет согласия — конвейер не запрашивает БКИ: проверка `bki` получает статус `consent_missing` (не сбой: `source_unavailable` не поднимается), заявка уходит сотруднику, а не в отказ. После SRC1 без согласия заявку не отправить — статус остаётся для заявок, отправленных раньше.
 
 **ApplicationEvent** — журнал аудита (append-only)
 - `application`, `kind`: `status_changed` | `document_uploaded` | `info_requested` | `info_responded` | `assigned` | `check_completed` | `score_calculated` | `decision` | `comment` | `signed` | `issued` | `consent_given`
@@ -90,7 +90,8 @@ erDiagram
 
 **Check** — результат одного источника обогащения
 - `application`, `source`: `egrul` | `transparent_business` | `bki` | `bank_account`
-- `status`: `ok` | `warning` | `failed` | `unavailable`; `summary` (текст); `data` (JSON); `duration_ms`; `checked_at`
+- `status`: `ok` | `warning` | `failed` | `not_found` | `unavailable` | `restricted` | `consent_missing` (что значит каждый и к какому исходу ведёт — [decision-model.md](decision-model.md), «Нет данных — не отказ»); `summary` (текст); `data` (JSON); `duration_ms`; `checked_at`
+- происхождение (SRC4): `received_at` — когда пришёл ответ, `response_sha256` — sha256 ответа (канонический JSON `{status, data}`), `simulator_version` — версия симулятора; все три null, если источник не ответил (`unavailable`) или его не спрашивали (`consent_missing`)
 
 **Score** — `application` (1:1), `grade`: `A`–`E`, `total` (int), `factors` (JSON-список: `name`, `value`, `points`, `message`), `model_version`, `created_at`
 
@@ -101,7 +102,7 @@ erDiagram
 - `reasons` (JSON-список Reason: `metric`, `value`, `threshold`, `passed`, `message`); `improvements` (JSON-список строк «что улучшить» — для отказа)
 - `created_at`
 
-**Offer** — `decision` (1:1), `application`, `product` → Product, `amount`, `term_months`, `rate`, `monthly_payment` | null (возобновляемые — null), `requested_amount`, `is_counteroffer` (иные сумма/срок), `product_changed` (другой продукт), `status`: `active` | `accepted` | `declined` | `superseded`, `expires_at`, `created_at`. Активный оффер у заявки — максимум один.
+**Offer** — `decision` (1:1), `application`, `product` → Product, `amount`, `term_months`, `rate`, `monthly_payment` | null (возобновляемые — null), `requested_amount`, `is_counteroffer` (иные сумма/срок), `product_changed` (другой продукт), `reasons` (JSON, причины решения на момент оффера), `status`: `active` | `accepted` | `declined` | `superseded`, `expires_at`, `created_at`. Активный оффер у заявки — максимум один.
 
 **InfoRequest** — `application`, `origin`: `validation` (автопроверка полноты, F6) | `officer`; `requested_by` → User | null, `message`, `fields` (список полей для уточнения), `document_kinds` (список DocumentKind), `status`: `open` | `answered`, `response_message`, `answered_by` → User | null, `created_at`, `answered_at`
 
@@ -115,5 +116,7 @@ erDiagram
 **Notification** — `user`, `application` | null, `kind` (как у события), `title`, `message`, `created_at`, `read_at` | null. Только в интерфейсе: ни email, ни SMS (чек-лист кейса).
 
 **AssistantMessage** — журнал ассистента: `user`, `application` | null, `role`: `user` | `assistant` | `tool`, `content`, `tool_calls` (JSON: имя, аргументы, результат), `created_at`
+
+**PendingAction** — действие, которое предложил ассистент (AI1): `id` (UUID), `user`, `kind`: `create_application` | `submit_application`, `payload` (JSON, проверяется сериализатором API ещё раз при подтверждении), `summary` (текст для клиента), `application` | null (заполняется после выполнения), `status`: `pending` | `done`, `created_at`, `expires_at` (30 минут), `confirmed_at` | null. Выполняется только когда тот же пользователь подтвердит; чужое или неизвестное → 404, повтор или просрочка → 409.
 
 **DemoState** (только стенд, `DEMO_MODE=1`) — флаги сбоев симуляторов: `source` → `failing` (bool).

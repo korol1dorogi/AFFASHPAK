@@ -32,6 +32,31 @@ const LOOK: Record<Check["status"], { Icon: typeof CircleCheck; tone: string }> 
   consent_missing: { Icon: ShieldOff, tone: "bg-status-neutral-soft text-status-neutral" },
 };
 
+/** SRC4: when the answer came, which simulator answered and the sha256 of its answer. */
+function Provenance({ check }: { check: Check }) {
+  const P = T.provenance;
+  if (!check.response_sha256) return <p className="m-0 text-xs text-ink-muted">{P.none}</p>;
+  return (
+    <div className="mt-1 flex flex-col gap-1 rounded-md bg-sunken p-2 text-xs">
+      <p className="m-0 font-medium">{P.title}</p>
+      <dl className="m-0 flex flex-col gap-1">
+        <div className="flex flex-wrap gap-x-2">
+          <dt className="text-ink-muted">{P.receivedAt}</dt>
+          <dd className="m-0">{formatDateTime(check.received_at)}</dd>
+        </div>
+        <div className="flex flex-wrap gap-x-2">
+          <dt className="text-ink-muted">{P.version}</dt>
+          <dd className="m-0">{check.simulator_version ?? "—"}</dd>
+        </div>
+        <div className="flex flex-wrap gap-x-2">
+          <dt className="text-ink-muted">{P.sha256}</dt>
+          <dd className="m-0 min-w-0 font-mono break-all">{check.response_sha256}</dd>
+        </div>
+      </dl>
+    </div>
+  );
+}
+
 function CheckRow({ source, check }: { source: Schemas["CheckSource"]; check?: Check }) {
   const { Icon, tone } = check
     ? LOOK[check.status]
@@ -57,6 +82,7 @@ function CheckRow({ source, check }: { source: Schemas["CheckSource"]; check?: C
             {T.checkedAt} {formatDateTime(check.checked_at)}
           </p>
         ) : null}
+        {check ? <Provenance check={check} /> : null}
       </div>
     </li>
   );

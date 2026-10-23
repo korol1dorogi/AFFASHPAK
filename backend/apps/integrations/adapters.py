@@ -4,6 +4,8 @@ S1 will replace the lookup with HTTP. The pipeline only sees status + data. Stat
 ok, warning, failed — the source answered; unavailable — it did not; not_found — the registry
 has no such INN; restricted — the source answered but hid the data (a simulator record may
 carry it as is); consent_missing — the credit bureau was not asked at all.
+`fetch_all` adds `provenance` to every answer (SRC4): when it came, its sha256 and the
+simulator version, None when the source did not answer.
 """
 
 import logging
@@ -11,6 +13,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from apps.integrations.breaker import breaker
 from apps.integrations.flags import SOURCES, failing_sources
+from apps.integrations.provenance import provenance
 from apps.integrations.simulator_data import simulators
 
 ATTEMPTS = 3
@@ -51,6 +54,16 @@ def fetch(source: str, inn: str, *, has_account: bool, failing: bool = False) ->
     return dict(UNAVAILABLE)
 
 
+def _with_provenance(answer: dict) -> dict:
+    """A new dict: the simulator's record is shared (cached), it must not be changed."""
+    return {**answer, "provenance": provenance(answer)}
+
+
+def _fetched(source: str, inn: str, *, has_account: bool, failing: bool) -> dict:
+    """In the worker thread, so `received_at` is the moment the answer came."""
+    return _with_provenance(fetch(source, inn, has_account=has_account, failing=failing))
+
+
 def fetch_all(inn: str, *, has_account: bool, bki_consent: bool = True) -> dict[str, dict]:
     """All four sources at once. A source slower than the timeout counts as unavailable and
     the pipeline does not wait for it (no `with`: its exit would join the slow thread).
@@ -60,12 +73,12 @@ def fetch_all(inn: str, *, has_account: bool, bki_consent: bool = True) -> dict[
     results: dict[str, dict] = {}
     asked = SOURCES if bki_consent else tuple(s for s in SOURCES if s != "bki")
     if not bki_consent:
-        results["bki"] = dict(NO_CONSENT)
+        results["bki"] = _with_provenance(NO_CONSENT)
     pool = ThreadPoolExecutor(max_workers=len(asked))
     try:
         futures = {
             source: pool.submit(
-                fetch, source, inn, has_account=has_account, failing=source in failing
+                _fetched, source, inn, has_account=has_account, failing=source in failing
             )
             for source in asked
         }
@@ -74,7 +87,7 @@ def fetch_all(inn: str, *, has_account: bool, bki_consent: bool = True) -> dict[
                 results[source] = future.result(timeout=SOURCE_TIMEOUT_SECONDS)
             except Exception:  # a timeout or a crash of the source: an outage
                 breaker.failure(source)
-                results[source] = dict(UNAVAILABLE)
+                results[source] = _with_provenance(UNAVAILABLE)
     finally:
         pool.shutdown(wait=False, cancel_futures=True)
     return results

@@ -29,7 +29,7 @@ import {
   useUpdateApplication,
 } from "@/features/applications/api";
 import { DocumentList, DocumentUpload, RequiredDocuments } from "@/features/applications/Documents";
-import { applyFieldErrors, errorMessage, isConflict } from "@/lib/errors";
+import { applyFieldErrors, errorMessage, fieldMessages, isConflict } from "@/lib/errors";
 import { formatDateTime } from "@/lib/format";
 import { useIdempotencyKey } from "@/lib/idempotency";
 import { ACTION, BKI_CONSENT, DOCUMENT_KIND, NEED } from "@/texts";
@@ -232,7 +232,7 @@ function ReviewStep({ application }: { application: ApplicationDetail }) {
         </div>
         <div>
           <dt className="text-xs text-ink-muted">Продукт</dt>
-          <dd className="m-0">{product?.name ?? "Подберёт банк"}</dd>
+          <dd className="m-0">{product?.name ?? "Не выбран"}</dd>
         </div>
         <div>
           <dt className="text-xs text-ink-muted">Сумма и срок</dt>
@@ -253,9 +253,16 @@ function ReviewStep({ application }: { application: ApplicationDetail }) {
         </p>
       ) : null}
       {submit.isError ? (
-        <p role="alert" className="m-0 text-sm text-status-danger">
-          {errorMessage(submit.error)}
-        </p>
+        <div role="alert" className="m-0 text-sm text-status-danger">
+          <p className="m-0">{errorMessage(submit.error)}</p>
+          {fieldMessages(submit.error).length ? (
+            <ul className="m-0 pl-5">
+              {fieldMessages(submit.error).map((message) => (
+                <li key={message}>{message}</li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
       ) : null}
       {canSubmit ? (
         <>
@@ -292,13 +299,16 @@ function ReviewStep({ application }: { application: ApplicationDetail }) {
                 setConsentMissing(true);
                 return;
               }
-              submit.mutate(idempotency.current(), {
-                onSuccess: () => {
-                  idempotency.renew();
-                  toast.success("Заявка отправлена в банк");
-                  navigate(routes.application(application.id));
+              submit.mutate(
+                { key: idempotency.current(), version: application.version },
+                {
+                  onSuccess: () => {
+                    idempotency.renew();
+                    toast.success("Заявка отправлена в банк");
+                    navigate(routes.application(application.id));
+                  },
                 },
-              });
+              );
             }}
           >
             {ACTION.submit}
