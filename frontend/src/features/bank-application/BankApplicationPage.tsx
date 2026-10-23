@@ -1,4 +1,5 @@
-import { Lock, SearchX, WifiOff } from "lucide-react";
+import { FileText, Lock, SearchX, WifiOff } from "lucide-react";
+import { useCallback, useState } from "react";
 import { Link, useParams } from "react-router";
 
 import { routes } from "@/app/routes";
@@ -17,6 +18,7 @@ import {
 import { CardTabs } from "@/features/bank-application/CardTabs";
 import { ChecksTab } from "@/features/bank-application/ChecksTab";
 import { ClientTab } from "@/features/bank-application/ClientTab";
+import { ConclusionPrint } from "@/features/bank-application/ConclusionPrint";
 import { DocumentsTab } from "@/features/bank-application/DocumentsTab";
 import { JournalTab } from "@/features/bank-application/JournalTab";
 import { ScoringTab } from "@/features/bank-application/ScoringTab";
@@ -30,8 +32,15 @@ function useProductName(card: BankApplicationDetail): string {
   return fromCatalog ?? card.offer?.product.name ?? code ?? BANK_CARD.noProduct;
 }
 
-function Header({ card }: { card: BankApplicationDetail }) {
-  const product = useProductName(card);
+function Header({
+  card,
+  product,
+  onConclusion,
+}: {
+  card: BankApplicationDetail;
+  product: string;
+  onConclusion: () => void;
+}) {
   const { application, company } = card;
   const latest = [...card.decisions].sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
   const grade = card.score?.grade ?? latest?.grade ?? BANK_CARD.noGrade;
@@ -56,6 +65,12 @@ function Header({ card }: { card: BankApplicationDetail }) {
       <PageHeader
         title={company.name}
         subtitle={`${BANK_CARD.title(application.id)} · ИНН ${company.inn}`}
+        actions={
+          <Button variant="secondary" onClick={onConclusion}>
+            <FileText aria-hidden="true" />
+            {BANK_CARD.conclusion.open}
+          </Button>
+        }
       >
         <StatusBadge status={application.status} size="md" />
         {company.is_demo ? <DemoBadge /> : null}
@@ -83,9 +98,13 @@ function Header({ card }: { card: BankApplicationDetail }) {
 
 function CardView({ card }: { card: BankApplicationDetail }) {
   const id = card.application.id;
+  const product = useProductName(card);
+  const [conclusion, setConclusion] = useState(false);
+  const closeConclusion = useCallback(() => setConclusion(false), []);
   return (
     <div className="flex flex-col gap-6">
-      <Header card={card} />
+      <Header card={card} product={product} onConclusion={() => setConclusion(true)} />
+      <ConclusionPrint card={card} product={product} open={conclusion} onClose={closeConclusion} />
       <ActionPanel card={card} />
       <CardTabs
         panels={{

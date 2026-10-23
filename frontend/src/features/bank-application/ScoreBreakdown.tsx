@@ -20,7 +20,7 @@ export const FACTOR_MAX_POINTS: Readonly<Record<string, number>> = {
 
 const NUMBER_RE = /^-?\d+(?:\.\d+)?$/;
 
-function factorValue(factor: Schemas["ScoreFactor"]): string {
+export function factorValue(factor: Schemas["ScoreFactor"]): string {
   if (factor.value === null) return BANK_CARD.noValue;
   if (!NUMBER_RE.test(factor.value)) return factor.value;
   const format = METRIC[factor.name]?.format;
