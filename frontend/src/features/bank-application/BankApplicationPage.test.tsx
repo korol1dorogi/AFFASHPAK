@@ -234,7 +234,8 @@ describe("BankApplicationPage — tabs", () => {
   it("«Проверки»: four sources with status in words and summary", async () => {
     open("checks");
     const list = await screen.findByRole("list", { name: "Проверки по источникам" });
-    expect(within(list).getAllByRole("listitem")).toHaveLength(4);
+    // One item per source; founders and loans are lists of their own inside.
+    expect(list.querySelectorAll(":scope > li")).toHaveLength(4);
     expect(within(list).getAllByText("В порядке")).toHaveLength(4);
     expect(within(list).getByText("Бюро кредитных историй")).toBeInTheDocument();
     expect(within(list).getByText("Текущей просрочки нет, прошлая — 10 дн.")).toBeInTheDocument();
@@ -277,6 +278,108 @@ describe("BankApplicationPage — tabs", () => {
     expect(within(bki).getByText("Источник не ответил — происхождения нет")).toBeInTheDocument();
     expect(within(bki).queryByText("SHA-256 ответа")).not.toBeInTheDocument();
     expect(within(bki).queryByText("Происхождение")).not.toBeInTheDocument();
+  });
+
+  it("«Проверки»: every source says what its status means and lists its answer in words", async () => {
+    open("checks");
+    const list = await screen.findByRole("list", { name: "Проверки по источникам" });
+    const row = (source: string) =>
+      list.querySelector(`li[data-source="${source}"]`) as HTMLElement;
+
+    const egrul = row("egrul");
+    expect(
+      within(egrul).getByText(
+        "Компания действует, отметок о недостоверности и предстоящем исключении нет.",
+      ),
+    ).toBeInTheDocument();
+    expect(within(egrul).getByText("Сведения источника")).toBeInTheDocument();
+    expect(within(egrul).getByText("Вид деятельности (ОКВЭД)")).toBeInTheDocument();
+    expect(within(egrul).getByText("31.09 — Производство прочей мебели")).toBeInTheDocument();
+    expect(
+      within(egrul).getByText(/Полякова Маргарита Олеговна \(демо\) — ИНН 000300000227/),
+    ).toBeInTheDocument();
+
+    const bki = row("bki");
+    expect(within(bki).getByText("Самая долгая прошлая просрочка")).toBeInTheDocument();
+    expect(within(bki).getByText("10 дн.")).toBeInTheDocument();
+    expect(within(bki).getAllByText(/^(Кредит|Лизинг): платёж/)).toHaveLength(2);
+
+    const account = row("bank_account");
+    expect(
+      within(account).getByText("Выписка получена — показатели снимка посчитаны по ней."),
+    ).toBeInTheDocument();
+    expect(within(account).getByText("12 мес")).toBeInTheDocument();
+    // Nothing is a risk for persona 4.
+    expect(screen.queryByText("признак риска")).not.toBeInTheDocument();
+  });
+
+  it("«Проверки»: no technical keys anywhere in the tab", async () => {
+    const card = persona4Card();
+    card.checks[1] = {
+      ...present(card.checks[1]),
+      status: "warning",
+      data: {
+        mass_address: false,
+        mass_director: false,
+        tax_arrears: "0.00",
+        employees: 5,
+        tax_regime: "usn_income_minus_expenses",
+        msp_category: "micro",
+        taxes_paid: "612000.00",
+        accounts_suspended: true,
+      },
+    };
+    open("checks", card);
+    const list = await screen.findByRole("list", { name: "Проверки по источникам" });
+    // Status codes, data keys and enum codes are all snake_case or bare latin words.
+    expect(list.textContent).not.toMatch(/[a-z]+_[a-z]+/);
+    for (const code of ["usn", "micro", "loan", "leasing", "active", "true", "false", "null"]) {
+      expect(list.textContent).not.toMatch(new RegExp(`\\b${code}\\b`));
+    }
+  });
+
+  it("«Проверки»: suspended accounts are a risk said in words", async () => {
+    const card = persona4Card();
+    card.checks[1] = {
+      ...present(card.checks[1]),
+      status: "warning",
+      data: {
+        mass_address: false,
+        mass_director: false,
+        tax_arrears: "0.00",
+        accounts_suspended: true,
+      },
+    };
+    open("checks", card);
+    const list = await screen.findByRole("list", { name: "Проверки по источникам" });
+    const fns = list.querySelector('li[data-source="transparent_business"]') as HTMLElement;
+    expect(within(fns).getByText(/Приостановка операций по счетам — отказ/)).toBeInTheDocument();
+    const suspended = within(fns).getByText("Приостановка операций по счетам").parentElement;
+    expect(suspended).toHaveTextContent("да");
+    expect(within(suspended as HTMLElement).getByText("признак риска")).toBeInTheDocument();
+  });
+
+  it.each([
+    ["unavailable", {}, "Источник не ответил. Это не отказ"],
+    ["restricted", {}, "сведения скрыты. Это не отказ"],
+    ["consent_missing", { consent_missing: true }, "Клиент не дал согласие на запрос в БКИ"],
+  ] as const)("«Проверки»: БКИ %s — no data is not a decline", async (status, data, text) => {
+    const card = persona4Card();
+    card.checks[2] = {
+      ...present(card.checks[2]),
+      status,
+      summary: "",
+      data,
+      received_at: null,
+      response_sha256: null,
+      simulator_version: null,
+    };
+    open("checks", card);
+    const bki = (await screen.findByText("Бюро кредитных историй")).closest(
+      "li[data-source]",
+    ) as HTMLElement;
+    expect(within(bki).getByText(new RegExp(text))).toBeInTheDocument();
+    expect(within(bki).queryByText("Сведения источника")).not.toBeInTheDocument();
   });
 
   it("«Проверки»: pipeline has not run → empty state", async () => {
