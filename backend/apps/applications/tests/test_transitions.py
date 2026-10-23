@@ -37,7 +37,7 @@ EXPECTED_SOURCES = {
     "decline_offer": {S.OFFER},
     "confirm_signature": {S.SIGNING},
     "disburse": {S.SIGNED},
-    "cancel": {S.DRAFT, S.SUBMITTED, S.MANUAL_REVIEW, S.INFO_REQUESTED, S.OFFER},
+    "cancel": {S.DRAFT, S.SUBMITTED, S.MANUAL_REVIEW, S.INFO_REQUESTED, S.OFFER, S.SIGNING},
 }
 EXPECTED_WHO = {
     "submit": "signatory",
@@ -174,7 +174,7 @@ def test_lock_outside_a_transaction_is_a_programming_error():
         (S.INFO_REQUESTED, "preparer", ["upload_document", "respond_info"]),
         (S.OFFER, "signatory", ["accept_offer", "decline_offer", "cancel"]),
         (S.OFFER, "preparer", []),
-        (S.SIGNING, "signatory", ["sign"]),
+        (S.SIGNING, "signatory", ["sign", "cancel"]),  # fix 3.2: walk away before signing
         (S.MANUAL_REVIEW, "bank", ["assign", "approve", "counteroffer", "request_info", "decline"]),
         (S.MANUAL_REVIEW, "signatory", ["cancel"]),
         (S.ISSUED, "signatory", []),

@@ -27,7 +27,7 @@ erDiagram
 
 ## Пользователи и компании
 **User** — стандартный пользователь Django + `UserProfile`:
-- `kind`: `client` | `bank` — сторона; `full_name`; `is_demo`.
+- **UserProfile** — 1:1 к User (`user`): `kind`: `client` | `bank` — сторона; `full_name`; `is_demo`.
 - Банк: роль `bank_manager` (все сотрудники банка в MVP — менеджеры). `admin` = `is_superuser`, только техническая админка.
 
 **Company** (бывший `Business`)
@@ -42,7 +42,7 @@ erDiagram
 - Подключение (`connectIntegration`) приносит снимок по счёту (`FinancialSnapshot`); в API — `Company.integrations` (D19)
 
 **Membership** — пользователь в компании
-- `user` → User, `company` → Company, `role`: `signatory` | `preparer`; `position` (должность текстом: «Генеральный директор», «Главный бухгалтер»…); уникальная пара (user, company)
+- `user` → User, `company` → Company, `role`: `signatory` | `preparer`; `position` (должность текстом: «Генеральный директор», «Главный бухгалтер»…); `created_at`; уникальная пара (user, company)
 - Права — [state-machine.md](state-machine.md#роли). Scoping клиента: все queryset — через `company__memberships__user = request.user`.
 - Появляется только при создании компании (создатель — `signatory`) или когда пользователь сам принял приглашение (`Invitation`, D23).
 
@@ -55,6 +55,7 @@ erDiagram
 - `company`, `period` (YYYY-MM), `source`: `case` | `demo` | `simulator` | `manual`
 - `cleaned_credit_turnover` (среднемесячный), `cfads`, `debt_service`, `revenue`, `cogs`, `ebitda`, `debt`, `cash`, `receivables`, `inventory`, `payables` — Money | null
 - `counterparty_concentration`, `revenue_trend` — коэффициент | null
+- `created_at`
 
 ## Продукты
 **Product** (каталог — D3, фикстура `backend/apps/products/fixtures/`)
@@ -119,4 +120,4 @@ erDiagram
 
 **PendingAction** — действие, которое предложил ассистент (AI1): `id` (UUID), `user`, `kind`: `create_application` | `submit_application`, `payload` (JSON, проверяется сериализатором API ещё раз при подтверждении), `summary` (текст для клиента), `application` | null (заполняется после выполнения), `status`: `pending` | `done`, `created_at`, `expires_at` (30 минут), `confirmed_at` | null. Выполняется только когда тот же пользователь подтвердит; чужое или неизвестное → 404, повтор или просрочка → 409.
 
-**DemoState** (только стенд, `DEMO_MODE=1`) — флаги сбоев симуляторов: `source` → `failing` (bool).
+**DemoState** (только стенд, `DEMO_MODE=1`) — флаги сбоев симуляторов: `source` (уникальный) → `failing` (bool); `updated_at` — когда флаг меняли последний раз.

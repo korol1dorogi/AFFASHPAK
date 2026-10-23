@@ -48,6 +48,7 @@ stateDiagram-v2
     manual_review --> cancelled: cancel
     info_requested --> cancelled: cancel
     offer --> cancelled: decline_offer / cancel
+    signing --> cancelled: cancel
     issued --> [*]
     declined --> [*]
     cancelled --> [*]
@@ -72,7 +73,7 @@ stateDiagram-v2
 | 12 | offer | cancelled | `decline_offer` | клиент: signatory | — | `status_changed` |
 | 13 | signing | signed | `confirm_signature` | клиент: signatory | код верный, не истёк, попытки остались | `signed` → «Договор подписан» |
 | 14 | signed | issued | `disbursement.done` | система (симулятор выдачи) | — | `issued` → «Деньги выданы» |
-| 15 | draft, submitted, manual_review, info_requested, offer | cancelled | `cancel` | клиент: signatory | — | `status_changed` |
+| 15 | draft, submitted, manual_review, info_requested, offer, signing | cancelled | `cancel` | клиент: signatory | — | `status_changed`; действующий или принятый оффер → `declined`. До подписи клиент может отказаться и на этапе подписания: код подписи после этого не принимается (409) |
 
 Исход решения (`Decision.outcome`): `offer`, `counteroffer` (иные сумма или срок), `alternative_product` (другой продукт), `manual_review`, `info_requested`, `declined` — все пять исходов кейса («одобрение, отказ, иные условия, другой продукт, запрос информации»). Решение хранит грейд скоринга и версию правил: скоринг ≠ решение (F8).
 
