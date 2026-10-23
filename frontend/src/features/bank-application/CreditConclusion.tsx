@@ -49,9 +49,9 @@ function Section({
   return (
     <section
       aria-label={title}
-      className={cn("flex flex-col gap-2", !split && "break-inside-avoid")}
+      className={cn("flex flex-col gap-1.5", !split && "break-inside-avoid")}
     >
-      <h2 className="m-0 break-after-avoid border-b border-line-strong pb-1 font-display text-[15px] font-bold">
+      <h2 className="m-0 break-after-avoid border-b border-line-strong pb-0.5 font-display text-[15px] font-bold print:text-[12.5px]">
         {title}
       </h2>
       {children}
@@ -59,12 +59,25 @@ function Section({
   );
 }
 
-function Pairs({ items }: { items: { label: string; value: ReactNode }[] }) {
+function Pairs({
+  items,
+  numeric = false,
+}: {
+  items: { label: string; value: ReactNode }[];
+  /** Figures: the label wraps on the left, the value stays whole on the right. */
+  numeric?: boolean;
+}) {
   return (
     <dl className="m-0 grid gap-x-6 gap-y-1 sm:grid-cols-2 print:grid-cols-2">
       {items.map((item) => (
-        <div key={item.label} className="flex min-w-0 gap-2 break-inside-avoid">
-          <dt className="shrink-0 text-ink-muted">{item.label}:</dt>
+        <div
+          key={item.label}
+          className={cn(
+            "grid items-baseline gap-x-2 break-inside-avoid",
+            numeric ? "grid-cols-[minmax(0,1fr)_auto]" : "grid-cols-[auto_1fr]",
+          )}
+        >
+          <dt className="text-ink-muted">{item.label}:</dt>
           <dd className="m-0 min-w-0 break-words">{item.value}</dd>
         </div>
       ))}
@@ -101,7 +114,7 @@ function Head({ card, generatedAt }: { card: BankApplicationDetail; generatedAt:
 function Client({ card }: { card: BankApplicationDetail }) {
   const { company, members, snapshot } = card;
   return (
-    <Section title={T.client}>
+    <Section title={T.client} split>
       <Pairs
         items={[
           { label: C.name, value: company.name },
@@ -117,7 +130,7 @@ function Client({ card }: { card: BankApplicationDetail }) {
           { label: C.address, value: company.address },
         ]}
       />
-      <p className="m-0 font-semibold">{C.members}</p>
+      <p className="m-0 break-after-avoid font-semibold">{C.members}</p>
       {members.length === 0 ? (
         <Empty>{C.noMembers}</Empty>
       ) : (
@@ -129,7 +142,7 @@ function Client({ card }: { card: BankApplicationDetail }) {
           ))}
         </ul>
       )}
-      <p className="m-0 font-semibold">
+      <p className="m-0 break-after-avoid font-semibold">
         {C.snapshot}
         {snapshot ? (
           <span className="font-normal text-ink-muted">
@@ -140,6 +153,7 @@ function Client({ card }: { card: BankApplicationDetail }) {
       </p>
       {snapshot ? (
         <Pairs
+          numeric
           items={(Object.keys(SNAPSHOT_FIELD) as (keyof typeof SNAPSHOT_FIELD)[]).map((key) => {
             const value = snapshot[key];
             const field = SNAPSHOT_FIELD[key];
@@ -149,7 +163,7 @@ function Client({ card }: { card: BankApplicationDetail }) {
                 value === null ? (
                   <NoData />
                 ) : (
-                  <span className="tabular">
+                  <span className="tabular whitespace-nowrap">
                     {field.format === "money" ? formatMoney(value) : formatDecimal(value)}
                   </span>
                 ),
@@ -226,7 +240,7 @@ function Checks({ checks }: { checks: Schemas["Check"][] }) {
 
 function Scoring({ score }: { score: Schemas["Score"] | null }) {
   return (
-    <Section title={T.scoring}>
+    <Section title={T.scoring} split>
       {score ? (
         <>
           <p className="m-0 font-semibold">{T.scoreTotal(score.total, score.grade)}</p>
@@ -538,7 +552,7 @@ export function CreditConclusion({
   return (
     <article
       aria-label={T.title}
-      className="flex flex-col gap-3 bg-surface text-[12px] leading-[1.4] text-ink"
+      className="flex flex-col gap-3 bg-surface text-[12px] leading-[1.4] text-ink print:gap-2 print:text-[10.5px] print:leading-[1.35]"
     >
       <Head card={card} generatedAt={generatedAt} />
       <Client card={card} />

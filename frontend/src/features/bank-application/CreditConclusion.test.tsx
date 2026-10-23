@@ -122,6 +122,23 @@ describe("CreditConclusion — persona 4 decided by an officer", () => {
   });
 });
 
+describe("CreditConclusion — handoff cause", () => {
+  it("names the failed decision rule, not a scorecard factor that only lowered the score", () => {
+    const card = persona4DecidedCard();
+    const auto = present(card.decisions[0]);
+    auto.reasons.unshift({
+      metric: "debt_to_ebitda",
+      value: null,
+      threshold: "3.5",
+      passed: false,
+      message: "Отчётности нет — долговую нагрузку оценили по счёту",
+    });
+    show(card);
+    const approve = section("Решения и история").querySelector('[data-decision="7"]');
+    expect(approve).toHaveTextContent("(Предварительная оценка риска: грейд C (65 из 100))");
+  });
+});
+
 describe("CreditConclusion — empty and missing data", () => {
   it("says so when there are no checks, score, decisions, snapshot or offer", () => {
     const card = persona4Card();

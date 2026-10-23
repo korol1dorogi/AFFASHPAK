@@ -1,4 +1,5 @@
 import type { Schemas } from "@/api/client";
+import { FACTOR_MAX_POINTS } from "@/features/bank-application/ScoreBreakdown";
 
 type Decision = Schemas["Decision"];
 type Event = Schemas["ApplicationEvent"];
@@ -74,6 +75,17 @@ export type OfficerVerdict =
   /** The officer agreed with the system's verdict, or there was nothing to compare with. */
   | { kind: "plain" };
 
+/**
+ * Why the system passed the application on: a failed decision rule (score, missing metrics,
+ * outage) rather than a single scorecard factor, which only lowers the score.
+ */
+function handoffCause(auto: Decision): Reason | null {
+  const failed = auto.reasons.filter((reason) => !reason.passed);
+  return (
+    failed.find((reason) => !Object.hasOwn(FACTOR_MAX_POINTS, reason.metric)) ?? failed[0] ?? null
+  );
+}
+
 function amountOverLimit(auto: Decision, amount: string): Reason | null {
   for (const reason of auto.reasons) {
     if (!AMOUNT_LIMITS.has(reason.metric) || reason.value === null) continue;
@@ -106,9 +118,7 @@ export function classifyOfficerDecision(
     const limit = amountOverLimit(auto, offer.amount);
     if (limit) return { kind: "override_amount", auto, amount: offer.amount, limit };
   }
-  if (HANDOFF.has(auto.outcome)) {
-    return { kind: "handoff", auto, cause: auto.reasons.find((reason) => !reason.passed) ?? null };
-  }
+  if (HANDOFF.has(auto.outcome)) return { kind: "handoff", auto, cause: handoffCause(auto) };
   if (auto.outcome !== decision.outcome) return { kind: "override_outcome", auto };
   return { kind: "plain" };
 }
