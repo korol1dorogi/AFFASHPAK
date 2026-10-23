@@ -64,7 +64,10 @@ docker compose run --rm backend python manage.py createsuperuser   # учётк�
 Проверка: `https://$DOMAIN/` — кабинет, `https://$DOMAIN/api/health` — `{"status":"ok",...}`, `https://$DOMAIN/$DJANGO_ADMIN_URL` — бэк-офис.
 
 ## 6. Автодеплой после мержа (D11)
-Мерж в `main` → CI (backend, frontend, e2e, gitleaks) → при зелёном — джоба `deploy` заходит на сервер по SSH и запускает `/usr/local/bin/alfa-deploy` ([deploy/alfa-deploy.sh](../deploy/alfa-deploy.sh)): `git fetch` → `reset` на `origin/main` → `docker compose up -d --build --wait` → проверка `/api/health`. Не поднялось — откат на предыдущий коммит (миграции БД не откатываются: ломающие миграции делаем в два шага). Журнал — `/var/log/alfa-deploy.log`.
+Мерж в `main` → CI (backend, frontend, e2e, gitleaks) → при зелёном — джоба `deploy` заходит на сервер по SSH и запускает `/usr/local/bin/alfa-deploy` ([deploy/alfa-deploy.sh](../deploy/alfa-deploy.sh)): `git fetch` → **дамп БД** → `reset` на `origin/main` → `docker compose up -d --build --wait` → проверка `/api/health`. Журнал — `/var/log/alfa-deploy.log`.
+- **Бэкап перед каждым деплоем:** `/var/backups/alfa-cabinet/predeploy-<время>-<коммит>.sql.gz`, хранятся последние 10. Дамп не снялся — деплой не начинается.
+- **Откат:** не поднялось — возврат на предыдущий коммит. Если между коммитами менялись миграции (`*/migrations/*`), перед этим `backend` и `worker` останавливаются и база восстанавливается из дампа этого деплоя: старый код не работает на новой схеме. Записи, сделанные за минуты неудачного деплоя, при этом теряются.
+- **Скрипт обновляет себя сам:** после каждого запуска установленная копия сверяется с `deploy/alfa-deploy.sh` из репозитория и при расхождении заменяется (следующий запуск — уже новой версией).
 
 Ключ CI в `authorized_keys` ограничен: `restrict,command="/usr/local/bin/alfa-deploy"`. С ним нельзя получить шелл, выполнить другую команду или пробросить порты — только выкатить последний `main`.
 
@@ -83,7 +86,7 @@ echo 'restrict,command="/usr/local/bin/alfa-deploy" ssh-ed25519 AAAA... github-a
   Джоба `deploy` в `.github/workflows/ci.yml` уже объявляет `environment: production`; пока секрет не перенесён, она берёт старый репозиторный — деплой не ломается.
 - GitHub → Settings → Deploy keys → публичный ключ сервера для чтения репозитория (раздел 2, без write access).
 - IP и ключ хоста сервера записаны в `.github/workflows/ci.yml` (джоба `deploy`); при смене сервера — обновить там.
-- Скрипт в репозитории поменялся → переустановить его на сервере командой выше (CI запускает установленную копию).
+- Скрипт в репозитории поменялся — переустанавливать не нужно: он обновит установленную копию сам при следующем деплое. Один раз руками — только если на сервере стоит версия старше этой (без самообновления): командой выше.
 
 Вручную (то же самое): `ssh root@<ip> alfa-deploy`, или на сервере `alfa-deploy`.
 
@@ -95,5 +98,12 @@ echo 'restrict,command="/usr/local/bin/alfa-deploy" ssh-ed25519 AAAA... github-a
 
 ## 8. Обслуживание
 - Логи: `docker compose logs -f --tail 100 caddy backend`
-- Бэкап БД: `docker compose exec -T db sh -c 'pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB"' | gzip > ~/backup-$(date +%F-%H%M).sql.gz`
+- Бэкап БД (например, перед демо): `alfa-deploy backup` → `/var/backups/alfa-cabinet/manual-<время>-<коммит>.sql.gz`, хранятся последние 10. Перед каждым деплоем дамп снимается сам (раздел 6).
+- Восстановление из дампа вручную (на сервере, в каталоге репозитория):
+  ```sh
+  docker compose stop backend worker
+  gunzip -c /var/backups/alfa-cabinet/<файл>.sql.gz | docker compose exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -q -U "$POSTGRES_USER" "$POSTGRES_DB"'
+  docker compose up -d --wait
+  ```
+  Дамп снят с `--clean --if-exists`: он сам удаляет и пересоздаёт таблицы.
 - После хакатона (docs/submission.md): ротировать LLM-ключ, удалить данные кейса с сервера.
