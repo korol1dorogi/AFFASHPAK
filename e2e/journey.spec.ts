@@ -131,7 +131,7 @@ test.describe("scenario 3: seasonal store — counteroffer by DSCR", () => {
     await expect(statusBadge(page)).toHaveText("Есть предложение");
     await expect(page.getByText("Банк предлагает другие условия")).toBeVisible();
     const offer = page.getByRole("article", { name: "Предложение банка" });
-    await expect(offer).toContainText("Иные условия");
+    await expect(offer).toContainText("Другие условия");
     await expect(offer).toContainText(rub("2 009 314"));
     await expect(offer).toContainText(`Вы просили ${rub("5 300 000")}`);
     await expect(offer).toContainText(`24${NBSP}%`);
@@ -139,13 +139,13 @@ test.describe("scenario 3: seasonal store — counteroffer by DSCR", () => {
     await expect(offer).toContainText(rub("189 999,92"));
     const why = offer.getByRole("list", { name: "Почему такие условия" });
     await expect(why).toContainText("87 баллов из 100, это оценка B");
-    await expect(why).toContainText("На 12 мес под 24% можно взять не больше 2 009 314 ₽");
+    await expect(why).toContainText("На 12 месяцев под 24% можно взять не больше 2 009 314 ₽");
     await expect(why).toContainText("свободных денег в 1,25 раза больше, чем уходит на все платежи");
 
     await acceptAndSign(page, id);
   });
   // docs/test-scenarios.md scenario 3, step 5: the counteroffer screen also shows «что улучшить»
-  // («Если взять на 24 мес, можно получить до 3 593 645 ₽») and calls it a preliminary evaluation. Bug:
+  // («Если взять на 24 месяца, можно получить до 3 593 645 ₽») and calls it a preliminary evaluation. Bug:
   // ApplicationPage hides DecisionCard while an offer is active and OfferCard renders neither.
   test("counteroffer screen shows what to improve and says «предварительная оценка» (C6)", async ({
     page,
@@ -167,7 +167,7 @@ test.describe("scenario 3: seasonal store — counteroffer by DSCR", () => {
     await expect(statusBadge(page)).toHaveText("Есть предложение");
     await expect(page.getByText("Предварительная оценка").first()).toBeVisible();
     const improve = page.getByRole("list", { name: "Что можно улучшить" });
-    await expect(improve).toContainText(`Если взять на 24 мес, можно получить до ${rub("3 593 645")}`);
+    await expect(improve).toContainText(`Если взять на 24 месяца, можно получить до ${rub("3 593 645")}`);
   });
 });
 
@@ -286,7 +286,7 @@ test.describe("scenario 4: manufacturer — manual review and info request", () 
         .getByRole("button", { name: "Одобрить", exact: true })
         .click();
       const dialog = bank.getByRole("dialog");
-      await expect(dialog).toContainText(`${rub("8 000 000")} на 36 мес`);
+      await expect(dialog).toContainText(`${rub("8 000 000")} на 36 месяцев`);
       await dialog.getByRole("button", { name: "Одобрить", exact: true }).click();
       await expect(dialog).toHaveCount(0);
       await expect(statusBadge(bank)).toHaveText("Есть предложение");
@@ -331,8 +331,10 @@ test.describe("scenario 5: dependent supplier — decline with improvements", ()
     const reasons = page.getByRole("list", { name: "Причины" });
     await expect(reasons).toContainText("47 баллов из 100, это оценка E");
     await expect(reasons).toContainText("только 1,1 ₽ свободных денег, а нужно не меньше 1,25 ₽");
-    await expect(reasons).toContainText("Долг равен 4,2 годовой прибыли (EBITDA), а норма — не больше 3,5");
-    await expect(reasons).toContainText("выручка упала на 20% к тем же месяцам прошлого года");
+    await expect(reasons).toContainText(
+      "Чтобы отдать долги, понадобится операционная прибыль (EBITDA) за 4,2 года, а норма — не больше 3,5 года",
+    );
+    await expect(reasons).toContainText("Выручка за последние три месяца на 20% меньше, чем год назад");
     await expect(reasons).toContainText("80% денег приносит один покупатель");
     await expect(
       page
@@ -340,7 +342,7 @@ test.describe("scenario 5: dependent supplier — decline with improvements", ()
         .locator("xpath=following-sibling::ol[1]/li"),
     ).toHaveText([
       /Снизьте платежи по текущим долгам или увеличьте остаток денег после расходов/,
-      /Снизьте долг до 3,5 годовой прибыли/,
+      /Снизьте долг так, чтобы его можно было отдать из прибыли за 3,5 года/,
       /Верните выручку хотя бы к уровню прошлого года/,
       /Найдите ещё покупателей, чтобы на крупнейшего приходилось не больше 50% поступлений/,
     ]);
@@ -442,7 +444,7 @@ test.describe("scenario 7: BKI outage — manual review", () => {
     for (const action of [
       "Взять в работу",
       "Одобрить",
-      "Иные условия",
+      "Другие условия",
       "Запросить информацию",
       "Отказать",
     ]) {
