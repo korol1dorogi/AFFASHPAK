@@ -160,7 +160,8 @@ docker compose up -d --build --wait
 | `SLA_HOURS` | пусто = `submitted=1, processing=1, manual_review=24, signed=1` | норматив в часах по статусам для отметки «просрочено» в очереди банка |
 | `LLM_PROVIDER` | `mock` | `mock` — детерминированный, без сети и ключа; `openai` — OpenAI-совместимый API к модели с открытыми весами |
 | `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL` | пусто | только для `LLM_PROVIDER=openai` |
-| `LLM_TIMEOUT_SECONDS` | `30` | таймаут запроса к LLM |
+| `LLM_TIMEOUT_SECONDS` | `20` | таймаут одного запроса к LLM |
+| `LLM_TURN_BUDGET_SECONDS` | `35` | время на весь ответ ассистента; дальше ход дописывает заглушка с пометкой. Бюджет + один запрос должны укладываться в 60 с gunicorn |
 | `LLM_MAX_STEPS` | `4` | сколько раз за ответ модель может обратиться к инструментам |
 | `GUARDRAILS_MODE` | `block` | `block` — ответ с выдуманной цифрой или обещанием одобрения перегенерируется, затем заменяется безопасным; `log` — только записать в лог |
 | `CASE_DATA_DIR` | `./data/sample` | папка с данными, монтируется только на чтение; по умолчанию синтетика ([data/SCHEMA.md](data/SCHEMA.md)) |

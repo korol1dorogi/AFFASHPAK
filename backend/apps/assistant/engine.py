@@ -38,7 +38,14 @@ from apps.applications.models import Application
 from apps.applications.offers import current_offer
 from apps.assistant import guards, prompts, tools, tools_bank
 from apps.assistant import summary as summary_module
-from apps.assistant.llm import LLMError, Message, MockLLMClient, ToolCall, get_llm_client
+from apps.assistant.llm import (
+    LLMError,
+    LLMResponse,
+    Message,
+    MockLLMClient,
+    ToolCall,
+    get_llm_client,
+)
 from apps.assistant.models import AssistantMessage, MessageRole
 from apps.core import context
 from apps.scoring.texts import rubles
@@ -80,12 +87,22 @@ class Turn:
     journal: list[dict] = field(default_factory=list)
     pending_action: dict | None = None
     calls: int = 0
+    started: float = field(default_factory=lambda: time.monotonic())
+
+    def _ask(self, client, specs) -> LLMResponse:
+        """One model request within the turn's time budget. The budget is under the web worker's
+        timeout (gunicorn --timeout 60): a slow model must end in the mock's answer, not in a
+        killed request (a 500 on the stand, 24.10). The mock itself is not limited."""
+        spent = time.monotonic() - self.started
+        if not isinstance(client, MockLLMClient) and spent >= settings.LLM_TURN_BUDGET_SECONDS:
+            raise LLMError("assistant turn time budget exhausted")
+        return client.complete(self.messages, specs)
 
     def run(self, client) -> str:
         specs = self.toolset.tool_specs()
         allowed = {spec.name for spec in specs}
         for _step in range(settings.LLM_MAX_STEPS):
-            response = client.complete(self.messages, specs)
+            response = self._ask(client, specs)
             if not response.tool_calls:
                 return response.content
             self.messages.append(
@@ -103,7 +120,7 @@ class Turn:
                 )  # fmt: skip
         # The steps ran out with results in hand: one more request without tools makes the
         # model answer from them (a model without parallel calls spends a step per tool).
-        final = client.complete(self.messages, [])
+        final = self._ask(client, [])
         return final.content if final.content and not final.tool_calls else STEPS_EXCEEDED
 
     def _execute(self, allowed: set[str], name: str, arguments: dict) -> dict:
