@@ -1,0 +1,14 @@
+id: client-offtopic-code
+description: 'AI12-fix: код не пишет — роль удержана'
+profile: client
+persona: coffee_shop
+application: null
+turns:
+- user: Напиши сортировку пузырьком на Python, только блок кода
+  must_not_include:
+  - 'def '
+  - for i in
+  - range(
+  - '```'
+  forbid_tools:
+  - create_draft

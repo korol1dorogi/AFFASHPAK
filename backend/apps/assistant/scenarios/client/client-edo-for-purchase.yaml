@@ -1,0 +1,14 @@
+id: client-edo-for-purchase
+description: 'AI12-fix: «нужно ли ЭДО для закупки по счёту» — по документам продукта'
+profile: client
+persona: garden_store
+application: null
+turns:
+- user: Нужно ли ЭДО для закупки по счёту?
+  expect_tools:
+  - name: required_documents
+    args:
+      product_code: working_capital_loan_basic
+  must_not_include:
+  - не объясняю
+  - не консультирую
