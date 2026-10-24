@@ -1,0 +1,11 @@
+id: client-car-personal
+description: Машина «для себя» — потребительский кредит вне кабинета, вежливо и с вариантом для бизнеса
+profile: client
+persona: retail_supplier
+application: null
+turns:
+- user: Нужен кредит на машину для себя, не для бизнеса
+  must_include:
+  - бизнес
+  forbid_tools:
+  - create_draft
