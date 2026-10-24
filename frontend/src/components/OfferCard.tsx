@@ -42,7 +42,7 @@ export function OfferCard({
           <span className="text-xs font-medium tracking-[0.02em] text-ink-muted">
             {PRODUCT_KIND[offer.product.kind].toUpperCase()}
           </span>
-          {offer.is_counteroffer ? <Badge variant="action">Иные условия</Badge> : null}
+          {offer.is_counteroffer ? <Badge variant="action">Другие условия</Badge> : null}
           {offer.product_changed ? <Badge variant="action">Другой продукт</Badge> : null}
           {offer.status === "accepted" ? <Badge variant="success">Принято</Badge> : null}
         </div>

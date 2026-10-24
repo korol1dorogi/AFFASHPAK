@@ -106,7 +106,7 @@ export function SignPage() {
               ))}
             </div>
             <p className="m-0 text-sm text-ink-muted">
-              Действует до {formatDateTime(challenge.expires_at)} · попыток:{" "}
+              Код действует до {formatDateTime(challenge.expires_at)} · осталось попыток:{" "}
               {challenge.attempts_left}
             </p>
             <form

@@ -305,7 +305,7 @@ export function ApplicationPage() {
         open={confirm === "decline"}
         onOpenChange={(open) => setConfirm(open ? "decline" : null)}
         title="Отказаться от предложения?"
-        text="Заявка будет закрыта. Чтобы получить деньги позже, придётся подать новую."
+        text="Заявка закроется. Если деньги понадобятся позже, подайте новую."
         confirmLabel="Отказаться"
         cancelLabel="Оставить"
         danger

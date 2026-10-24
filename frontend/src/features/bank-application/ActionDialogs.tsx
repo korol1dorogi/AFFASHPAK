@@ -201,7 +201,7 @@ export function ApproveDialog({ card, onClose }: DialogProps) {
 }
 
 /**
- * Other terms («Иные условия») or another product («Другой продукт») — both are counteroffer.
+ * Other terms («Другие условия») or another product («Другой продукт») — both are counteroffer.
  * Hints: the amount the client's cash flow carries (latest decision) and the product's rate range.
  */
 export function CounterofferDialog({

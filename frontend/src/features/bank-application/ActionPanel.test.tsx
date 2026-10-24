@@ -77,7 +77,7 @@ describe("ActionPanel — buttons only from available_actions", () => {
     ).toEqual([
       "Взять в работу",
       "Одобрить",
-      "Иные условия",
+      "Другие условия",
       "Другой продукт",
       "Запросить информацию",
       "Отказать",
@@ -144,7 +144,7 @@ describe("ActionPanel — dialogs send what the contract asks", () => {
 
   it("counteroffer: hints, required rate and comment, percent leaves as a fraction", async () => {
     const fetchMock = open({ [`POST ${BASE}/counteroffer`]: done("offer") });
-    const dialog = await openDialog("Иные условия");
+    const dialog = await openDialog("Другие условия");
     expect(within(dialog).getByText(/допустимо до 11\s290\s503\s₽/)).toBeInTheDocument();
     expect(await within(dialog).findByText(/от 18\s%\sдо 26\s%/)).toBeInTheDocument();
     expect(within(dialog).queryByLabelText("Продукт")).not.toBeInTheDocument();
@@ -175,7 +175,7 @@ describe("ActionPanel — dialogs send what the contract asks", () => {
 
   it("counteroffer refuses a zero amount", async () => {
     const fetchMock = open();
-    const dialog = await openDialog("Иные условия");
+    const dialog = await openDialog("Другие условия");
     type(within(dialog).getByLabelText("Сумма"), "0");
     fireEvent.click(within(dialog).getByRole("button", { name: "Предложить условия" }));
     expect(await within(dialog).findByText("Укажите сумму больше нуля")).toBeInTheDocument();
@@ -361,7 +361,7 @@ describe("ActionPanel — errors", () => {
         },
       ],
     });
-    const dialog = await openDialog("Иные условия");
+    const dialog = await openDialog("Другие условия");
     type(within(dialog).getByLabelText("Ставка, % годовых"), "20");
     type(within(dialog).getByLabelText("Комментарий клиенту"), "Меньше, чем просили");
     fireEvent.click(within(dialog).getByRole("button", { name: "Предложить условия" }));
