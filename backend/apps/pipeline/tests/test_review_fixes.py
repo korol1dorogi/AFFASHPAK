@@ -50,7 +50,7 @@ def test_persona_2_factoring_for_the_shipment(seeded):
     offer = application.offers.get()
     assert (decision.outcome, decision.grade) == ("offer", "B")
     assert (offer.product.code, offer.amount) == ("factoring_basic", Decimal("4500000.00"))
-    assert "Сразу получите 90% от суммы отгрузки: 4 500 000 ₽" in _texts(decision)
+    assert "Сразу можно получить 90% от суммы отгрузки: 4 500 000 ₽" in _texts(decision)
 
 
 @pytest.mark.django_db

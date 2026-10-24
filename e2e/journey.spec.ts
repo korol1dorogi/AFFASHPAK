@@ -103,7 +103,7 @@ test.describe("scenario 2: supplier — factoring for a shipment", () => {
     await expect(statusBadge(page)).toHaveText("Есть предложение");
     const offer = page.getByRole("article", { name: "Предложение банка" });
     await expect(offer).toContainText(rub("4 500 000"));
-    await expect(page.getByText(`Сразу получите 90% от суммы отгрузки: ${rub("4 500 000")}`)).toBeVisible();
+    await expect(page.getByText(`Сразу можно получить 90% от суммы отгрузки: ${rub("4 500 000")}`)).toBeVisible();
     await acceptAndSign(page, id);
   });
 });

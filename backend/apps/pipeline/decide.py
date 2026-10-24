@@ -252,7 +252,7 @@ def _factoring_size(
     limit = min(factoring_advance(invoice, beta), product.amount_max)
     passed = limit >= requested
     text = (
-        f"Сразу получите {percent(beta)} от суммы отгрузки: {rubles(limit)}"
+        f"Сразу можно получить {percent(beta)} от суммы отгрузки: {rubles(limit)}"
         if passed
         else f"Под эту отгрузку доступно {rubles(limit)}"
     )
@@ -279,7 +279,7 @@ def _dscr_cap(product: Product, inp: ScoringInput, rate: Decimal, term: int) -> 
 def _dscr_reason(limit: Decimal, requested: Decimal, rate: Decimal, term: int) -> dict:
     passed = limit >= requested
     text = (
-        f"Платёж вам по силам: можно взять до {rubles(limit)}"
+        f"Платёж бизнесу по силам: можно взять до {rubles(limit)}"
         if passed
         else (
             f"На {term} мес под {percent(rate)} можно взять не больше {rubles(limit)}: "

@@ -198,7 +198,7 @@ def _dscr_reason(
     reserve = percent(_min_dscr(product) - 1)
     return _limit_reason(
         "max_loan_by_dscr", limit, ctx.request.amount,
-        ok=f"Платёж вам по силам: можно взять до {rubles(limit)}",
+        ok=f"Платёж бизнесу по силам: можно взять до {rubles(limit)}",
         fail=(
             f"На {term} мес под {percent(rate)} можно взять не больше {rubles(limit)}, "
             f"чтобы после платежей оставался запас {reserve}"
@@ -226,7 +226,7 @@ def _factoring(product: Product, ctx: _Context, rate: Decimal, term: int) -> _Si
     limit = factoring_advance(invoice, beta)
     advance = _limit_reason(
         "factoring_advance", limit, ctx.request.amount,
-        ok=f"Сразу получите {percent(beta)} от суммы отгрузки: {rubles(limit)}",
+        ok=f"Сразу можно получить {percent(beta)} от суммы отгрузки: {rubles(limit)}",
         fail=f"Под эту отгрузку доступно {rubles(limit)}",
     )  # fmt: skip
     reasons = [advance]
