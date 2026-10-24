@@ -19,6 +19,7 @@ import re
 from decimal import Decimal, InvalidOperation
 from functools import cache
 
+from apps.assistant.guards import REMARK_PREFIX
 from apps.assistant.llm.base import LLMResponse, Message, ToolCall, ToolSpec
 from apps.assistant.summary import PREFIX as SUMMARY_PREFIX
 from apps.assistant.summary import from_facts
@@ -164,7 +165,7 @@ class MockLLMClient:
         found = _APPLICATION_NUMBER.search(context)
         application_id = int(found.group(1)) if found else None
         last = messages[-1]
-        if last.role in ("tool", "system"):  # results to answer, or a guard's remark (AI22)
+        if last.role == "tool" or _is_remark(last):  # results to answer, or a guard's remark
             results = _turn_results(messages)
             question = _last_user_text(messages)
             if not results:
@@ -353,13 +354,22 @@ class MockLLMClient:
 # ───────────────────────── answers from this turn's results ─────────────────────────
 
 
+def _is_remark(message: Message) -> bool:
+    """A guard's remark (AI22) — a user message by role, not the person's question."""
+    return message.role == "user" and message.content.startswith(REMARK_PREFIX)
+
+
 def _last_user_text(messages: list[Message]) -> str:
-    return next((m.content for m in reversed(messages) if m.role == "user"), "")
+    return next(
+        (m.content for m in reversed(messages) if m.role == "user" and not _is_remark(m)), ""
+    )
 
 
 def _turn_results(messages: list[Message]) -> dict[str, dict]:
-    """Results of the tools called after the last user message, by tool name."""
-    start = max((i for i, m in enumerate(messages) if m.role == "user"), default=0)
+    """Results of the tools called after the person's last message, by tool name."""
+    start = max(
+        (i for i, m in enumerate(messages) if m.role == "user" and not _is_remark(m)), default=0
+    )
     names: dict[str, str] = {}
     results: dict[str, dict] = {}
     for message in messages[start:]:
