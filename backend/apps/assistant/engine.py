@@ -179,14 +179,16 @@ def respond(
         system = prompts.load(profile).render(
             today=_today(), user_name=_user_name(user), application_context=application_context
         )
+        if markers:
+            # Layer 1: a suspicious message is not refused — the model is warned. The mark goes
+            # into the one system message: a second one mid-dialogue is a 400 for many providers.
+            system = f"{system}\n{guards.SUSPICIOUS_NOTE}"
         turn = Turn(
             user=user,
             toolset=toolset,
             messages=[
                 Message(role="system", content=system),
                 *_history(user, application),
-                # Layer 1: a suspicious message is not refused — the model is warned next to it.
-                *([Message(role="system", content=guards.SUSPICIOUS_NOTE)] if markers else []),
                 Message(role="user", content=checked.text),
             ],
         )
@@ -241,12 +243,12 @@ def _guarded(turn: Turn, client, answer: str, profile: str, grounding: str,
         if attempt == 2:
             break
         remark = (
-            "Проверка ответа не пройдена: "
+            f"{guards.REMARK_PREFIX} "
             + "; ".join(guards.REMARK[issue.code].format(detail=issue.detail) for issue in issues)
             + ". Ответь пользователю заново."
         )
         turn.messages.extend(
-            [Message(role="assistant", content=plain), Message(role="system", content=remark)]
+            [Message(role="assistant", content=plain), Message(role="user", content=remark)]
         )
         try:
             answer = turn.run(client)
@@ -262,7 +264,11 @@ def safe_answer(profile: str, journal: list[dict], messages: list[Message]) -> s
     """The deterministic answer of this turn: the mock's text from the tools' results."""
     from apps.assistant.llm.mock import answer_from_journal
 
-    question = next((m.content for m in reversed(messages) if m.role == "user"), "")
+    question = next(
+        (m.content for m in reversed(messages)
+         if m.role == "user" and not m.content.startswith(guards.REMARK_PREFIX)),
+        "",
+    )  # fmt: skip
     return answer_from_journal(profile == "bank", journal, question)
 
 
