@@ -61,12 +61,12 @@ export function SignPage() {
 
   return (
     <div className="flex max-w-[640px] flex-col gap-6">
-      <Link to={routes.application(id)} className="w-fit text-sm no-underline">
+      <Link to={routes.application(id)} className="link w-fit text-sm">
         ← К заявке № {id}
       </Link>
       <PageHeader
         title="Подписание договора"
-        subtitle="Код показываем на экране вместо SMS — так по условиям прототипа."
+        subtitle="В прототипе код не приходит по SMS, а показывается прямо на экране."
       />
       {offer ? (
         <Card className="flex-row flex-wrap gap-6">
@@ -106,7 +106,7 @@ export function SignPage() {
               ))}
             </div>
             <p className="m-0 text-sm text-ink-muted">
-              Действует до {formatDateTime(challenge.expires_at)} · попыток:{" "}
+              Код действует до {formatDateTime(challenge.expires_at)} · осталось попыток:{" "}
               {challenge.attempts_left}
             </p>
             <form

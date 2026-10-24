@@ -87,7 +87,7 @@ describe("CreditConclusion — persona 4 decided by an officer", () => {
     expect(items.map((item) => item.getAttribute("data-decision"))).toEqual(["5", "6", "7"]);
     const approve = present(items[2]);
     expect(approve).toHaveTextContent(
-      "Решение принял сотрудник: система передала заявку на ручное рассмотрение (Предварительная оценка риска: грейд C (65 из 100)) → сотрудник: ",
+      "Система передала заявку на ручное рассмотрение (Предварительная оценка риска: грейд C (65 из 100)), решение принял сотрудник: ",
     );
     expect(approve).toHaveTextContent("Анна Банк");
     expect(approve).toHaveTextContent("Отчётность подтверждает поток");
@@ -175,7 +175,7 @@ describe("CreditConclusion — an officer overrides the system", () => {
     card.decisions = [auto, present(card.decisions[2])];
     show(card);
     const note = screen.getByRole("note", { name: "Сотрудник изменил предварительную оценку" });
-    expect(note).toHaveTextContent("Система: «Отказ» → сотрудник: «Одобрено»");
+    expect(note).toHaveTextContent("Система предлагала «Отказ», сотрудник решил «Одобрено»");
     expect(note).toHaveTextContent("Кто и когда: Анна Банк");
     expect(note).toHaveTextContent("Почему: Отчётность подтверждает поток");
   });
@@ -187,7 +187,7 @@ describe("CreditConclusion — an officer overrides the system", () => {
     show(card);
     const note = screen.getByRole("note", { name: "Сотрудник изменил предварительную оценку" });
     expect(note).toHaveTextContent(
-      "Сотрудник одобрил 12 000 000 ₽ — больше допустимой суммы системы 11 290 503 ₽",
+      "Сотрудник одобрил 12 000 000 ₽, а система допускала не больше 11 290 503 ₽",
     );
   });
 

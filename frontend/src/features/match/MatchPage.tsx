@@ -18,7 +18,7 @@ import { Input } from "@/components/ui/input";
 import { useCreateApplication } from "@/features/applications/api";
 import { errorMessage, unwrap } from "@/lib/errors";
 import { cn } from "@/lib/utils";
-import { NEED } from "@/texts";
+import { NEED, variantsWord } from "@/texts";
 
 type Need = Schemas["NeedType"];
 type Offer = Schemas["RecommendedOffer"];
@@ -133,7 +133,7 @@ function OfferResult({
           <span className="text-sm text-ink-muted">
             <RateText value={offer.rate} /> · {offer.term_months} мес ·{" "}
             {offer.monthly_payment === null ? (
-              "платёж зависит от использования"
+              "платёж зависит от того, сколько возьмёте"
             ) : (
               <>
                 платёж <MoneyText value={offer.monthly_payment} />
@@ -156,7 +156,7 @@ function OfferResult({
           Оформить заявку
         </Button>
         <span className="text-sm text-ink-muted">
-          Заявка заполнится сама — останется проверить и отправить
+          Заявка заполнится сама, останется проверить и отправить
         </span>
       </div>
     </article>
@@ -226,7 +226,7 @@ export function MatchPage() {
     <div className="flex flex-col gap-8">
       <PageHeader
         title="Что вам нужно?"
-        subtitle="Подберём инструмент и сумму по данным вашего счёта. Это предварительная оценка, а не решение банка: окончательные условия будут после проверки заявки."
+        subtitle="Подберём подходящий вариант и сумму по данным вашего счёта. Это предварительная оценка, а не решение банка: окончательные условия банк назовёт после проверки заявки."
       />
       <NeedPicker value={need} onChange={pick} />
 
@@ -248,7 +248,7 @@ export function MatchPage() {
             </Field>
             <Field
               label="На сколько месяцев"
-              error={termValid ? undefined : "От 1 до 360"}
+              error={termValid ? undefined : "От 1 до 360 месяцев"}
               className="w-48"
             >
               <Input
@@ -282,13 +282,13 @@ export function MatchPage() {
         <section aria-labelledby="results-title" className="flex flex-col gap-4">
           <h2 id="results-title" className="m-0 font-display text-[22px] leading-7 font-bold">
             {result.offers.length
-              ? `Варианты по данным вашего счёта: ${result.offers.length}`
+              ? `Нашли ${result.offers.length} ${variantsWord(result.offers.length)} по данным вашего счёта`
               : "Подходящих вариантов нет"}
           </h2>
           {result.stop_factors.length ? (
             <Card className="border-status-danger">
               <p className="m-0 font-semibold">Почему сейчас не получится</p>
-              <ReasonList reasons={result.stop_factors} label="Стоп-факторы" />
+              <ReasonList reasons={result.stop_factors} label="Что мешает" />
             </Card>
           ) : null}
           {[...result.offers]

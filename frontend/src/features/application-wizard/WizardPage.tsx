@@ -153,8 +153,11 @@ function BusinessStep() {
         {company.data?.is_demo ? <DemoBadge /> : null}
       </div>
       <CardDescription>
-        Эти данные уже есть в профиле компании — вводить заново не нужно. Ошибка в реквизитах?{" "}
-        <Link to={routes.company}>Исправить в профиле</Link>
+        Эти данные уже есть в профиле компании, вводить их заново не нужно. Нашли ошибку в
+        реквизитах?{" "}
+        <Link to={routes.company} className="link">
+          Исправить в профиле
+        </Link>
       </CardDescription>
       {company.data ? (
         <dl className="m-0 grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-4">
@@ -194,7 +197,7 @@ function DocumentsStep({ application }: { application: ApplicationDetail }) {
       <CardDescription>
         {product
           ? `Для продукта «${product.name}» банку нужны:`
-          : "Продукт подберёт банк — загрузите выписку, если она есть."}
+          : "Продукт подберёт банк. Если есть выписка, загрузите её."}
       </CardDescription>
       <RequiredDocuments applicationId={application.id} required={required} />
       <DocumentUpload
@@ -259,7 +262,7 @@ function ReviewStep({ application }: { application: ApplicationDetail }) {
           <dt className="text-xs text-ink-muted">Сумма и срок</dt>
           <dd className="m-0">
             <MoneyText value={application.requested_amount} className="font-semibold" />
-            <SourceTag source="client" /> на {application.term_months} мес
+            <SourceTag source="you" /> на {application.term_months} мес
           </dd>
         </div>
         <div className="col-span-full">
@@ -269,8 +272,8 @@ function ReviewStep({ application }: { application: ApplicationDetail }) {
       </dl>
       {missing.length ? (
         <p className="m-0 rounded-md bg-status-action-soft p-3 text-sm">
-          Не хватает: {missing.map((kind) => DOCUMENT_KIND[kind]).join(", ")}. Можно отправить и так
-          — банк запросит их позже, но проверка займёт дольше.
+          Не хватает: {missing.map((kind) => DOCUMENT_KIND[kind]).join(", ")}. Можно отправить и
+          так: банк запросит документы позже, но проверка займёт больше времени.
         </p>
       ) : null}
       <MutationError error={submit.error} />
@@ -330,8 +333,8 @@ function ReviewStep({ application }: { application: ApplicationDetail }) {
           <p className="m-0">
             Отправить заявку может подписант{signatory ? `: ${signatory.user.full_name}` : ""}.
             {canHandOff
-              ? " Когда черновик готов, передайте его — подписант получит уведомление в кабинете."
-              : " Черновик сохранён — подписант увидит его в своём кабинете."}
+              ? " Когда черновик будет готов, передайте его подписанту: он получит уведомление в кабинете."
+              : " Черновик сохранён, подписант увидит его в своём кабинете."}
           </p>
           {handOff.isSuccess ? (
             <p role="status" className="m-0 font-medium text-status-success">
@@ -380,7 +383,7 @@ export function WizardPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader title={`Заявка № ${data.id}`} subtitle="Черновик — банк его ещё не видит." />
+      <PageHeader title={`Заявка № ${data.id}`} subtitle="Это черновик, банк его ещё не видит." />
       <Stepper
         label="Шаги заявки"
         current={step}

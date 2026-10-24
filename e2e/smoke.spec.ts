@@ -6,16 +6,16 @@ test("landing explains the product and signs in as a persona in one click (UX1)"
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Деньги для бизнеса");
   await expect(page.getByRole("link", { name: "Войти по логину" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Путь клиента — три шага" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Путь банка — та же заявка" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Как получить деньги: три шага" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Банк работает с той же заявкой" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Контракт API (Swagger)" })).toHaveAttribute(
     "href",
     "/api/docs/",
   );
 
   await page.getByRole("link", { name: "Войти за демо-компанию" }).click();
-  const personas = page.getByRole("list", { name: "Попробуйте за демо-компанию" });
-  await expect(personas).toContainText("Кассовый разрыв → овердрафт 900 000 ₽");
+  const personas = page.getByRole("list", { name: "Попробуйте от имени демо-компании" });
+  await expect(personas).toContainText("Кассовый разрыв. Овердрафт на 900 000 ₽");
   await personas.getByRole("button", { name: /^Войти: ИП Лаврова/ }).click();
   await expect(page).toHaveURL(/\/app$/);
 });

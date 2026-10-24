@@ -61,7 +61,7 @@ def test_g10_empty_registration_date():
     result = score(inp)
     factor = result.factor("business_age_months")
     assert (factor.value, factor.points, factor.passed) == (None, 4, False)
-    assert "Дату регистрации не получили из ЕГРЮЛ" in factor.message
+    assert "В ЕГРЮЛ не нашлось даты регистрации" in factor.message
     assert (result.total, result.grade) == (86, "B")
     assert result.missing_key_metrics == 0  # the age is not a key metric
 

@@ -6,7 +6,7 @@ keeps the same check as a safety net for applications sent before this rule.
 """
 
 from apps.applications.models import Application
-from apps.scoring.texts import rubles
+from apps.scoring.texts import months_genitive, rubles
 
 
 def field_gaps(application: Application) -> list[tuple[str, str]]:
@@ -22,13 +22,14 @@ def field_gaps(application: Application) -> list[tuple[str, str]]:
         return gaps
     if application.requested_amount < product.amount_min:
         gaps.append(
-            ("requested_amount", f"Минимальная сумма по продукту — {rubles(product.amount_min)}")
+            ("requested_amount", f"Этот продукт выдают на сумму от {rubles(product.amount_min)}")
         )
     if not product.term_min_months <= application.term_months <= product.term_max_months:
         gaps.append(
             (
                 "term_months",
-                f"Срок по продукту — от {product.term_min_months} до {product.term_max_months} мес",
+                f"Этот продукт выдают на срок от {product.term_min_months} до "
+                f"{months_genitive(product.term_max_months)}",
             )
         )
     if product.kind == "factoring" and application.invoice_amount is None:

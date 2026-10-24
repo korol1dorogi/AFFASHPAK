@@ -35,10 +35,12 @@ function DemoPersonas() {
   return (
     <Card className="gap-3">
       <div className="flex items-center gap-2">
-        <h2 className="m-0 text-lg font-semibold">Быстрый вход за персону</h2>
+        <h2 className="m-0 text-lg font-semibold">Быстрый вход за демо-компанию</h2>
         <DemoBadge />
       </div>
-      <p className="m-0 text-sm text-ink-muted">Синтетические компании для проверки сценариев.</p>
+      <p className="m-0 text-sm text-ink-muted">
+        Вымышленные компании, на которых можно проверить сценарии.
+      </p>
       <ul className="m-0 flex list-none flex-col gap-2 p-0">
         {personas.data.map((persona) => (
           <li
@@ -102,7 +104,10 @@ export function LoginPage() {
           </Button>
         </form>
         <p className="m-0 text-sm text-ink-muted">
-          Нет учётной записи? <Link to={routes.register}>Зарегистрироваться</Link>
+          Нет учётной записи?{" "}
+          <Link to={routes.register} className="link">
+            Зарегистрироваться
+          </Link>
         </p>
       </Card>
       <DemoPersonas />

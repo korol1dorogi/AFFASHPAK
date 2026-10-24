@@ -36,7 +36,7 @@ def test_card_example_dscr():
 def test_dscr_without_debt_is_none_with_reason():
     result = dscr(D("300000"), D("0"))
     assert result.value is None
-    assert "Долга нет" in result.note
+    assert "Платежей по кредитам нет" in result.note
 
 
 @pytest.mark.parametrize("cfads", ["0", "-100000"])
@@ -114,7 +114,7 @@ def test_working_capital_need_metric_with_null_balance_is_none_with_reason(missi
     balances[missing] = None
     result = working_capital_need_metric(*balances)
     assert result.value is None
-    assert "DSCR" in result.note
+    assert "Сумму ограничивает только платёж" in result.note
 
 
 # --- Concentration, trend, expected loss ---
@@ -137,7 +137,7 @@ def test_card_example_revenue_trend_year_over_year():
 def test_revenue_trend_short_history_has_note():
     result = revenue_trend(D("2400000"), D("3000000"), year_over_year=False)
     assert result.value == D("0.8000")
-    assert "меньше 15 месяцев" in result.note
+    assert "короче 15 месяцев" in result.note
 
 
 def test_revenue_trend_zero_base_is_none():

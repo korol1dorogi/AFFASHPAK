@@ -39,7 +39,7 @@ const EXAMPLE_REASONS: Schemas["Reason"][] = [
     value: "900000.00",
     threshold: null,
     passed: true,
-    message: "Лимит — 30% среднемесячных поступлений: 900 000 ₽",
+    message: "Лимит — 30% от средних поступлений на счёт за месяц: 900 000 ₽",
   },
   {
     metric: "score_total",
@@ -47,7 +47,7 @@ const EXAMPLE_REASONS: Schemas["Reason"][] = [
     threshold: "75",
     passed: true,
     message:
-      "Предварительная оценка риска: грейд A (92 из 100) — до проверки кредитной истории и данных ФНС",
+      "92 балла из 100, это предварительная оценка A: кредитную историю и данные ФНС ещё не проверяли",
   },
   {
     metric: "product_requirements",
@@ -82,7 +82,7 @@ function Hero() {
         </div>
         <p className="m-0 text-sm text-ink-muted">
           {T.ownCompany}{" "}
-          <Link to={routes.register} className="font-medium text-primary">
+          <Link to={routes.register} className="link font-medium">
             {T.register}
           </Link>
         </p>
@@ -251,11 +251,11 @@ export function LandingPage() {
       <Personas />
       <footer className="flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-line pt-4 text-sm text-ink-muted">
         {/* /api/docs is served by Caddy, not by the SPA router: a plain link. */}
-        <a href="/api/docs/" className="inline-flex items-center gap-1 text-primary">
+        <a href="/api/docs/" className="link inline-flex items-center gap-1">
           {T.links.swagger}
           <ExternalLink className="size-3.5" aria-hidden="true" />
         </a>
-        <Link to={routes.status} className="text-primary">
+        <Link to={routes.status} className="link">
           {T.links.status}
         </Link>
         <span>{T.disclaimer}</span>

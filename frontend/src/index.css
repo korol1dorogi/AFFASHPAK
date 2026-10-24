@@ -37,6 +37,8 @@
   --status-neutral: #6d7079;
   --status-neutral-soft: #f2f3f5;
   --focus: #2288fa; /* graphic-link */
+  --link: #1b62d1; /* text-link of the book (graphic-link), darkened to AA */
+  --link-hover: #154ea8;
   --shadow-pop-value: 0 8px 24px rgba(11, 31, 53, 0.12);
   color-scheme: light;
 }
@@ -68,6 +70,8 @@
   --color-status-neutral: var(--status-neutral);
   --color-status-neutral-soft: var(--status-neutral-soft);
   --color-focus: var(--focus);
+  --color-link: var(--link);
+  --color-link-hover: var(--link-hover);
 
   /* shadcn primitives read these names */
   --color-background: var(--paper);
@@ -120,6 +124,31 @@
   :focus-visible {
     outline: 2px solid var(--focus);
     outline-offset: 2px;
+  }
+}
+
+@layer components {
+  /*
+   * Clickable words: the link colour and an underline, never colour alone (WCAG 1.4.1).
+   * .link goes somewhere (a page, a file); .link-action acts on this page (asks the assistant):
+   * the dashed underline Russian sites use for such «псевдоссылки».
+   */
+  .link,
+  .link-action {
+    color: var(--link);
+    text-decoration-line: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
+    text-decoration-color: color-mix(in srgb, var(--link) 45%, transparent);
+    cursor: pointer;
+  }
+  .link-action {
+    text-decoration-style: dashed;
+  }
+  .link:hover,
+  .link-action:hover {
+    color: var(--link-hover);
+    text-decoration-color: currentColor;
   }
 }
 

@@ -44,7 +44,16 @@ from apps.scoring import (
     stop_factors,
 )
 from apps.scoring.inputs import SNAPSHOT_FIELDS
-from apps.scoring.texts import number, percent, rubles
+from apps.scoring.texts import (
+    age,
+    age_genitive,
+    months,
+    months_genitive,
+    number,
+    percent,
+    points,
+    rubles,
+)
 
 PRELIMINARY_CHECKS = {
     "bki": {"status": "ok", "data": {"current_overdue_days": 0, "past_overdue_max_days": 0}},
@@ -137,8 +146,8 @@ def _grade_reason(result: ScoreResult) -> Reason:
     card = get_scorecard(result.model_version)
     threshold = next(minimum for minimum, grade in card.grades if grade == AUTO_OFFER_LOWEST_GRADE)
     message = (
-        f"Предварительная оценка риска: грейд {result.grade} ({result.total} из 100) — "
-        "до проверки кредитной истории и данных ФНС"
+        f"{points(result.total)} из 100, это предварительная оценка {result.grade}: "
+        "кредитную историю и данные ФНС ещё не проверяли"
     )
     return Reason(
         "score_total", Decimal(result.total), Decimal(threshold), result.total >= threshold, message
@@ -149,19 +158,21 @@ def _requirements(product: Product, inp: ScoringInput) -> Reason:
     requirements = product.requirements or {}
     legal_forms = requirements.get("legal_forms", [LegalForm.IP, LegalForm.OOO])
     min_age = int(requirements.get("min_business_age_months", 0))
-    age = business_age_months(inp.registered_at, inp.on_date)
+    business = business_age_months(inp.registered_at, inp.on_date)
     missing = []
     if inp.legal_form not in legal_forms:
-        labels = ", ".join(LegalForm(form).label for form in legal_forms)
-        missing.append(f"правовую форму: {labels}")
-    if age < min_age:
-        missing.append(f"возраст бизнеса от {min_age} мес, а бизнесу {age} мес")
+        labels = " или ".join(LegalForm(form).label for form in legal_forms)
+        missing.append(f"его выдают только {labels}")
+    if business < min_age:
+        missing.append(
+            f"бизнес должен работать не меньше {age_genitive(min_age)}, а вашему {age(business)}"
+        )
     if missing:
-        message = f"{product.name} требует {'; '.join(missing)}"
+        message = f"{product.name} не подходит: {'; '.join(missing)}"
         return Reason("product_requirements", None, None, False, message)
     message = "Правовая форма и возраст бизнеса подходят"
     if product.collateral_required:
-        message += "; нужен залог — обычно само покупаемое имущество"
+        message += ". Нужен залог: обычно это само покупаемое имущество"
     return Reason("product_requirements", None, None, True, message)
 
 
@@ -171,7 +182,10 @@ def _term(product: Product, requested: int | None) -> tuple[int, Reason | None]:
     term = min(max(wanted, product.term_min_months), product.term_max_months)
     if requested is None or term == requested:
         return term, None
-    message = f"Срок по продукту — от {product.term_min_months} до {product.term_max_months} мес"
+    message = (
+        f"Этот продукт выдают на срок от {product.term_min_months} до "
+        f"{months_genitive(product.term_max_months)}"
+    )
     return term, Reason("term_months", Decimal(requested), None, False, message)
 
 
@@ -186,7 +200,7 @@ def _limit_reason(
 def _dscr_limit(product: Product, ctx: _Context, rate: Decimal, term: int) -> Metric:
     cfads, service = ctx.metric("cfads"), ctx.metric("debt_service")
     if cfads is None or service is None:
-        return Metric.unavailable("Нет данных о денежном потоке и платежах по долгам.")
+        return Metric.unavailable("Нет данных о деньгах по счёту и платежах по долгам.")
     return max_loan_by_dscr(cfads, service, rate, term, _min_dscr(product))
 
 
@@ -196,10 +210,10 @@ def _dscr_reason(
     reserve = percent(_min_dscr(product) - 1)
     return _limit_reason(
         "max_loan_by_dscr", limit, ctx.request.amount,
-        ok=f"Платёж посилен: допустимо до {rubles(limit)}",
+        ok=f"Платёж бизнесу по силам: можно взять до {rubles(limit)}",
         fail=(
-            f"Чтобы платежи не съели запас {reserve}, сумма ограничена {rubles(limit)} "
-            f"на {term} мес при {percent(rate)}"
+            f"На {months(term)} под {percent(rate)} можно взять не больше {rubles(limit)}, "
+            f"чтобы после платежей оставался запас {reserve}"
         ),
     )  # fmt: skip
 
@@ -211,8 +225,8 @@ def _overdraft(product: Product, ctx: _Context, rate: Decimal, term: int) -> _Si
     limit = overdraft_limit(turnover, alpha)
     reason = _limit_reason(
         "overdraft_limit", limit, ctx.request.amount,
-        ok=f"Лимит — {percent(alpha)} среднемесячных поступлений: {rubles(limit)}",
-        fail=f"По оборотам доступно {rubles(limit)} — меньше запрошенного",
+        ok=f"Лимит — {percent(alpha)} от средних поступлений на счёт за месяц: {rubles(limit)}",
+        fail=f"По оборотам на счёте доступно {rubles(limit)}, это меньше запрошенного",
     )  # fmt: skip
     return _Size(limit, (reason,))
 
@@ -224,14 +238,14 @@ def _factoring(product: Product, ctx: _Context, rate: Decimal, term: int) -> _Si
     limit = factoring_advance(invoice, beta)
     advance = _limit_reason(
         "factoring_advance", limit, ctx.request.amount,
-        ok=f"Сразу — {percent(beta)} суммы отгрузки: {rubles(limit)}",
+        ok=f"Сразу можно получить {percent(beta)} от суммы отгрузки: {rubles(limit)}",
         fail=f"Под эту отгрузку доступно {rubles(limit)}",
     )  # fmt: skip
     reasons = [advance]
     commission = _param(product, "commission")
     if commission is not None:
         fee = factoring_commission(invoice, commission)
-        message = f"Разовая комиссия — {rubles(fee)} ({percent(commission)} отгрузки)"
+        message = f"Разовая комиссия: {rubles(fee)}, это {percent(commission)} от суммы отгрузки"
         reasons.append(Reason("factoring_commission", fee, None, True, message))
     return _Size(limit, tuple(reasons))
 
@@ -253,10 +267,10 @@ def _working_capital_loan(
         need_reason = _limit_reason(
             "working_capital_need", need.value, requested,
             ok=(
-                f"В дебиторке и запасах за вычетом кредиторки заморожено {rubles(need.value)} — "
-                "больше бизнесу не нужно"
+                f"В запасах и долгах покупателей за вычетом долгов поставщикам сейчас "
+                f"{rubles(need.value)}, запрошенная сумма в эти пределы укладывается"
             ),
-            fail=f"Потребность в оборотных средствах — {rubles(need.value)}, меньше запрошенного",
+            fail=f"Сейчас в обороте бизнеса {rubles(need.value)}, это меньше запрошенного",
         )  # fmt: skip
         limit = min(need.value, by_dscr.value)
     dscr_reason = _dscr_reason(product, by_dscr.value, ctx, rate, term)
@@ -283,12 +297,15 @@ SIZERS: dict[str, Callable[[Product, _Context, Decimal, int], _Size | None]] = {
 def _dscr_after(product: Product, ctx: _Context, payment: Decimal) -> Reason:
     min_dscr = _min_dscr(product)
     result = dscr(ctx.metric("cfads"), ctx.metric("debt_service") + payment)
-    text = f"С новым платежом {rubles(payment)}/мес запас покрытия — "
     value = "" if result.value is None else number(result.value)
+    text = (
+        f"С новым платежом {rubles(payment)} в месяц свободных денег в {value} раза больше, "
+        "чем уходит на все платежи"
+    )
     return check_at_least(
         "dscr_after", result, min_dscr,
-        ok=text + value,
-        fail=f"{text}{value}, меньше нормы {number(min_dscr)}",
+        ok=text,
+        fail=f"{text}, а нужно не меньше чем в {number(min_dscr)} раза",
     )  # fmt: skip
 
 
@@ -310,12 +327,12 @@ def _evaluate(product: Product, ctx: _Context) -> Recommendation | None:
     if allowed > product.amount_max:
         allowed = product.amount_max
         passed = requested is None or requested <= product.amount_max
-        message = f"Максимальная сумма по продукту — {rubles(product.amount_max)}"
+        message = f"Этот продукт выдают на сумму до {rubles(product.amount_max)}"
         reasons.append(Reason("amount_max", product.amount_max, requested, passed, message))
     amount = round_money(allowed if requested is None else min(requested, allowed))
     amount_ok = amount >= product.amount_min
     if not amount_ok:
-        message = f"Минимальная сумма по продукту — {rubles(product.amount_min)}"
+        message = f"Этот продукт выдают на сумму от {rubles(product.amount_min)}"
         reasons.append(Reason("amount_min", amount, product.amount_min, False, message))
 
     payment = monthly_payment(product, amount, rate, term)
@@ -415,11 +432,13 @@ def what_if(application: Application, amount: Decimal, term: int, *, on_date: da
     if product.is_revolving or sizer is None:
         raise WhatIfUnavailable(
             "revolving_product",
-            "У этого продукта платёж зависит от использования — расчёт по сроку не нужен.",
+            "У этого продукта платёж зависит от того, сколько денег вы возьмёте, поэтому "
+            "считать его по сроку не нужно.",
         )
     if not product.term_min_months <= term <= product.term_max_months:
         raise TermOutOfRange(
-            f"Срок по продукту — от {product.term_min_months} до {product.term_max_months} мес"
+            f"Этот продукт выдают на срок от {product.term_min_months} до "
+            f"{months_genitive(product.term_max_months)}"
         )
 
     amount, rate, min_dscr = round_money(amount), offer.rate, _min_dscr(product)
@@ -442,11 +461,11 @@ def what_if(application: Application, amount: Decimal, term: int, *, on_date: da
     limit = size.limit
     if limit > product.amount_max:
         limit = product.amount_max
-        message = f"Максимальная сумма по продукту — {rubles(product.amount_max)}"
+        message = f"Этот продукт выдают на сумму до {rubles(product.amount_max)}"
         passed = amount <= product.amount_max
         reasons.append(Reason("amount_max", product.amount_max, amount, passed, message))
     if amount < product.amount_min:
-        message = f"Минимальная сумма по продукту — {rubles(product.amount_min)}"
+        message = f"Этот продукт выдают на сумму от {rubles(product.amount_min)}"
         reasons.append(Reason("amount_min", amount, product.amount_min, False, message))
     after = _dscr_after(product, ctx, payment)
     reasons.append(after)

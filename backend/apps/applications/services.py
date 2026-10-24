@@ -46,7 +46,7 @@ from apps.applications.transitions import (
 from apps.business.models import MemberRole
 from apps.products.models import Product
 from apps.scoring.policy import CURRENT_POLICY_VERSION
-from apps.scoring.texts import percent, rubles
+from apps.scoring.texts import months_genitive, percent, rubles
 
 S = ApplicationStatus
 SIGNATURE_TTL = timedelta(minutes=10)
@@ -77,7 +77,7 @@ def _product(code: str | None) -> Product | None:
 def create_application(user: AbstractBaseUser, data: dict[str, Any]) -> Application:
     membership = current_membership(user)
     if membership is None:
-        raise NotFound("Сначала добавьте компанию.")
+        raise NotFound("Сначала подключите компанию.")
     return Application.objects.create(
         company=membership.company,
         created_by=user,
@@ -104,7 +104,7 @@ def update_draft(application: Application, actor: Actor, data: dict[str, Any]) -
         return app
 
 
-BKI_CONSENT_MESSAGE = "Согласие на запрос в БКИ"
+BKI_CONSENT_MESSAGE = "Согласие на запрос кредитной истории"
 
 
 def submit(
@@ -177,7 +177,7 @@ def hand_off(application: Application, actor: Actor) -> Application:
             app,
             kind=EventKind.HANDED_OFF,
             title=f"Заявка № {app.pk} готова к отправке",
-            message="Проверьте её и отправьте в банк — отправить может только подписант.",
+            message="Проверьте её и отправьте в банк: отправить заявку может только подписант.",
             exclude=actor.user,
             roles=(MemberRole.SIGNATORY,),
         )
@@ -201,7 +201,7 @@ def accept_offer(application: Application, actor: Actor) -> Application:
         offer = app.offers.filter(status=OfferStatus.ACTIVE).first()
         check_action(app, "accept_offer", actor)
         if offer is None or offer.expires_at <= timezone.now():
-            raise InvalidTransition("Предложение истекло. Обратитесь в банк.")
+            raise InvalidTransition("Срок предложения истёк. Обратитесь в банк.")
         apply_transition(app, "accept_offer", actor, message="Предложение принято.")
         offer.status = OfferStatus.ACCEPTED
         offer.save(update_fields=["status"])
@@ -242,7 +242,7 @@ def confirm_signature(application: Application, actor: Actor, code: str) -> Appl
         check_action(app, "confirm_signature", actor)
         signature = Signature.objects.select_for_update().filter(application=app).first()
         if signature is None or signature.expires_at <= timezone.now():
-            raise ValidationError({"code": ["Код истёк. Получите новый код."]})
+            raise ValidationError({"code": ["Срок действия кода истёк. Получите новый код."]})
         if signature.attempts_left == 0:
             raise ValidationError({"code": ["Попытки закончились. Получите новый код."]})
         if check_password(code, signature.code_hash):
@@ -255,7 +255,10 @@ def confirm_signature(application: Application, actor: Actor, code: str) -> Appl
                 actor,
                 event_kind=EventKind.SIGNED,
                 message="Договор подписан кодом с экрана.",
-                notify=("Договор подписан", "Деньги поступят на счёт после обработки выдачи."),
+                notify=(
+                    "Договор подписан",
+                    "Деньги придут на счёт, как только банк оформит выдачу.",
+                ),
             )
             offer = current_offer(app)
             Disbursement.objects.update_or_create(
@@ -353,15 +356,18 @@ def _check_product_terms(
     errors: dict[str, list[str]] = {}
     if not product.amount_min <= amount <= product.amount_max:
         errors["amount"] = [
-            f"Сумма по продукту — от {rubles(product.amount_min)} до {rubles(product.amount_max)}"
+            f"Этот продукт выдают на сумму от {rubles(product.amount_min)} "
+            f"до {rubles(product.amount_max)}"
         ]
     if not product.term_min_months <= term_months <= product.term_max_months:
         errors["term_months"] = [
-            f"Срок по продукту — от {product.term_min_months} до {product.term_max_months} мес"
+            f"Этот продукт выдают на срок от {product.term_min_months} до "
+            f"{months_genitive(product.term_max_months)}"
         ]
     if rate is not None and not product.rate_min <= rate <= product.rate_max:
         errors["rate"] = [
-            f"Ставка по продукту — от {percent(product.rate_min)} до {percent(product.rate_max)}"
+            f"Ставка по этому продукту — от {percent(product.rate_min)} "
+            f"до {percent(product.rate_max)}"
         ]
     if errors:
         raise ValidationError(errors)
@@ -376,7 +382,7 @@ def bank_approve(
         check_version(app, version)  # stale screen → 409 before any validation
         if app.product is None:
             raise ValidationError(
-                {"product_code": ["В заявке не выбран продукт — сделайте контрпредложение."]}
+                {"product_code": ["В заявке не выбран продукт: предложите его в иных условиях."]}
             )
         _check_product_terms(app.product, amount=app.requested_amount, term_months=app.term_months)
         decision = _officer_decision(app, actor, DecisionOutcome.OFFER, comment=comment)
@@ -515,6 +521,13 @@ def start_processing(application_id: int) -> Application:
         return app
 
 
+def _outcome_text(decision: Decision) -> str:
+    """The outcome as the client reads it in the history: «другие условия», not «иные»."""
+    if decision.outcome == DecisionOutcome.COUNTEROFFER:
+        return "другие условия"
+    return decision.get_outcome_display().lower()
+
+
 def record_auto_decision(
     application_id: int,
     *,
@@ -542,8 +555,8 @@ def record_auto_decision(
     }[outcome]
     notify = {
         S.OFFER: ("Готово предложение", "Посмотрите условия и примите решение."),
-        S.MANUAL_REVIEW: ("Заявку смотрит сотрудник банка", "Обычно это занимает до одного дня."),
-        S.INFO_REQUESTED: ("Уточните данные", "Без этого мы не сможем продолжить проверку."),
+        S.MANUAL_REVIEW: ("Заявку смотрит сотрудник банка", "Обычно это занимает не больше дня."),
+        S.INFO_REQUESTED: ("Уточните данные", "Ответьте на запрос, и мы продолжим проверку."),
         S.DECLINED: (
             "Предварительная оценка: отказ",
             "Посмотрите причины и что можно улучшить.",
@@ -575,7 +588,7 @@ def record_auto_decision(
             SYSTEM,
             target=target,
             event_kind=EventKind.DECISION,
-            message=f"Предварительная оценка: {decision.get_outcome_display().lower()}.",
+            message=f"Предварительная оценка: {_outcome_text(decision)}.",
             notify=notify,
         )
         return app

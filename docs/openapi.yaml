@@ -2230,7 +2230,7 @@ components:
         current: { $ref: "#/components/schemas/DecimalString" }
         target: { $ref: "#/components/schemas/DecimalString" }
         points: { type: integer, minimum: 1, description: Сколько баллов добавит шаг }
-        message: { type: string, description: Что сделать — простым языком, examples: ["Снизьте долю крупнейшего покупателя до 50 % и меньше (сейчас 80 %)"] }
+        message: { type: string, description: Что сделать — простым языком, examples: ["Найдите ещё покупателей, чтобы на крупнейшего приходилось не больше 50% поступлений (сейчас 80%)"] }
 
     InfoRequest:
       type: object

@@ -77,7 +77,7 @@ describe("ActionPanel — buttons only from available_actions", () => {
     ).toEqual([
       "Взять в работу",
       "Одобрить",
-      "Иные условия",
+      "Другие условия",
       "Другой продукт",
       "Запросить информацию",
       "Отказать",
@@ -144,7 +144,7 @@ describe("ActionPanel — dialogs send what the contract asks", () => {
 
   it("counteroffer: hints, required rate and comment, percent leaves as a fraction", async () => {
     const fetchMock = open({ [`POST ${BASE}/counteroffer`]: done("offer") });
-    const dialog = await openDialog("Иные условия");
+    const dialog = await openDialog("Другие условия");
     expect(within(dialog).getByText(/допустимо до 11\s290\s503\s₽/)).toBeInTheDocument();
     expect(await within(dialog).findByText(/от 18\s%\sдо 26\s%/)).toBeInTheDocument();
     expect(within(dialog).queryByLabelText("Продукт")).not.toBeInTheDocument();
@@ -175,7 +175,7 @@ describe("ActionPanel — dialogs send what the contract asks", () => {
 
   it("counteroffer refuses a zero amount", async () => {
     const fetchMock = open();
-    const dialog = await openDialog("Иные условия");
+    const dialog = await openDialog("Другие условия");
     type(within(dialog).getByLabelText("Сумма"), "0");
     fireEvent.click(within(dialog).getByRole("button", { name: "Предложить условия" }));
     expect(await within(dialog).findByText("Укажите сумму больше нуля")).toBeInTheDocument();
@@ -245,7 +245,7 @@ describe("ActionPanel — dialogs send what the contract asks", () => {
       within(dialog).queryByRole("button", { name: "Убрать пункт 1" }),
     ).not.toBeInTheDocument();
     type(
-      within(dialog).getByLabelText("Почему отказ — простым языком"),
+      within(dialog).getByLabelText("Причина отказа простыми словами"),
       "Платежи по кредиту не покрываются денежным потоком",
     );
     type(within(dialog).getByLabelText("Что улучшить, пункт 1"), "Снизьте долговую нагрузку");
@@ -295,7 +295,9 @@ describe("ActionPanel — errors", () => {
 
     const alert = await within(dialog).findByRole("alert");
     expect(alert).toHaveTextContent("Заявку уже изменили. Обновите страницу.");
-    expect(alert).toHaveTextContent("Карточку обновили — проверьте данные и повторите.");
+    expect(alert).toHaveTextContent(
+      "Карточку уже обновили: проверьте данные и повторите действие.",
+    );
     expect(await screen.findByText("Иван Банк")).toBeInTheDocument();
     expect(comment).toHaveValue("Одобряем");
 
@@ -328,7 +330,7 @@ describe("ActionPanel — errors", () => {
       },
     });
     const dialog = await openDialog("Отказать");
-    const reasons = within(dialog).getByLabelText("Почему отказ — простым языком");
+    const reasons = within(dialog).getByLabelText("Причина отказа простыми словами");
     type(reasons, "Высокая долговая нагрузка");
     type(within(dialog).getByLabelText("Что улучшить, пункт 1"), "Погасите часть долга");
     fireEvent.click(within(dialog).getByRole("button", { name: "Отказать" }));
@@ -341,7 +343,7 @@ describe("ActionPanel — errors", () => {
     expect(within(dialog).getByRole("alert")).toHaveTextContent(
       "Действие недоступно в текущем статусе заявки.",
     );
-    expect(within(dialog).getByRole("alert")).not.toHaveTextContent("Карточку обновили");
+    expect(within(dialog).getByRole("alert")).not.toHaveTextContent("Карточку уже обновили");
     expect(within(dialog).getByRole("button", { name: "Отказать" })).toBeDisabled();
     expect(reasons).toHaveValue("Высокая долговая нагрузка");
   });
@@ -359,7 +361,7 @@ describe("ActionPanel — errors", () => {
         },
       ],
     });
-    const dialog = await openDialog("Иные условия");
+    const dialog = await openDialog("Другие условия");
     type(within(dialog).getByLabelText("Ставка, % годовых"), "20");
     type(within(dialog).getByLabelText("Комментарий клиенту"), "Меньше, чем просили");
     fireEvent.click(within(dialog).getByRole("button", { name: "Предложить условия" }));

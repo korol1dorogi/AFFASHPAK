@@ -63,7 +63,7 @@ describe("CompanyPage — requisites", () => {
 
   it("a company in liquidation carries the warning", async () => {
     open({ "GET /api/company": company({ registry_status: "liquidating" }) });
-    expect(await screen.findByText(/кредит не выдадут/)).toBeInTheDocument();
+    expect(await screen.findByText(/кредит ей не выдадут/)).toBeInTheDocument();
   });
 
   it("a client without a company goes to connect one", async () => {
@@ -205,7 +205,7 @@ describe("CompanyPage — requisites", () => {
       "POST /api/company/invitations": [
         409,
         {
-          error: { code: "invitation_exists", message: "Этот логин уже приглашён — ждём ответа." },
+          error: { code: "invitation_exists", message: "Этот логин уже приглашён, ждём ответа." },
         },
       ],
     });
@@ -216,7 +216,7 @@ describe("CompanyPage — requisites", () => {
     fireEvent.change(screen.getByLabelText("Должность"), { target: { value: "Бухгалтер" } });
     fireEvent.change(screen.getByLabelText("Роль"), { target: { value: "signatory" } });
     fireEvent.click(screen.getByRole("button", { name: "Пригласить сотрудника" }));
-    expect(await screen.findByText("Этот логин уже приглашён — ждём ответа.")).toBeInTheDocument();
+    expect(await screen.findByText("Этот логин уже приглашён, ждём ответа.")).toBeInTheDocument();
     expect(screen.getByLabelText("Логин сотрудника")).toHaveAttribute("aria-invalid", "true");
   });
 

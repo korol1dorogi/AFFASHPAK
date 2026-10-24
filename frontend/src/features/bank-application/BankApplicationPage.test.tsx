@@ -167,11 +167,11 @@ describe("BankApplicationPage — tabs", () => {
       created_at: "2026-10-21T09:00:00Z",
     });
     open("application", card);
-    expect(await screen.findByText("Оффер")).toBeInTheDocument();
+    expect(await screen.findByText("Предложение")).toBeInTheDocument();
     expect(screen.getByText("23,5 %")).toBeInTheDocument();
     expect(screen.getByText("311 766,44 ₽")).toBeInTheDocument();
     // SRC7: the officer set the amount, the payment is counted.
-    const offer = screen.getByText("Оффер").closest("[data-slot=card]") as HTMLElement;
+    const offer = screen.getByText("Предложение").closest("[data-slot=card]") as HTMLElement;
     expect(within(offer).getByText("8 000 000 ₽").parentElement).toHaveTextContent(
       "8 000 000 ₽решение банка",
     );
@@ -275,7 +275,9 @@ describe("BankApplicationPage — tabs", () => {
     };
     open("checks", card);
     const bki = (await screen.findByText("Бюро кредитных историй")).closest("li") as HTMLElement;
-    expect(within(bki).getByText("Источник не ответил — происхождения нет")).toBeInTheDocument();
+    expect(
+      within(bki).getByText("Источник не ответил, поэтому сведений о происхождении нет"),
+    ).toBeInTheDocument();
     expect(within(bki).queryByText("SHA-256 ответа")).not.toBeInTheDocument();
     expect(within(bki).queryByText("Происхождение")).not.toBeInTheDocument();
   });
@@ -353,7 +355,9 @@ describe("BankApplicationPage — tabs", () => {
     open("checks", card);
     const list = await screen.findByRole("list", { name: "Проверки по источникам" });
     const fns = list.querySelector('li[data-source="transparent_business"]') as HTMLElement;
-    expect(within(fns).getByText(/Приостановка операций по счетам — отказ/)).toBeInTheDocument();
+    expect(
+      within(fns).getByText(/операции по счетам приостановлены, это отказ/),
+    ).toBeInTheDocument();
     const suspended = within(fns).getByText("Приостановка операций по счетам").parentElement;
     expect(suspended).toHaveTextContent("да");
     expect(within(suspended as HTMLElement).getByText("признак риска")).toBeInTheDocument();
@@ -404,9 +408,9 @@ describe("BankApplicationPage — tabs", () => {
     ]);
     expect(screen.getByText("65 из 100")).toBeInTheDocument();
     expect(screen.getByText("scorecard-2026.10-v1")).toBeInTheDocument();
-    const dscr = within(factors).getByText("Покрытие платежей потоком (DSCR)").closest("li");
+    const dscr = within(factors).getByText("Запас на платежи по долгам (DSCR)").closest("li");
     expect(dscr).toHaveTextContent("1,8");
-    const debt = within(factors).getByText("Долговая нагрузка (Долг / EBITDA)").closest("li");
+    const debt = within(factors).getByText("Долговая нагрузка (долг к EBITDA)").closest("li");
     expect(debt).toHaveTextContent("нет данных");
   });
 

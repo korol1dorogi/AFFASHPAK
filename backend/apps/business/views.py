@@ -180,7 +180,7 @@ class InvitationListView(APIView):
                 )
         except IntegrityError as exc:  # a pending invitation for the same login
             raise Conflict(
-                "Этот логин уже приглашён — ждём ответа.", code="invitation_exists"
+                "Этот логин уже приглашён, ждём ответа.", code="invitation_exists"
             ) from exc
         return Response(InvitationSerializer(invitation).data, status=status.HTTP_201_CREATED)
 
@@ -201,7 +201,7 @@ class InvitationDetailView(APIView):
 def _incoming(user: AbstractBaseUser) -> QuerySet[Invitation]:
     """Pending invitations addressed to the user's login; bank users have none."""
     if is_bank_user(user):
-        raise PermissionDenied("Приглашения в компанию — только для клиентов.")
+        raise PermissionDenied("Приглашения в компанию доступны только клиентам.")
     return Invitation.objects.filter(
         username__iexact=user.get_username(), status=InvitationStatus.PENDING
     )

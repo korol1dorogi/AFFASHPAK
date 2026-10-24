@@ -45,7 +45,7 @@ describe("WizardPage — review (SRC7)", () => {
       "/app/applications/42/edit/review",
     );
     const amount = await screen.findByText("5 300 000 ₽");
-    expect(amount.parentElement).toHaveTextContent("5 300 000 ₽со слов клиента на 12 мес");
+    expect(amount.parentElement).toHaveTextContent("5 300 000 ₽вы указали на 12 мес");
   });
 });
 
@@ -90,7 +90,7 @@ describe("WizardPage — the preparer hands the draft to the director (XP5)", ()
     // The members list arrives after the draft: the name appears a moment later.
     expect(
       await screen.findByText(/Отправить заявку может подписант: Пётр Демо/),
-    ).toHaveTextContent("подписант получит уведомление в кабинете");
+    ).toHaveTextContent("передайте его подписанту: он получит уведомление в кабинете");
     expect(button).toBeEnabled();
   });
 

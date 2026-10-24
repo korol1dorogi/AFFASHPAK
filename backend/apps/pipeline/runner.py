@@ -27,22 +27,23 @@ from apps.documents.models import DocumentKind
 from apps.integrations.adapters import fetch_all
 from apps.pipeline.decide import SOURCE_NAME, decide
 from apps.scoring import CURRENT_POLICY_VERSION, build_input
+from apps.scoring.texts import points
 
 S = ApplicationStatus
 logger = logging.getLogger(__name__)
 
-NO_CONSENT_TEXT = "не запрашивали — нет согласия клиента"
+NO_CONSENT_TEXT = "не запрашивали: клиент не дал согласия"
 CHECK_TEXT = {
     "ok": "данные получены",
     "warning": "есть замечания",
     "failed": "проверка не пройдена",
-    "unavailable": "источник не ответил — проверит сотрудник",
+    "unavailable": "источник не ответил, проверит сотрудник банка",
     "not_found": "компания не найдена в реестре",
-    "restricted": "сведения скрыты — проверит сотрудник",
+    "restricted": "сведения скрыты, проверит сотрудник банка",
     "consent_missing": NO_CONSENT_TEXT,
 }
 PIPELINE_FAILED = (
-    "Автоматическая проверка не завершилась — заявку проверит сотрудник банка. Это не отказ"
+    "Автоматическая проверка не завершилась, поэтому заявку проверит сотрудник банка. Это не отказ"
 )
 
 
@@ -142,7 +143,7 @@ def _run(application: Application) -> None:
             application,
             SYSTEM,
             EventKind.SCORE_CALCULATED,
-            f"Грейд {outcome.score.grade}, {outcome.score.total} баллов.",
+            f"Оценка риска {outcome.score.grade}: {points(outcome.score.total)} из 100.",
         )
     record_auto_decision(
         application.pk,
@@ -240,8 +241,10 @@ def _gaps(application: Application) -> dict | None:
         present = set(application.documents.values_list("kind", flat=True))
         documents = [kind for kind in product.required_documents if kind not in present]
         if documents:
-            names = ", ".join(DocumentKind(kind).label.lower() for kind in documents)
-            messages.append(f"Загрузите: {names}")
+            # «Документ отгрузки (УПД)» → «документ отгрузки (УПД)»: only the first letter goes down
+            labels = (str(DocumentKind(kind).label) for kind in documents)
+            names = ", ".join(label[:1].lower() + label[1:] for label in labels)
+            messages.append(f"Не хватает документов: {names}")
     if not fields and not documents:
         return None
     return {"message": ". ".join(messages), "fields": fields, "document_kinds": documents}

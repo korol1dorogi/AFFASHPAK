@@ -58,7 +58,9 @@ def test_receivable_delay_persona_2_factoring_4_500_000(personas):
     assert reason(offer, "factoring_advance").value == Decimal("4500000.00")
     commission = reason(offer, "factoring_commission")
     assert commission.value == Decimal("25000.00")
-    assert commission.message == f"Разовая комиссия — {rubles(Decimal(25000))} (0,5% отгрузки)"
+    assert commission.message == (
+        f"Разовая комиссия: {rubles(Decimal(25000))}, это 0,5% от суммы отгрузки"
+    )
 
 
 def test_working_capital_persona_3_is_limited_by_dscr(personas):
@@ -89,7 +91,7 @@ def test_capex_persona_4_investment_loan_then_leasing(personas):
         Decimal("11443551.00"), Decimal("0.2250"), 36,
     )  # fmt: skip
     assert leasing.monthly_payment == Decimal("440000.00")
-    assert "нужен залог" in reason(loan, "product_requirements").message
+    assert "Нужен залог" in reason(loan, "product_requirements").message
     assert loan.fits and leasing.fits
 
 
@@ -116,7 +118,8 @@ def test_amount_above_the_limit_is_cut_and_explained(personas):
         Decimal("2009314.00"), Decimal("5300000.00"), False,
     )  # fmt: skip
     assert cut.message == (
-        f"Чтобы платежи не съели запас 25%, сумма ограничена {rubles(cut.value)} на 12 мес при 24%"
+        f"На 12 месяцев под 24% можно взять не больше {rubles(cut.value)}, "
+        "чтобы после платежей оставался запас 25%"
     )
     assert not offer.fits and offer.rank == 1
 
@@ -148,7 +151,7 @@ def test_term_outside_the_product_range_does_not_fit(personas):
     offer = run(persona_company("coffee_shop"), "cash_gap", term_months=24).offers[0]
 
     assert offer.term_months == 12
-    assert reason(offer, "term_months").message == "Срок по продукту — от 1 до 12 мес"
+    assert reason(offer, "term_months").message == "Этот продукт выдают на срок от 1 до 12 месяцев"
     assert not offer.fits
 
 
@@ -158,7 +161,7 @@ def test_stop_factor_c1_persona_6(personas):
     assert result.offers == ()
     [stop] = result.stop_factors
     assert (stop.metric, stop.passed) == ("registry_status", False)
-    assert "ликвидации" in stop.message
+    assert "ликвидируется" in stop.message
 
 
 def test_stop_factor_c5_business_younger_than_6_months(catalog):
@@ -189,7 +192,7 @@ def test_young_business_gets_the_overdraft_alternative_first(edge_company):
     overdraft, loan = result.offers
     assert overdraft.fits and overdraft.amount == Decimal("912500.01")
     requirements = reason(loan, "product_requirements")
-    assert not requirements.passed and "от 12 мес" in requirements.message
+    assert not requirements.passed and "не меньше 1 года" in requirements.message
     assert loan.rank == 2 and not loan.fits
 
 
