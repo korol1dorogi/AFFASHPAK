@@ -60,7 +60,7 @@ test.describe("scenario 1: coffee shop — overdraft, auto offer, signing, disbu
     await expect(page).toHaveURL(/\/edit\/review$/);
     await submitFromWizard(page, id);
     await expect(statusBadge(page)).toHaveText("Есть предложение");
-    await expect(page.getByText("Согласие на запрос в БКИ")).toBeVisible();
+    await expect(page.getByText("Согласие на запрос кредитной истории")).toBeVisible();
   });
 
   test("auto offer → accept → sign with the on-screen code → issued (C6, C7)", async ({ page }) => {
@@ -235,7 +235,7 @@ test.describe("scenario 4: manufacturer — manual review and info request", () 
       await bank.goto(
         "/bank?status=manual_review&grade=C&search=0001000042&ordering=-status_changed_at",
       );
-      await bank.getByRole("link", { name: `Заявка №${id}`, exact: true }).click();
+      await bank.getByRole("link", { name: `Заявка № ${id}`, exact: true }).click();
       await expect(bank).toHaveURL(new RegExp(`/bank/applications/${id}`));
       await bank.getByRole("tab", { name: "Скоринг" }).click();
       await expect(bank.getByRole("tabpanel")).toContainText("65");
@@ -393,7 +393,7 @@ test.describe("scenario 7: BKI outage — manual review", () => {
     await bank.goto("/bank/demo");
     await bkiRow.getByRole("switch").check();
     await expect(bkiRow).toContainText("Сбой");
-    await expect(bkiRow).toContainText("Breaker закрыт");
+    await expect(bkiRow).toContainText("Предохранитель в норме");
     let id: number;
     try {
       const client = await personaPage(browser, "кофейня «Северный ветер»", /\/app$/);
@@ -416,20 +416,20 @@ test.describe("scenario 7: BKI outage — manual review", () => {
       await expect(reasons).toContainText("82 балла из 100, это оценка B");
 
       // The application met the outage: three failed calls opened the breaker for everyone.
-      await expect(bkiRow).toContainText("Breaker открыт");
+      await expect(bkiRow).toContainText("Предохранитель сработал");
       await expect(bkiRow).toContainText("3 ошибки подряд");
       await expect(bkiRow).toContainText(/повтор через \d+ с/);
 
       // Back on: the operator fixed the source, its breaker closes at once.
       await bkiRow.getByRole("switch").uncheck();
       await expect(bkiRow).toContainText("Работает");
-      await expect(bkiRow).toContainText("Breaker закрыт");
+      await expect(bkiRow).toContainText("Предохранитель в норме");
     } finally {
       await setFailures(false);
     }
 
     await bank.goto("/bank?status=manual_review&search=000100000702&ordering=-status_changed_at");
-    const link = bank.getByRole("link", { name: `Заявка №${id}`, exact: true });
+    const link = bank.getByRole("link", { name: `Заявка № ${id}`, exact: true });
     const row = bank.getByRole("row").filter({ has: link });
     await expect(row.getByRole("img", { name: "Источник недоступен" })).toBeVisible();
 
@@ -437,7 +437,7 @@ test.describe("scenario 7: BKI outage — manual review", () => {
     await expect(bank).toHaveURL(new RegExp(`/bank/applications/${id}`));
     await expect(
       bank.getByRole("status").filter({ hasText: "Один из источников не ответил" }),
-    ).toContainText("Это не отказ: проверьте вручную.");
+    ).toContainText("Это не отказ: проверьте заявку вручную.");
     const actions = bank.getByRole("complementary", { name: "Действия сотрудника" });
     for (const action of [
       "Взять в работу",
