@@ -116,7 +116,7 @@ export function DocumentList({ applicationId }: { applicationId: number }) {
             <FileText className="size-5" aria-hidden="true" />
           </span>
           <span className="min-w-0 flex-1">
-            <a href={document.download_url} className="font-medium">
+            <a href={document.download_url} className="link font-medium">
               {DOCUMENT_KIND[document.kind]}: {document.filename}
             </a>
             <span className="block text-xs text-ink-muted">

@@ -104,7 +104,10 @@ export function LoginPage() {
           </Button>
         </form>
         <p className="m-0 text-sm text-ink-muted">
-          Нет учётной записи? <Link to={routes.register}>Зарегистрироваться</Link>
+          Нет учётной записи?{" "}
+          <Link to={routes.register} className="link">
+            Зарегистрироваться
+          </Link>
         </p>
       </Card>
       <DemoPersonas />

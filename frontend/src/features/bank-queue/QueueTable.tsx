@@ -91,7 +91,7 @@ function Row({ item }: { item: Item }) {
         <Link
           to={to}
           aria-label={BANK_QUEUE.openApplication(item.id)}
-          className="tabular font-semibold text-primary-ink"
+          className="link tabular font-semibold"
         >
           {item.id}
         </Link>

@@ -73,7 +73,10 @@ export function RegisterPage() {
           </Button>
         </form>
         <p className="m-0 text-sm text-ink-muted">
-          Уже есть учётная запись? <Link to={routes.login}>Войти</Link>
+          Уже есть учётная запись?{" "}
+          <Link to={routes.login} className="link">
+            Войти
+          </Link>
         </p>
       </Card>
     </div>

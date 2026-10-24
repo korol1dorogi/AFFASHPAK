@@ -95,7 +95,7 @@ export function ApplicationsPage() {
                   className="flex flex-wrap items-center gap-4 rounded-lg border border-line bg-surface p-4 text-ink no-underline hover:border-line-strong"
                 >
                   <span className="min-w-0 flex-[1_1_280px]">
-                    <span className="block font-semibold">Заявка № {item.id}</span>
+                    <span className="block font-semibold text-link">Заявка № {item.id}</span>
                     <span className="text-sm text-ink-muted">
                       {NEED[item.need_type].title} · {formatDate(item.created_at)}
                     </span>

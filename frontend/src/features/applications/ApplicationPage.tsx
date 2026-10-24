@@ -212,7 +212,7 @@ export function ApplicationPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <Link to={routes.applications} className="w-fit text-sm no-underline">
+      <Link to={routes.applications} className="link w-fit text-sm">
         ← Все заявки
       </Link>
       <PageHeader

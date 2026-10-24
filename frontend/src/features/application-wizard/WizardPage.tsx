@@ -154,7 +154,10 @@ function BusinessStep() {
       </div>
       <CardDescription>
         Эти данные уже есть в профиле компании, вводить их заново не нужно. Нашли ошибку в
-        реквизитах? <Link to={routes.company}>Исправить в профиле</Link>
+        реквизитах?{" "}
+        <Link to={routes.company} className="link">
+          Исправить в профиле
+        </Link>
       </CardDescription>
       {company.data ? (
         <dl className="m-0 grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-4">

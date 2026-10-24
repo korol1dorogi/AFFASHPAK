@@ -61,7 +61,7 @@ export function SignPage() {
 
   return (
     <div className="flex max-w-[640px] flex-col gap-6">
-      <Link to={routes.application(id)} className="w-fit text-sm no-underline">
+      <Link to={routes.application(id)} className="link w-fit text-sm">
         ← К заявке № {id}
       </Link>
       <PageHeader
