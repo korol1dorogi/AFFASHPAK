@@ -191,7 +191,7 @@ def test_consent_is_stored_and_written_to_the_journal(world):
     assert consent.user == world["signatory"]
     assert consent.text_version == BKI_CONSENT_VERSION
     event = ApplicationEvent.objects.get(application=application, kind="consent_given")
-    assert event.message == "Согласие на запрос в БКИ"
+    assert event.message == "Согласие на запрос кредитной истории"
     assert event.is_internal is False  # the client sees it in the history, the bank too
     assert event.actor == world["signatory"]
 

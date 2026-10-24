@@ -77,7 +77,7 @@ def _product(code: str | None) -> Product | None:
 def create_application(user: AbstractBaseUser, data: dict[str, Any]) -> Application:
     membership = current_membership(user)
     if membership is None:
-        raise NotFound("Сначала добавьте компанию.")
+        raise NotFound("Сначала подключите компанию.")
     return Application.objects.create(
         company=membership.company,
         created_by=user,
@@ -104,7 +104,7 @@ def update_draft(application: Application, actor: Actor, data: dict[str, Any]) -
         return app
 
 
-BKI_CONSENT_MESSAGE = "Согласие на запрос в БКИ"
+BKI_CONSENT_MESSAGE = "Согласие на запрос кредитной истории"
 
 
 def submit(
@@ -201,7 +201,7 @@ def accept_offer(application: Application, actor: Actor) -> Application:
         offer = app.offers.filter(status=OfferStatus.ACTIVE).first()
         check_action(app, "accept_offer", actor)
         if offer is None or offer.expires_at <= timezone.now():
-            raise InvalidTransition("Предложение истекло. Обратитесь в банк.")
+            raise InvalidTransition("Срок предложения истёк. Обратитесь в банк.")
         apply_transition(app, "accept_offer", actor, message="Предложение принято.")
         offer.status = OfferStatus.ACCEPTED
         offer.save(update_fields=["status"])
@@ -242,7 +242,7 @@ def confirm_signature(application: Application, actor: Actor, code: str) -> Appl
         check_action(app, "confirm_signature", actor)
         signature = Signature.objects.select_for_update().filter(application=app).first()
         if signature is None or signature.expires_at <= timezone.now():
-            raise ValidationError({"code": ["Код истёк. Получите новый код."]})
+            raise ValidationError({"code": ["Срок действия кода истёк. Получите новый код."]})
         if signature.attempts_left == 0:
             raise ValidationError({"code": ["Попытки закончились. Получите новый код."]})
         if check_password(code, signature.code_hash):

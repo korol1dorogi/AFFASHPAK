@@ -201,7 +201,7 @@ describe("checkMeaning — what the status means", () => {
     ["egrul", "warning", "ликвидируется — это отказ"],
     ["egrul", "not_found", "Компании нет в реестре — это отказ"],
     ["egrul", "failed", "Компании нет в реестре — это отказ"], // stored before SRC2
-    ["transparent_business", "warning", "Приостановка операций по счетам — отказ"],
+    ["transparent_business", "warning", "операции по счетам приостановлены, это отказ"],
     ["bki", "warning", "это снижает баллы"],
     ["bki", "failed", "Текущая просрочка больше 30 дней — это отказ"],
     ["bki", "unavailable", "Это не отказ"],

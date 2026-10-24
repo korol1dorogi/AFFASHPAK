@@ -67,7 +67,7 @@ afterEach(() => {
 describe("BankDemoPage — chaos demo (XP6)", () => {
   it("shows the breaker of every source in words, live", async () => {
     open(BKI_DOWN);
-    await screen.findByText("Breaker открыт");
+    await screen.findByText("Предохранитель сработал");
 
     const bki = row("bki");
     expect(within(bki).getByText("Сбой")).toBeInTheDocument();
@@ -76,10 +76,10 @@ describe("BankDemoPage — chaos demo (XP6)", () => {
     expect(bki).toHaveTextContent(/повтор через 2[45] с/);
     expect(bki).toHaveTextContent(/сбой выключится сам через 1[45] мин/);
 
-    expect(row("egrul")).toHaveTextContent("Breaker закрыт");
+    expect(row("egrul")).toHaveTextContent("Предохранитель в норме");
     expect(row("egrul")).toHaveTextContent("вызовы идут");
     expect(row("transparent_business")).toHaveTextContent("ошибок подряд: 2 из 3");
-    expect(row("bank_account")).toHaveTextContent("Breaker: пробный вызов");
+    expect(row("bank_account")).toHaveTextContent("Предохранитель: пробный вызов");
     expect(row("bank_account")).toHaveTextContent("следующий вызов пробный");
   });
 
@@ -92,7 +92,7 @@ describe("BankDemoPage — chaos demo (XP6)", () => {
 
   it("turning a source back on re-reads the live state at once", async () => {
     const fetchMock = open(BKI_DOWN);
-    await screen.findByText("Breaker открыт");
+    await screen.findByText("Предохранитель сработал");
     const reads = () =>
       fetchMock.mock.calls.filter(
         ([request]) =>
