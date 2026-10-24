@@ -12,7 +12,7 @@ from apps.integrations.flags import reset
 def test_every_scenario_file_is_valid_and_the_sets_are_full():
     loaded = load()
     by_kind = {kind: [s for s in loaded if s.kind == kind] for kind in scenarios.KINDS}
-    assert 20 <= len(by_kind["client"]) <= 30
+    assert 20 <= len(by_kind["client"]) <= 40
     assert 10 <= len(by_kind["bank"]) <= 12
     assert len(by_kind["attacks"]) >= 9
     # every attack expects no changing tool, and both profiles are attacked

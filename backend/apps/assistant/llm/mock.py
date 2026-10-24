@@ -30,7 +30,23 @@ CALCULATOR_TOOL = "calc_payment"
 # Checked in order; first match wins.
 NEED_KEYWORDS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("receivable_delay", ("отсрочк", "покупатель плат", "дебитор", "упд", "отгруз")),
-    ("capex", ("оборудован", "станок", "транспорт", "техник", "недвижим")),
+    (
+        "capex",
+        (
+            "оборудован",
+            "станок",
+            "транспорт",
+            "техник",
+            "недвижим",
+            "машин",
+            "автомоб",
+            "грузов",
+            "фургон",
+            "тягач",
+            "автопарк",
+            "спецтехник",
+        ),
+    ),
     ("working_capital", ("закуп", "сезон", "товар", "сырь", "запас")),
     ("cash_gap", ("разрыв", "зарплат", "налог", "аренд", "не хватает")),
 )
@@ -46,6 +62,18 @@ PRODUCT_WORDS: tuple[tuple[str, str], ...] = (
     ("лизинг", "leasing_basic"),
 )
 
+_CAR = re.compile(r"\bавто\b")
+# The same question twice reads as a broken bot: the second time — the options as words.
+CLARIFY_AGAIN = (
+    "Не понял задачу. Напишите одним-двумя словами: «закупка товара», «оборудование или "
+    "машина», «кассовый разрыв» или «покупатель платит позже» — и я подберу продукт."
+)
+# A consumer loan is not a product of the cabinet: say so and offer the business variant.
+PERSONAL = re.compile(r"для себя|\bличн(ую|ый|ое|ых|ого)\b|потребительск|не для бизнеса", re.I)
+REFUSE_PERSONAL = (
+    "Кабинет финансирует бизнес, потребительские кредиты здесь не оформить. Если машина нужна "
+    "компании — для доставки или разъездов, — подберу инвестиционный кредит или лизинг."
+)
 CLARIFY = (
     "Расскажите, зачем бизнесу деньги: закрыть кассовый разрыв, дождаться оплаты от покупателя, "
     "закупить товар или купить оборудование?"
@@ -114,6 +142,8 @@ def detect_need_type(text: str) -> str | None:
     for need_type, keywords in NEED_KEYWORDS:
         if any(word in lowered for word in keywords):
             return need_type
+    if _CAR.search(lowered):  # «на авто»: a whole word, not «автоматически»
+        return "capex"
     return None
 
 
@@ -179,6 +209,8 @@ class MockLLMClient:
         planned = scenario_calls("bank" if bank else "client", last.content)
         if planned:
             response = self._from_scenario(planned, response, tools, application_id)
+        if response.content == CLARIFY and _asked_already(messages[:-1]):
+            response = LLMResponse(content=CLARIFY_AGAIN)
         return response
 
     def _from_scenario(self, planned, response: LLMResponse, tools: list[ToolSpec],
@@ -222,6 +254,8 @@ class MockLLMClient:
             return LLMResponse(content=REFUSE_SUBMIT)
         if DRAFT.search(text) and "create_draft" in available:
             return self._draft(text)
+        if PERSONAL.search(text):
+            return LLMResponse(content=REFUSE_PERSONAL)
         if any(word in lowered for word in CALC_KEYWORDS) and CALCULATOR_TOOL in available:
             numbers = _numbers(text)
             if len(numbers) >= 3:
@@ -354,6 +388,11 @@ class MockLLMClient:
 # ───────────────────────── answers from this turn's results ─────────────────────────
 
 
+def _asked_already(messages: list[Message]) -> bool:
+    """The clarifying question is already in this dialogue: do not repeat it word for word."""
+    return any(m.role == "assistant" and CLARIFY in m.content for m in messages)
+
+
 def _is_remark(message: Message) -> bool:
     """A guard's remark (AI22) — a user message by role, not the person's question."""
     return message.role == "user" and message.content.startswith(REMARK_PREFIX)
@@ -412,11 +451,13 @@ def _client_line(name: str, data: dict) -> str:
         offers = data.get("offers") or []
         if not offers:
             return "Подходящих предложений по данным счёта не нашлось. Это предварительная оценка."
-        best = offers[0]
-        product = (best.get("product") or {}).get("name", "продукт")
-        amount = f" — {product} на {_rub(best['amount'])}" if best.get("amount") else ""
+        named = []
+        for offer in offers[:2]:  # two products side by side: a loan and leasing for a car
+            product = (offer.get("product") or {}).get("name", "продукт")
+            amount = offer.get("amount")
+            named.append(f"{product} на {_rub(amount)}" if amount else product)
         return (
-            f"Подобрал предложений: {len(offers)}{amount}. "
+            f"Подобрал предложений: {len(offers)} — {', '.join(named)}. "
             "Это предварительная оценка, причины — ниже."
         )
     if name == CALCULATOR_TOOL:
