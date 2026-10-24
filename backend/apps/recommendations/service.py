@@ -287,13 +287,13 @@ def _dscr_after(product: Product, ctx: _Context, payment: Decimal) -> Reason:
     result = dscr(ctx.metric("cfads"), ctx.metric("debt_service") + payment)
     value = "" if result.value is None else number(result.value)
     text = (
-        f"С новым платежом {rubles(payment)} в месяц денег на счёте больше всех платежей "
-        f"в {value} раза"
+        f"С новым платежом {rubles(payment)} в месяц свободных денег в {value} раза больше, "
+        "чем уходит на все платежи"
     )
     return check_at_least(
         "dscr_after", result, min_dscr,
         ok=text,
-        fail=f"{text}, а нужно не меньше чем в {number(min_dscr)}",
+        fail=f"{text}, а нужно не меньше чем в {number(min_dscr)} раза",
     )  # fmt: skip
 
 

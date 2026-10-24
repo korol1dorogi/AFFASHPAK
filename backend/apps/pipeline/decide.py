@@ -315,8 +315,8 @@ def _dscr_after(
     passed = metric.value is not None and metric.value >= threshold
     coverage = "нет данных" if metric.value is None else number(metric.value)
     text = (
-        f"С новым платежом {rubles(payment)} в месяц денег на счёте больше всех платежей "
-        f"в {coverage} раза"
+        f"С новым платежом {rubles(payment)} в месяц свободных денег в {coverage} раза больше, "
+        "чем уходит на все платежи"
     )
     return _row("dscr_after", metric.value, threshold, passed, text)
 
