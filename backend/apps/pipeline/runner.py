@@ -241,8 +241,10 @@ def _gaps(application: Application) -> dict | None:
         present = set(application.documents.values_list("kind", flat=True))
         documents = [kind for kind in product.required_documents if kind not in present]
         if documents:
-            names = ", ".join(DocumentKind(kind).label.lower() for kind in documents)
-            messages.append(f"Загрузите: {names}")
+            # «Документ отгрузки (УПД)» → «документ отгрузки (УПД)»: only the first letter goes down
+            labels = (str(DocumentKind(kind).label) for kind in documents)
+            names = ", ".join(label[:1].lower() + label[1:] for label in labels)
+            messages.append(f"Не хватает документов: {names}")
     if not fields and not documents:
         return None
     return {"message": ". ".join(messages), "fields": fields, "document_kinds": documents}
