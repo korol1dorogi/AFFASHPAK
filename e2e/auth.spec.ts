@@ -5,7 +5,8 @@ test("a new client registers and is sent to connect the company", async ({ page 
   await page.goto("/register");
   await page.getByLabel("Имя и фамилия").fill("Ирина Демо");
   await page.getByLabel("Логин").fill(`e2e_${Date.now()}`);
-  await page.getByLabel("Пароль").fill("Kofe-2026-demo");
+  await page.getByLabel("Пароль", { exact: true }).fill("Kofe-2026-demo");
+  await page.getByLabel("Повторите пароль").fill("Kofe-2026-demo");
   await page.getByRole("button", { name: "Создать учётную запись" }).click();
   await expect(page).toHaveURL(/\/app\/company\/new$/);
 });
