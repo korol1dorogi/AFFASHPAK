@@ -29,10 +29,12 @@ class RegisterSerializer(serializers.Serializer):
         return value
 
     def validate(self, attrs: dict) -> dict:
+        """One message at a time — the first check that fails, in the order of
+        AUTH_PASSWORD_VALIDATORS: a list of four complaints at once reads as noise."""
         try:
             validate_password(attrs["password"], user=User(username=attrs["username"]))
         except DjangoValidationError as exc:
-            raise serializers.ValidationError({"password": list(exc.messages)}) from exc
+            raise serializers.ValidationError({"password": exc.messages[:1]}) from exc
         return attrs
 
 
