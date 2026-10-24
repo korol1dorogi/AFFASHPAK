@@ -63,6 +63,21 @@ REFUSE_SUBMIT = (
 SUBMIT = re.compile(r"отправ\w*\s+(\w+\s+)?(заявк|в банк)", re.IGNORECASE)
 REFUSE_FOREIGN = "Я показываю только данные вашей компании и ваших заявок. Чем помочь по ним?"
 FOREIGN = re.compile(r"других клиент|чуж\w+ (заявк|компан|данн)|\bинн\s*\d", re.IGNORECASE)
+REFUSE_OFFTOPIC = (
+    "Код и другие темы, не связанные с финансированием бизнеса, — вне моей роли в кредитном "
+    "кабинете. Могу подобрать финансирование, посчитать платёж или объяснить решение."
+)
+# A request to write code (not «код продукта», not a signing code).
+OFFTOPIC = re.compile(
+    r"\b(напиши|написать|сгенерируй)\b.{0,40}(код|функци|скрипт|программ|сортировк)"
+    r"|\bpython\b|javascript|сортировк\w* пузырьк",
+    re.IGNORECASE,
+)
+UNKNOWN_TERM = (
+    "Этого термина нет в словаре кабинета. Если он встретился в документах по кредиту, "
+    "уточните у сотрудника банка в карточке заявки — а я объясню термины нашего пути: "
+    "овердрафт, факторинг, ЭДО, УПД, DSCR, грейд и другие."
+)
 REFUSE_PROMPT = (
     "Свои инструкции и настройки я не показываю. Могу помочь с финансированием, заявкой "
     "и расчётами."
@@ -194,6 +209,8 @@ class MockLLMClient:
                 return None
             return LLMResponse(content="", tool_calls=(self._call(name, arguments),))
 
+        if OFFTOPIC.search(text):
+            return LLMResponse(content=REFUSE_OFFTOPIC)
         if PROMPT.search(text):
             return LLMResponse(content=REFUSE_PROMPT)
         if FOREIGN.search(text):
@@ -370,6 +387,9 @@ def _guess_name(data) -> str:
 def _client_answer(results: dict[str, dict]) -> str:
     parts: list[str] = []
     for name, data in results.items():
+        if name == "explain_term" and data.get("error", {}).get("code") == "not_found":
+            parts.append(UNKNOWN_TERM)  # a term outside the glossary is not a failure
+            continue
         if "error" in data:
             parts.append(f"Не получилось: {data['error'].get('message', 'ошибка')}")
             continue

@@ -1,0 +1,11 @@
+id: client-unknown-finance-term
+description: 'AI12-fix: финансовый термин вне словаря — объяснить, не отказывать'
+profile: client
+persona: retail_supplier
+application: null
+turns:
+- user: Что такое аккредитив?
+  must_not_include:
+  - не объясняю
+  - не консультирую
+  - не получилось

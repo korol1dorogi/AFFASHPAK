@@ -1,0 +1,14 @@
+id: client-term-edo
+description: 'AI12-fix: ЭДО — термин пути клиента, а не отказ'
+profile: client
+persona: retail_supplier
+application: null
+turns:
+- user: Что такое ЭДО?
+  expect_tools:
+  - name: explain_term
+  must_include:
+  - документ
+  must_not_include:
+  - не объясняю
+  - не консультирую
