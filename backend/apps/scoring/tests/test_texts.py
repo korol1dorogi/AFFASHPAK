@@ -37,8 +37,8 @@ def test_days(count, text):
 def test_persona_5_messages():
     messages = {f.name: f.message for f in score(table_input("dependent_supplier")).factors}
     assert messages["dscr"] == (
-        "На каждый рубль платежей по долгам приходится только 1,1 ₽ свободных денег, "
-        "а нужно не меньше 1,25 ₽"
+        "На каждый рубль платежей по долгам приходится только 1,1 ₽ свободных денег, "
+        "а нужно не меньше 1,25 ₽"
     )
     assert messages["debt_to_ebitda"] == (
         "Долг равен 4,2 годовой прибыли (EBITDA), а норма — не больше 3,5"
@@ -115,5 +115,5 @@ def test_as_reason():
     reason = score(table_input("retail_supplier")).factor("dscr").as_reason()
     assert reason.as_dict() == {
         "metric": "dscr", "value": D("2.2000"), "threshold": D("1.25"), "passed": True,
-        "message": "На каждый рубль платежей по долгам приходится 2,2 ₽ свободных денег",
+        "message": "На каждый рубль платежей по долгам приходится 2,2 ₽ свободных денег",
     }  # fmt: skip

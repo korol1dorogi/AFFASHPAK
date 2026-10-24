@@ -92,13 +92,13 @@ def dscr_factor(inp: ScoringInput, card: Scorecard, min_dscr: Decimal | None = N
     passed = value >= threshold
     if passed:
         message = (
-            f"На каждый рубль платежей по долгам приходится {texts.number(value)} ₽ свободных денег"
+            f"На каждый рубль платежей по долгам приходится {texts.number(value)} ₽ свободных денег"
         )
         improvements = ()
     else:
         message = (
-            f"На каждый рубль платежей по долгам приходится только {texts.number(value)} ₽ "
-            f"свободных денег, а нужно не меньше {texts.number(threshold)} ₽"
+            f"На каждый рубль платежей по долгам приходится только {texts.number(value)} ₽ "
+            f"свободных денег, а нужно не меньше {texts.number(threshold)} ₽"
         )
         improvements = (texts.IMPROVE_DSCR,)
     return Factor(

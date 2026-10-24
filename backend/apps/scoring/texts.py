@@ -100,8 +100,8 @@ def plan_step(metric: str, current: Decimal, target: Decimal) -> str:
         return f"Подайте заявку снова, когда бизнесу исполнится {target:f} мес (сейчас {current:f})"
     if metric == "dscr":
         return (
-            f"Добейтесь, чтобы на каждый рубль платежей по долгам приходилось {number(target)} ₽ "
-            f"свободных денег (сейчас {number(current)} ₽): снизьте платежи или увеличьте "
+            f"Добейтесь, чтобы на каждый рубль платежей по долгам приходилось {number(target)} ₽ "
+            f"свободных денег (сейчас {number(current)} ₽): снизьте платежи или увеличьте "
             "остаток денег после расходов"
         )
     if metric == "debt_to_ebitda":

@@ -138,7 +138,7 @@ test.describe("scenario 3: seasonal store — counteroffer by DSCR", () => {
     await expect(offer).toContainText(`12${NBSP}мес`);
     await expect(offer).toContainText(rub("189 999,92"));
     const why = offer.getByRole("list", { name: "Почему такие условия" });
-    await expect(why).toContainText("Оценка риска B: 87 баллов из 100");
+    await expect(why).toContainText("87 баллов из 100, это оценка B");
     await expect(why).toContainText("На 12 мес под 24% можно взять не больше 2 009 314 ₽");
     await expect(why).toContainText("свободных денег в 1,25 раза больше, чем уходит на все платежи");
 
@@ -223,7 +223,7 @@ test.describe("scenario 4: manufacturer — manual review and info request", () 
       await submitFromWizard(director, id);
       await expect(statusBadge(director)).toHaveText("У сотрудника банка");
       await expect(director.getByRole("list", { name: "Причины" })).toContainText(
-        "Оценка риска C: 65 баллов из 100",
+        "65 баллов из 100, это оценка C",
       );
       // BKI1: the 10-day overdue of two years ago is explained, not left as a black box (L01, R04)
       const history = director.getByRole("region", { name: "Кредитная история: что увидел банк" });
@@ -329,7 +329,7 @@ test.describe("scenario 5: dependent supplier — decline with improvements", ()
     await expect(statusBadge(page)).toHaveText("Отказ");
     await expect(page.getByRole("heading", { name: "Предварительная оценка" })).toBeVisible();
     const reasons = page.getByRole("list", { name: "Причины" });
-    await expect(reasons).toContainText("Оценка риска E: 47 баллов из 100");
+    await expect(reasons).toContainText("47 баллов из 100, это оценка E");
     await expect(reasons).toContainText("только 1,1 ₽ свободных денег, а нужно не меньше 1,25 ₽");
     await expect(reasons).toContainText("Долг равен 4,2 годовой прибыли (EBITDA), а норма — не больше 3,5");
     await expect(reasons).toContainText("выручка упала на 20% к тем же месяцам прошлого года");
@@ -369,7 +369,7 @@ test.describe("scenario 6: company in liquidation — stop factor", () => {
     await expect(reasons).toContainText(
       "По данным ЕГРЮЛ компания ликвидируется, поэтому кредит выдать нельзя",
     );
-    await expect(page.getByText(/Оценка риска [A-E]/)).toHaveCount(0);
+    await expect(page.getByText(/(Оценка риска|это оценка) [A-E]/)).toHaveCount(0);
     await expect(page.getByText("Что можно улучшить", { exact: true })).toHaveCount(0);
   });
 });
@@ -413,7 +413,7 @@ test.describe("scenario 7: BKI outage — manual review", () => {
       await expect(reasons).toContainText(
         "Бюро кредитных историй сейчас не отвечает, поэтому заявку проверит сотрудник банка. Это не отказ",
       );
-      await expect(reasons).toContainText("Оценка риска B: 82 балла из 100");
+      await expect(reasons).toContainText("82 балла из 100, это оценка B");
 
       // The application met the outage: three failed calls opened the breaker for everyone.
       await expect(bkiRow).toContainText("Breaker открыт");

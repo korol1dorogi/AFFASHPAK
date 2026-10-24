@@ -137,8 +137,8 @@ def _grade_reason(result: ScoreResult) -> Reason:
     card = get_scorecard(result.model_version)
     threshold = next(minimum for minimum, grade in card.grades if grade == AUTO_OFFER_LOWEST_GRADE)
     message = (
-        f"Предварительная оценка риска {result.grade}: {points(result.total)} из 100, "
-        "пока без кредитной истории и данных ФНС"
+        f"{points(result.total)} из 100, это предварительная оценка {result.grade}: "
+        "кредитную историю и данные ФНС ещё не проверяли"
     )
     return Reason(
         "score_total", Decimal(result.total), Decimal(threshold), result.total >= threshold, message

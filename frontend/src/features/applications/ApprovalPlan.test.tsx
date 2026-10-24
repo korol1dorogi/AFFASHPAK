@@ -71,7 +71,7 @@ function declined(plan: Schemas["ApprovalPlan"] | null): Schemas["ApplicationDet
           value: "47",
           threshold: "75",
           passed: false,
-          message: "Оценка риска E: 47 баллов из 100",
+          message: "47 баллов из 100, это оценка E",
         },
       ],
       improvements: IMPROVEMENTS,

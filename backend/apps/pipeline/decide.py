@@ -283,7 +283,7 @@ def _dscr_reason(limit: Decimal, requested: Decimal, rate: Decimal, term: int) -
         if passed
         else (
             f"На {term} мес под {percent(rate)} можно взять не больше {rubles(limit)}: "
-            "платёж по большей сумме бизнес не потянет"
+            "платёж по большей сумме будет бизнесу не по силам"
         )
     )
     return _row("max_loan_by_dscr", limit, requested, passed, text)
@@ -346,7 +346,7 @@ def _score_reason(result: ScoreResult) -> dict:
         "value": str(result.total),
         "threshold": str(threshold),
         "passed": result.total >= threshold,
-        "message": f"Оценка риска {result.grade}: {points(result.total)} из 100",
+        "message": f"{points(result.total)} из 100, это оценка {result.grade}",
     }
 
 
