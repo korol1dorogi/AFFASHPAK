@@ -25,7 +25,7 @@ def test_c1_liquidating_at_validation_by_company_alone():
     assert stop.code == "С1"
     assert stop.reason.as_dict() == {
         "metric": "registry_status", "value": None, "threshold": None, "passed": False,
-        "message": "По данным ЕГРЮЛ компания в процессе ликвидации — кредит оформить нельзя",
+        "message": "По данным ЕГРЮЛ компания ликвидируется, поэтому кредит выдать нельзя",
     }  # fmt: skip
     assert stop.improvement is None
 
@@ -88,7 +88,7 @@ def test_c5_five_months(edge_case):
     assert stop.code == "С5"
     assert stop.reason.value == 5
     assert stop.improvement == (
-        "Вернитесь, когда бизнесу будет 6 месяцев: с даты регистрации прошло 5 мес"
+        "Подайте заявку снова, когда бизнесу исполнится 6 мес (сейчас 5 мес)"
     )
     assert expected["outcome"] == "declined"
     with pytest.raises(ValueError, match="С5"):

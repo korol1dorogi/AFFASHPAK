@@ -60,7 +60,7 @@ def test_persona_from_generator(persona_input, code):
 def test_persona_1_dscr_without_debt_passes_with_its_own_text():
     factor = score(table_input("coffee_shop")).factor("dscr")
     assert (factor.value, factor.points, factor.passed) == (None, 25, True)
-    assert factor.message == "Долгов нет — нагрузки нет"
+    assert factor.message == "Долгов нет, и на счёт приходит больше денег, чем уходит"
 
 
 @pytest.mark.parametrize(
@@ -107,10 +107,10 @@ def test_persona_5_improvements_by_lost_points():
         "dscr": 21, "debt_to_ebitda": 11, "revenue_trend": 11, "counterparty_concentration": 10,
     }  # fmt: skip
     assert improvements(result) == [
-        "Снизьте текущие платежи по долгам или увеличьте свободный денежный поток",
-        "Снизьте долг до 3,5 годовой прибыли (EBITDA)",
-        "Восстановите выручку хотя бы до уровня прошлого года",
-        "Снизьте долю крупнейшего покупателя до 50% и меньше",
+        "Снизьте платежи по текущим долгам или увеличьте остаток денег после расходов",
+        "Снизьте долг до 3,5 годовой прибыли (EBITDA) и меньше",
+        "Верните выручку хотя бы к уровню прошлого года",
+        "Найдите ещё покупателей, чтобы на крупнейшего приходилось не больше 50% поступлений",
     ]
 
 

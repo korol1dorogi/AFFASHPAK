@@ -142,7 +142,7 @@ def test_a_term_outside_the_product_is_400(counteroffer, garden_store, term):
     response = post(garden_store, counteroffer, amount="2009314.00", term_months=term)
     assert response.status_code == 400
     assert response.json()["error"]["details"]["term_months"] == [
-        "Срок по продукту — от 3 до 24 мес"
+        "Этот продукт выдают на срок от 3 до 24 мес"
     ]
 
 

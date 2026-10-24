@@ -19,7 +19,7 @@ from apps.scoring import ScoringInput, business_age_months, get_scorecard, revie
 from apps.scoring.inputs import SOURCES
 from apps.scoring.policy import CURRENT_POLICY_VERSION, get_policy
 from apps.scoring.scorecard import ScoreResult
-from apps.scoring.texts import number, percent, rubles
+from apps.scoring.texts import number, percent, points, rubles
 
 # Who the client reads about when a source does not answer (decision-model.md §7).
 SOURCE_NAME = {
@@ -98,7 +98,7 @@ def decide(application: Application, inp: ScoringInput) -> Decision:
         if alternative is None:
             return pack(
                 DecisionOutcome.DECLINED,
-                improvements=["Под этот запрос нет другого подходящего продукта"],
+                improvements=["Для такого запроса другого подходящего продукта нет"],
                 extra=[requirements],
             )
         chosen = alternative
@@ -180,14 +180,14 @@ def _requirements_row(product: Product, inp: ScoringInput, alternative: Product 
     forms = requirements.get("legal_forms") or []
     minimum = int(requirements.get("min_business_age_months") or 0)
     if forms and inp.legal_form not in forms:
-        cause = f"{product.name} не выдаётся этой правовой форме"
+        cause = f"{product.name} не выдают компаниям с такой правовой формой"
     elif inp.registered_at is None:
-        cause = f"{product.name}: не получили дату регистрации компании"
+        cause = f"{product.name}: в ЕГРЮЛ нет даты регистрации компании"
     elif business_age_months(inp.registered_at, inp.on_date) < minimum:
-        cause = f"{product.name} требует возраст бизнеса от {minimum} мес"
+        cause = f"{product.name} выдают бизнесу не младше {minimum} мес"
     else:
-        cause = f"{product.name} требует залог"
-    tail = f"; подходит {alternative.name.lower()}" if alternative else ""
+        cause = f"{product.name} выдают только под залог"
+    tail = f", зато подходит {alternative.name.lower()}" if alternative else ""
     return _row("product_requirements", None, None, False, cause + tail)
 
 
@@ -206,7 +206,10 @@ def _size(
         return _factoring_size(product, application, requested)
     by_dscr = _dscr_cap(product, inp, rate, term)
     if by_dscr is None:  # None and a reason, never a silent gap (AGENTS.md)
-        text = "Не хватает данных о денежном потоке, чтобы посчитать сумму — посчитает сотрудник"
+        text = (
+            "По счёту не хватает данных, чтобы посчитать сумму, поэтому её посчитает "
+            "сотрудник банка"
+        )
         return None, [_row("max_loan_by_dscr", None, requested, False, text)]
     reasons = [_dscr_reason(by_dscr, requested, rate, term)]
     limit = min(by_dscr, product.amount_max)
@@ -225,15 +228,15 @@ def _overdraft_size(
 ) -> tuple[Decimal | None, list[dict]]:
     turnover = inp.metric("cleaned_credit_turnover")
     if turnover is None:
-        text = "Нет данных об оборотах по счёту, чтобы посчитать лимит — посчитает сотрудник"
+        text = "Нет данных об оборотах по счёту, поэтому лимит посчитает сотрудник банка"
         return None, [_row("overdraft_limit", None, requested, False, text)]
     alpha = _decimal(product.params.get("alpha"), "0.3")
     limit = min(overdraft_limit(turnover, alpha), product.amount_max)
     passed = limit >= requested
     text = (
-        f"Лимит — {percent(alpha)} среднемесячных поступлений на счёт: {rubles(limit)}"
+        f"Лимит — {percent(alpha)} от средних поступлений на счёт за месяц: {rubles(limit)}"
         if passed
-        else f"По оборотам доступно {rubles(limit)} — меньше запрошенного"
+        else f"По оборотам на счёте доступно {rubles(limit)}, это меньше запрошенного"
     )
     return limit, [_row("overdraft_limit", limit, requested, passed, text)]
 
@@ -243,13 +246,13 @@ def _factoring_size(
 ) -> tuple[Decimal | None, list[dict]]:
     invoice = application.invoice_amount
     if invoice is None:
-        text = "Нет суммы отгрузки, чтобы посчитать аванс"
+        text = "Не указана сумма отгрузки, поэтому аванс не посчитать"
         return None, [_row("factoring_advance", None, requested, False, text)]
     beta = _decimal(product.params.get("beta"), "0.9")
     limit = min(factoring_advance(invoice, beta), product.amount_max)
     passed = limit >= requested
     text = (
-        f"Сразу — {percent(beta)} суммы отгрузки: {rubles(limit)}"
+        f"Сразу получите {percent(beta)} от суммы отгрузки: {rubles(limit)}"
         if passed
         else f"Под эту отгрузку доступно {rubles(limit)}"
     )
@@ -258,7 +261,7 @@ def _factoring_size(
     if commission is not None:
         fee = factoring_commission(invoice, _decimal(commission, "0"))
         reasons.append(
-            _row("factoring_commission", fee, None, True, f"Разовая комиссия — {rubles(fee)}")
+            _row("factoring_commission", fee, None, True, f"Разовая комиссия: {rubles(fee)}")
         )
     return limit, reasons
 
@@ -276,9 +279,12 @@ def _dscr_cap(product: Product, inp: ScoringInput, rate: Decimal, term: int) -> 
 def _dscr_reason(limit: Decimal, requested: Decimal, rate: Decimal, term: int) -> dict:
     passed = limit >= requested
     text = (
-        f"Платёж посилен: допустимо до {rubles(limit)}"
+        f"Платёж вам по силам: можно взять до {rubles(limit)}"
         if passed
-        else f"Сумма ограничена {rubles(limit)} на {term} мес при ставке {percent(rate)}"
+        else (
+            f"На {term} мес под {percent(rate)} можно взять не больше {rubles(limit)}: "
+            "платёж по большей сумме бизнес не потянет"
+        )
     )
     return _row("max_loan_by_dscr", limit, requested, passed, text)
 
@@ -288,9 +294,10 @@ def _need_reason(need, requested: Decimal) -> dict:
         return _row("working_capital_need", None, requested, False, need.note or "")
     passed = need.value >= requested
     text = (
-        f"В обороте заморожено {rubles(need.value)} — больше бизнесу не нужно"
+        f"Сейчас в обороте бизнеса {rubles(need.value)}, "
+        "запрошенная сумма в эти пределы укладывается"
         if passed
-        else f"Потребность в оборотных средствах — {rubles(need.value)}, меньше запрошенного"
+        else f"Сейчас в обороте бизнеса {rubles(need.value)}, это меньше запрошенного"
     )
     return _row("working_capital_need", need.value, requested, passed, text)
 
@@ -302,12 +309,15 @@ def _dscr_after(
     current = inp.metric("debt_service") or Decimal(0)
     cfads = inp.metric("cfads")
     if cfads is None:
-        return _row("dscr_after", None, _min_dscr(product), False, "Нет денежного потока")
+        return _row("dscr_after", None, _min_dscr(product), False, "Нет данных о деньгах по счёту")
     metric = dscr(cfads, current + payment)
     threshold = _min_dscr(product)
     passed = metric.value is not None and metric.value >= threshold
     coverage = "нет данных" if metric.value is None else number(metric.value)
-    text = f"С новым платежом {rubles(payment)} в месяц поток покрывает платежи в {coverage} раза"
+    text = (
+        f"С новым платежом {rubles(payment)} в месяц денег на счёте больше всех платежей "
+        f"в {coverage} раза"
+    )
     return _row("dscr_after", metric.value, threshold, passed, text)
 
 
@@ -316,14 +326,14 @@ def _amount_improvements(
 ) -> list[str]:
     if offered >= requested or product.kind in {"overdraft", "factoring"}:
         return []
-    texts = ["Снизьте текущие платежи по долгам"]
+    texts = ["Снизьте платежи по текущим долгам"]
     cfads, service = inp.metric("cfads"), inp.metric("debt_service")
     if cfads is None or service is None:
         return texts
     longer = max_loan_by_dscr(cfads, service, rate, product.term_max_months, _min_dscr(product))
     if longer.value is not None:
         months = product.term_max_months
-        texts.insert(0, f"При сроке {months} мес допустимо {rubles(longer.value)}")
+        texts.insert(0, f"Если взять на {months} мес, можно получить до {rubles(longer.value)}")
     return texts
 
 
@@ -336,21 +346,30 @@ def _score_reason(result: ScoreResult) -> dict:
         "value": str(result.total),
         "threshold": str(threshold),
         "passed": result.total >= threshold,
-        "message": f"Грейд {result.grade} ({result.total} из 100)",
+        "message": f"Оценка риска {result.grade}: {points(result.total)} из 100",
     }
 
 
 def _no_data_text(inp: ScoringInput, source: str) -> str:
     check = inp.check(source)
     if source == "bank_account" and check is not None and check.data.get("not_connected"):
-        return "Счёт не подключён — данные по счёту проверит сотрудник. Это не отказ"
+        return "Счёт не подключён, поэтому данные по счёту проверит сотрудник банка. Это не отказ"
     if check is not None and (
         check.status == "consent_missing" or check.data.get("consent_missing")
     ):
-        return "Нет согласия на запрос в бюро — кредитную историю проверит сотрудник. Это не отказ"
+        return (
+            "Согласия на запрос в бюро нет, поэтому кредитную историю проверит сотрудник банка. "
+            "Это не отказ"
+        )
     if check is not None and check.status == "restricted":
-        return f"{SOURCE_NAME[source]}: сведения скрыты — заявку проверит сотрудник. Это не отказ"
-    return f"{SOURCE_NAME[source]} сейчас не отвечает — заявку проверит сотрудник. Это не отказ"
+        return (
+            f"{SOURCE_NAME[source]}: сведения скрыты, поэтому заявку проверит сотрудник банка. "
+            "Это не отказ"
+        )
+    return (
+        f"{SOURCE_NAME[source]} сейчас не отвечает, поэтому заявку проверит сотрудник банка. "
+        "Это не отказ"
+    )
 
 
 def _factor_reason(factor) -> dict:

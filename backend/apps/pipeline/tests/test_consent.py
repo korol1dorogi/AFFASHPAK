@@ -44,8 +44,8 @@ def test_no_consent_no_bureau_request(seeded, asked):
     check = Check.objects.get(application=application, source="bki")
     assert check.status == "consent_missing"  # its own status since SRC2, not an outage
     assert check.data == {"consent_missing": True}
-    assert check.summary == "Бюро кредитных историй: не запрашивали — нет согласия клиента"
+    assert check.summary == "Бюро кредитных историй: не запрашивали: клиент не дал согласия"
     application.refresh_from_db()
     assert application.status == "manual_review"  # no data is not a decline
     texts = [reason["message"] for reason in application.decisions.get().reasons]
-    assert any("Нет согласия на запрос в бюро" in text for text in texts)
+    assert any("Согласия на запрос в бюро нет" in text for text in texts)

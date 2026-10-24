@@ -177,7 +177,7 @@ def hand_off(application: Application, actor: Actor) -> Application:
             app,
             kind=EventKind.HANDED_OFF,
             title=f"Заявка № {app.pk} готова к отправке",
-            message="Проверьте её и отправьте в банк — отправить может только подписант.",
+            message="Проверьте её и отправьте в банк: отправить заявку может только подписант.",
             exclude=actor.user,
             roles=(MemberRole.SIGNATORY,),
         )
@@ -255,7 +255,10 @@ def confirm_signature(application: Application, actor: Actor, code: str) -> Appl
                 actor,
                 event_kind=EventKind.SIGNED,
                 message="Договор подписан кодом с экрана.",
-                notify=("Договор подписан", "Деньги поступят на счёт после обработки выдачи."),
+                notify=(
+                    "Договор подписан",
+                    "Деньги придут на счёт, как только банк оформит выдачу.",
+                ),
             )
             offer = current_offer(app)
             Disbursement.objects.update_or_create(
@@ -353,15 +356,18 @@ def _check_product_terms(
     errors: dict[str, list[str]] = {}
     if not product.amount_min <= amount <= product.amount_max:
         errors["amount"] = [
-            f"Сумма по продукту — от {rubles(product.amount_min)} до {rubles(product.amount_max)}"
+            f"Этот продукт выдают на сумму от {rubles(product.amount_min)} "
+            f"до {rubles(product.amount_max)}"
         ]
     if not product.term_min_months <= term_months <= product.term_max_months:
         errors["term_months"] = [
-            f"Срок по продукту — от {product.term_min_months} до {product.term_max_months} мес"
+            f"Этот продукт выдают на срок от {product.term_min_months} до "
+            f"{product.term_max_months} мес"
         ]
     if rate is not None and not product.rate_min <= rate <= product.rate_max:
         errors["rate"] = [
-            f"Ставка по продукту — от {percent(product.rate_min)} до {percent(product.rate_max)}"
+            f"Ставка по этому продукту — от {percent(product.rate_min)} "
+            f"до {percent(product.rate_max)}"
         ]
     if errors:
         raise ValidationError(errors)
@@ -376,7 +382,7 @@ def bank_approve(
         check_version(app, version)  # stale screen → 409 before any validation
         if app.product is None:
             raise ValidationError(
-                {"product_code": ["В заявке не выбран продукт — сделайте контрпредложение."]}
+                {"product_code": ["В заявке не выбран продукт: предложите его в иных условиях."]}
             )
         _check_product_terms(app.product, amount=app.requested_amount, term_months=app.term_months)
         decision = _officer_decision(app, actor, DecisionOutcome.OFFER, comment=comment)

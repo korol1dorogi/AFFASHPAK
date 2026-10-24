@@ -37,16 +37,24 @@ def test_days(count, text):
 def test_persona_5_messages():
     messages = {f.name: f.message for f in score(table_input("dependent_supplier")).factors}
     assert messages["dscr"] == (
-        "Свободных денег на платежи по долгам мало: 1,1 ₽ на рубль при норме 1,25"
+        "На каждый рубль платежей по долгам приходится только 1,1 ₽ свободных денег, "
+        "а нужно не меньше 1,25 ₽"
     )
-    assert messages["debt_to_ebitda"] == "Долги — 4,2 годовых прибыли, это больше нормы 3,5"
-    assert messages["revenue_trend"] == "Выручка упала на 20% к прошлому году"
-    assert messages["counterparty_concentration"].startswith("80% денег приходит от одного")
+    assert messages["debt_to_ebitda"] == (
+        "Долг равен 4,2 годовой прибыли (EBITDA), а норма — не больше 3,5"
+    )
+    assert messages["revenue_trend"] == (
+        "За последние 3 месяца выручка упала на 20% к тем же месяцам прошлого года"
+    )
+    assert messages["counterparty_concentration"].startswith("80% денег приносит один покупатель")
 
 
 def test_persona_7_bki_unavailable_message():
     factor = score(table_input("bki_outage")).factor("bki_history")
-    assert factor.message == "БКИ не ответило — историю проверит сотрудник"
+    assert (
+        factor.message
+        == "Бюро кредитных историй не ответило, поэтому историю проверит сотрудник банка"
+    )
 
 
 def test_missing_metric_message():
@@ -55,7 +63,7 @@ def test_missing_metric_message():
         "revenue_trend"
     )
     assert (factor.value, factor.passed, factor.missing_key) == (None, False, True)
-    assert "Не хватает данных по счёту" in factor.message
+    assert "По счёту не хватает данных" in factor.message
 
 
 def test_transparent_business_findings_and_improvements():
@@ -65,8 +73,11 @@ def test_transparent_business_findings_and_improvements():
         checks(transparent_business={"status": "warning", "data": data}), ON_DATE,
     )  # fmt: skip
     factor = score(inp).factor("transparent_business")
-    assert factor.message == "ФНС: массовый адрес, налоговый долг 20 000 ₽"
-    assert factor.improvements == ("Погасите налоговый долг", "Подтвердите фактический адрес")
+    assert factor.message == "ФНС отмечает: адрес массовой регистрации, налоговый долг 20 000 ₽"
+    assert factor.improvements == (
+        "Погасите долг по налогам",
+        "Подтвердите, что компания действительно работает по этому адресу",
+    )
 
 
 def test_transparent_business_unavailable_gives_two_points():

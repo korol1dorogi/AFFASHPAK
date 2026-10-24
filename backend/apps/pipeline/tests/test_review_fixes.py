@@ -50,7 +50,7 @@ def test_persona_2_factoring_for_the_shipment(seeded):
     offer = application.offers.get()
     assert (decision.outcome, decision.grade) == ("offer", "B")
     assert (offer.product.code, offer.amount) == ("factoring_basic", Decimal("4500000.00"))
-    assert "Сразу — 90% суммы отгрузки: 4 500 000 ₽" in _texts(decision)
+    assert "Сразу получите 90% от суммы отгрузки: 4 500 000 ₽" in _texts(decision)
 
 
 @pytest.mark.django_db
@@ -103,11 +103,12 @@ def test_persona_8_explains_why_the_product_changed(seeded):
     requirements = next(r for r in decision.reasons if r["metric"] == "product_requirements")
     assert requirements["passed"] is False
     assert requirements["message"] == (
-        "Инвестиционный кредит требует залог; подходит лизинг оборудования и транспорта"
+        "Инвестиционный кредит выдают только под залог, "
+        "зато подходит лизинг оборудования и транспорта"
     )
     offer = application.offers.get()
     assert any(r["metric"] == "product_requirements" for r in offer.reasons)
-    assert "При сроке 60 мес допустимо 15 768 379 ₽" in _texts(decision)
+    assert "Если взять на 60 мес, можно получить до 15 768 379 ₽" in _texts(decision)
 
 
 CASES = [
@@ -153,7 +154,7 @@ def test_gaps_ask_for_data_with_formatted_amounts(seeded):
     assert application.status == ApplicationStatus.INFO_REQUESTED
     assert "requested_amount" in request.fields
     assert set(request.document_kinds) == {"bank_statement", "tax_return"}
-    assert "Минимальная сумма по продукту — 300 000 ₽" in _plain(request.message)
+    assert "Этот продукт выдают на сумму от 300 000 ₽" in _plain(request.message)
     assert not RAW_DECIMAL.search(request.message)
 
 

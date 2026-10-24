@@ -14,8 +14,8 @@ from apps.scoring.inputs import ScoringInput
 from apps.scoring.policy import CURRENT_POLICY_VERSION, get_policy
 
 LIQUIDATION = {
-    "liquidating": "По данным ЕГРЮЛ компания в процессе ликвидации — кредит оформить нельзя",
-    "liquidated": "По данным ЕГРЮЛ компания ликвидирована — кредит оформить нельзя",
+    "liquidating": "По данным ЕГРЮЛ компания ликвидируется, поэтому кредит выдать нельзя",
+    "liquidated": "По данным ЕГРЮЛ компания ликвидирована, поэтому кредит выдать нельзя",
 }
 
 
@@ -52,9 +52,9 @@ def _no_operating_profit(inp: ScoringInput) -> StopFactor | None:
         return None
     reason = Reason(
         "ebitda", ebitda, Decimal(0), False,
-        "Операционная прибыль за год ≤ 0: бизнесу нечем обслуживать долг",
+        "За год бизнес не заработал операционной прибыли, поэтому платить по кредиту нечем",
     )  # fmt: skip
-    return StopFactor("С3", reason, "Подайте заявку, когда бизнес выйдет на операционную прибыль")
+    return StopFactor("С3", reason, "Подайте заявку снова, когда бизнес начнёт приносить прибыль")
 
 
 def _current_overdue(inp: ScoringInput, limit: int) -> StopFactor | None:
@@ -79,12 +79,12 @@ def _too_young(inp: ScoringInput, minimum: int) -> StopFactor | None:
         return None
     reason = Reason(
         "business_age_months", Decimal(age), Decimal(minimum), False,
-        f"Бизнесу {age} мес, а продукт требует от {minimum}",
+        f"Бизнесу {age} мес, а для этого продукта нужно не меньше {minimum}",
     )  # fmt: skip
     return StopFactor(
         "С5",
         reason,
-        f"Вернитесь, когда бизнесу будет {minimum} месяцев: с даты регистрации прошло {age} мес",
+        f"Подайте заявку снова, когда бизнесу исполнится {minimum} мес (сейчас {age} мес)",
     )
 
 
@@ -96,7 +96,7 @@ def _accounts_suspended(inp: ScoringInput) -> StopFactor | None:
         return None
     reason = Reason(
         "accounts_suspended", None, None, False,
-        "ФНС приостановила операции по счетам компании — кредит оформить нельзя",
+        "ФНС приостановила операции по счетам компании, поэтому кредит выдать нельзя",
     )  # fmt: skip
     return StopFactor(
         "С6", reason, "Снимите приостановку операций по счетам в ФНС и подайте заявку снова"

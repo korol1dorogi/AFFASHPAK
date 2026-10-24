@@ -7,11 +7,11 @@ from apps.credit_math import Reason
 from apps.scoring.inputs import ScoringInput
 
 REGISTRY_MARKS = {
-    "unreliable_address": "В ЕГРЮЛ отметка о недостоверности адреса компании",
-    "unreliable_director": "В ЕГРЮЛ отметка о недостоверности сведений о руководителе",
+    "unreliable_address": "В ЕГРЮЛ есть отметка, что адрес компании недостоверен",
+    "unreliable_director": "В ЕГРЮЛ есть отметка, что сведения о руководителе недостоверны",
     "pending_exclusion": "ФНС готовит исключение компании из ЕГРЮЛ",
 }
-OFFICER = " — заявку проверит сотрудник банка. Это не отказ"
+OFFICER = ", поэтому заявку проверит сотрудник банка. Это не отказ"
 
 
 def review_reasons(inp: ScoringInput) -> list[Reason]:
