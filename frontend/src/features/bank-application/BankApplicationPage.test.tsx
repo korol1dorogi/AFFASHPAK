@@ -404,9 +404,9 @@ describe("BankApplicationPage — tabs", () => {
     ]);
     expect(screen.getByText("65 из 100")).toBeInTheDocument();
     expect(screen.getByText("scorecard-2026.10-v1")).toBeInTheDocument();
-    const dscr = within(factors).getByText("Покрытие платежей потоком (DSCR)").closest("li");
+    const dscr = within(factors).getByText("Запас на платежи по долгам (DSCR)").closest("li");
     expect(dscr).toHaveTextContent("1,8");
-    const debt = within(factors).getByText("Долговая нагрузка (Долг / EBITDA)").closest("li");
+    const debt = within(factors).getByText("Долговая нагрузка (долг к EBITDA)").closest("li");
     expect(debt).toHaveTextContent("нет данных");
   });
 

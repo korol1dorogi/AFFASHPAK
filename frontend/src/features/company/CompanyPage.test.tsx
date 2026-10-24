@@ -63,7 +63,7 @@ describe("CompanyPage — requisites", () => {
 
   it("a company in liquidation carries the warning", async () => {
     open({ "GET /api/company": company({ registry_status: "liquidating" }) });
-    expect(await screen.findByText(/кредит не выдадут/)).toBeInTheDocument();
+    expect(await screen.findByText(/кредит ей не выдадут/)).toBeInTheDocument();
   });
 
   it("a client without a company goes to connect one", async () => {

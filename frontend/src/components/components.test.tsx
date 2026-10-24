@@ -158,11 +158,11 @@ describe("ReasonList", () => {
   it("uses plain titles for everyone and adds metric codes for the bank", () => {
     const { rerender } = render(<ReasonList reasons={reasons.slice(0, 1)} />);
     expect(
-      screen.getByText("Лимит от оборота", { selector: "p.font-semibold" }),
+      screen.getByText("Лимит по оборотам", { selector: "p.font-semibold" }),
     ).toBeInTheDocument();
     rerender(<ReasonList reasons={reasons.slice(0, 1)} variant="bank" />);
     expect(
-      screen.getByText("Лимит от оборота", { selector: "p.font-semibold" }),
+      screen.getByText("Лимит по оборотам", { selector: "p.font-semibold" }),
     ).toBeInTheDocument();
     expect(screen.getByText("overdraft_limit")).toBeInTheDocument();
   });
@@ -289,7 +289,7 @@ describe("OfferCard", () => {
         actions={[]}
       />,
     );
-    expect(screen.getByText("Зависит от использования")).toBeInTheDocument();
+    expect(screen.getByText("Зависит от того, сколько возьмёте")).toBeInTheDocument();
   });
 });
 

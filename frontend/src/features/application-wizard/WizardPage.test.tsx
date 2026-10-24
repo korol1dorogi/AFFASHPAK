@@ -90,7 +90,7 @@ describe("WizardPage — the preparer hands the draft to the director (XP5)", ()
     // The members list arrives after the draft: the name appears a moment later.
     expect(
       await screen.findByText(/Отправить заявку может подписант: Пётр Демо/),
-    ).toHaveTextContent("подписант получит уведомление в кабинете");
+    ).toHaveTextContent("передайте его подписанту: он получит уведомление в кабинете");
     expect(button).toBeEnabled();
   });
 

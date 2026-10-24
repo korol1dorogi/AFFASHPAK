@@ -39,7 +39,7 @@ const EXAMPLE_REASONS: Schemas["Reason"][] = [
     value: "900000.00",
     threshold: null,
     passed: true,
-    message: "Лимит — 30% среднемесячных поступлений: 900 000 ₽",
+    message: "Лимит — 30% от средних поступлений на счёт за месяц: 900 000 ₽",
   },
   {
     metric: "score_total",
@@ -47,7 +47,7 @@ const EXAMPLE_REASONS: Schemas["Reason"][] = [
     threshold: "75",
     passed: true,
     message:
-      "Предварительная оценка риска: грейд A (92 из 100) — до проверки кредитной истории и данных ФНС",
+      "Предварительная оценка риска A: 92 балла из 100, пока без кредитной истории и данных ФНС",
   },
   {
     metric: "product_requirements",

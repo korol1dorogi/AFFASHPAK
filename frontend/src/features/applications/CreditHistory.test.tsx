@@ -32,14 +32,15 @@ describe("creditHistoryFinding", () => {
 
   it("explains a past overdue over the bank's limit", () => {
     expect(creditHistoryFinding([history("65", false, "Была просрочка")])).toBe(
-      "В истории была просрочка 65 дней — больше порога банка 30 дней, поэтому оценка кредитной истории низкая.",
+      "В истории была просрочка 65 дней, а банк допускает не больше 30 дней, поэтому кредитную " +
+        "историю оценили низко.",
     );
   });
 
   it("explains a past overdue within the limit without calling it a reason to decline", () => {
     const text = creditHistoryFinding([history("10", true, "Была просрочка")]);
-    expect(text).toContain("10 дней — в пределах порога банка 30 дней");
-    expect(text).toContain("Это не причина отказа");
+    expect(text).toContain("10 дней, а банк допускает до 30 дней");
+    expect(text).toContain("Отказывать из-за неё не будут");
   });
 
   it("uses the backend's sentence for a current overdue under the stop limit", () => {
@@ -78,7 +79,7 @@ describe("CreditHistory", () => {
     const steps = within(card).getAllByRole("listitem");
     expect(steps).toHaveLength(4);
     expect(steps[0]).toHaveTextContent("Госуслугах");
-    expect(steps[1]).toHaveTextContent("дважды в год — бесплатно");
+    expect(steps[1]).toHaveTextContent("дважды в год это бесплатно");
     expect(steps[2]).toHaveTextContent("20 рабочих дней");
     expect(steps[3]).toHaveTextContent("К новой заявке приложите справку");
   });

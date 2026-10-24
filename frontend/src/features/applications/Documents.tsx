@@ -142,7 +142,7 @@ export function RequiredDocuments({
   if (required.length === 0) {
     return (
       <p className="m-0 text-ink-muted">
-        Для этого продукта документы не обязательны — банк возьмёт данные из выписки.
+        Для этого продукта документы не обязательны: банк возьмёт данные из выписки.
       </p>
     );
   }

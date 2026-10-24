@@ -66,7 +66,7 @@ export function SignPage() {
       </Link>
       <PageHeader
         title="Подписание договора"
-        subtitle="Код показываем на экране вместо SMS — так по условиям прототипа."
+        subtitle="В прототипе код не приходит по SMS, а показывается прямо на экране."
       />
       {offer ? (
         <Card className="flex-row flex-wrap gap-6">

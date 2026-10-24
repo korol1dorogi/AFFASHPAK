@@ -133,7 +133,7 @@ function OfferResult({
           <span className="text-sm text-ink-muted">
             <RateText value={offer.rate} /> · {offer.term_months} мес ·{" "}
             {offer.monthly_payment === null ? (
-              "платёж зависит от использования"
+              "платёж зависит от того, сколько возьмёте"
             ) : (
               <>
                 платёж <MoneyText value={offer.monthly_payment} />
@@ -156,7 +156,7 @@ function OfferResult({
           Оформить заявку
         </Button>
         <span className="text-sm text-ink-muted">
-          Заявка заполнится сама — останется проверить и отправить
+          Заявка заполнится сама, останется проверить и отправить
         </span>
       </div>
     </article>
@@ -226,7 +226,7 @@ export function MatchPage() {
     <div className="flex flex-col gap-8">
       <PageHeader
         title="Что вам нужно?"
-        subtitle="Подберём инструмент и сумму по данным вашего счёта. Это предварительная оценка, а не решение банка: окончательные условия будут после проверки заявки."
+        subtitle="Подберём подходящий вариант и сумму по данным вашего счёта. Это предварительная оценка, а не решение банка: окончательные условия банк назовёт после проверки заявки."
       />
       <NeedPicker value={need} onChange={pick} />
 
@@ -248,7 +248,7 @@ export function MatchPage() {
             </Field>
             <Field
               label="На сколько месяцев"
-              error={termValid ? undefined : "От 1 до 360"}
+              error={termValid ? undefined : "От 1 до 360 месяцев"}
               className="w-48"
             >
               <Input
@@ -288,7 +288,7 @@ export function MatchPage() {
           {result.stop_factors.length ? (
             <Card className="border-status-danger">
               <p className="m-0 font-semibold">Почему сейчас не получится</p>
-              <ReasonList reasons={result.stop_factors} label="Стоп-факторы" />
+              <ReasonList reasons={result.stop_factors} label="Что мешает" />
             </Card>
           ) : null}
           {[...result.offers]

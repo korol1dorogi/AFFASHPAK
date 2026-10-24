@@ -17,23 +17,24 @@ const PLAN: Schemas["ApprovalPlan"] = {
       current: "0.8000",
       target: "0.5",
       points: 7,
-      message: "Снизьте долю крупнейшего покупателя до 50% и меньше (сейчас 80%)",
+      message:
+        "Найдите ещё покупателей, чтобы на крупнейшего приходилось не больше 50% поступлений (сейчас 80%)",
     },
     {
       metric: "revenue_trend",
       current: "0.8000",
       target: "0.9",
       points: 6,
-      message: "Верните выручку хотя бы к 90% прошлогодней (сейчас 80%)",
+      message: "Верните выручку хотя бы к 90% от прошлого года (сейчас 80%)",
     },
   ],
 };
 
 const IMPROVEMENTS = [
-  "Снизьте текущие платежи по долгам или увеличьте свободный денежный поток",
-  "Снизьте долг до 3,5 годовой прибыли (EBITDA)",
-  "Восстановите выручку хотя бы до уровня прошлого года",
-  "Снизьте долю крупнейшего покупателя до 50% и меньше",
+  "Снизьте платежи по текущим долгам или увеличьте остаток денег после расходов",
+  "Снизьте долг до 3,5 годовой прибыли (EBITDA) и меньше",
+  "Верните выручку хотя бы к уровню прошлого года",
+  "Найдите ещё покупателей, чтобы на крупнейшего приходилось не больше 50% поступлений",
 ];
 
 function declined(plan: Schemas["ApprovalPlan"] | null): Schemas["ApplicationDetail"] {
@@ -70,7 +71,7 @@ function declined(plan: Schemas["ApprovalPlan"] | null): Schemas["ApplicationDet
           value: "47",
           threshold: "75",
           passed: false,
-          message: "Грейд E (47 из 100)",
+          message: "Оценка риска E: 47 баллов из 100",
         },
       ],
       improvements: IMPROVEMENTS,
@@ -104,17 +105,20 @@ describe("ApprovalPlan on a decline", () => {
     open(declined(PLAN));
     const plan = await screen.findByRole("region", { name: "Как получить одобрение" });
     expect(plan).toHaveTextContent(
-      "Сейчас 47 баллов из 100 — грейд E. Эти шаги дают 60 — грейд C: с ним заявку рассмотрит сотрудник банка.",
+      "Сейчас у заявки 47 баллов из 100, оценка риска — E. Если выполнить шаги ниже, наберётся " +
+        "60 баллов и оценка станет C. Тогда заявку рассмотрит сотрудник банка.",
     );
     const steps = within(plan).getAllByRole("listitem");
     expect(steps).toHaveLength(2);
     expect(steps[0]).toHaveTextContent("Доля крупнейшего покупателя");
     expect(steps[0]).toHaveTextContent("+7 баллов");
     expect(steps[0]).toHaveTextContent(
-      "Снизьте долю крупнейшего покупателя до 50% и меньше (сейчас 80%)",
+      "Найдите ещё покупателей, чтобы на крупнейшего приходилось не больше 50% поступлений (сейчас 80%)",
     );
     expect(steps[1]).toHaveTextContent("+6 баллов");
-    expect(steps[1]).toHaveTextContent("Верните выручку хотя бы к 90% прошлогодней (сейчас 80%)");
+    expect(steps[1]).toHaveTextContent(
+      "Верните выручку хотя бы к 90% от прошлого года (сейчас 80%)",
+    );
     // The plan comes first; all the advice («Что можно улучшить», scenario 5) stays below it.
     expect(screen.getByText("Что можно улучшить", { exact: true })).toBeInTheDocument();
     for (const text of IMPROVEMENTS) expect(screen.getByText(text)).toBeInTheDocument();
@@ -144,9 +148,10 @@ describe("APPROVAL_PLAN texts", () => {
   });
 
   it("the summary declines the current total and names who decides at grade C or better", () => {
-    expect(APPROVAL_PLAN.summary(51, "D", 60, "C")).toContain("Сейчас 51 балл из 100");
+    expect(APPROVAL_PLAN.summary(51, "D", 60, "C")).toContain("Сейчас у заявки 51 балл из 100");
     expect(APPROVAL_PLAN.summary(52, "D", 76, "B")).toContain(
-      "Сейчас 52 балла из 100 — грейд D. Эти шаги дают 76 — грейд B: с ним банк сможет одобрить заявку.",
+      "Сейчас у заявки 52 балла из 100, оценка риска — D. Если выполнить шаги ниже, наберётся " +
+        "76 баллов и оценка станет B. Тогда банк сможет её одобрить.",
     );
   });
 });

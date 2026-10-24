@@ -56,7 +56,7 @@ export function ApplicationsPage() {
       {applications.data.length === 0 ? (
         <EmptyState
           title="Заявок пока нет"
-          text="Расскажите, зачем бизнесу деньги, — подберём инструмент и сумму."
+          text="Расскажите, зачем бизнесу деньги, и мы подберём подходящий вариант и сумму."
           action={
             <Button asChild>
               <Link to={routes.match}>Подобрать финансирование</Link>

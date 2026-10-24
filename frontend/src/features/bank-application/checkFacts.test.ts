@@ -103,7 +103,7 @@ describe("checkFacts — every field is labelled (SRC6)", () => {
       "Отметка о недостоверности адреса",
       "Предстоящее исключение из реестра",
     ]);
-    expect(byLabel(facts)["Статус в реестре"]).toBe("В процессе ликвидации");
+    expect(byLabel(facts)["Статус в реестре"]).toBe("Ликвидируется");
   });
 
   it("«Прозрачный бизнес» with the FNS profile and suspended accounts (e_accounts_suspended)", () => {

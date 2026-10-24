@@ -46,7 +46,9 @@ describe("CompanyNewPage — INN → registry → company", () => {
   it("checks the INN format before asking the registry", async () => {
     const fetchMock = open({ [LOOKUP]: registryRecord() });
     await find("12345");
-    expect(await screen.findByText("ИНН — 10 цифр у компании или 12 у ИП")).toBeInTheDocument();
+    expect(
+      await screen.findByText("В ИНН должно быть 10 цифр у компании или 12 у ИП"),
+    ).toBeInTheDocument();
     expect(screen.getByLabelText("ИНН компании или ИП")).toHaveAttribute("aria-invalid", "true");
     expect(calls(fetchMock, "GET", "/api/company/lookup")).toHaveLength(0);
   });
@@ -60,7 +62,7 @@ describe("CompanyNewPage — INN → registry → company", () => {
     expect(screen.getByText("31.09 — Производство прочей мебели")).toBeInTheDocument();
     expect(screen.getByText("1260000000042")).toBeInTheDocument();
     expect(screen.getByText("Действует")).toBeInTheDocument();
-    expect(screen.queryByText(/кредит не выдадут/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/кредит ей не выдадут/)).not.toBeInTheDocument();
     const [lookup] = calls(fetchMock, "GET", "/api/company/lookup");
     expect(new URL((lookup as Request).url).searchParams.get("inn")).toBe("0001000042");
 
@@ -73,8 +75,8 @@ describe("CompanyNewPage — INN → registry → company", () => {
   it("warns that a liquidating company gets no loan, but still lets it be connected", async () => {
     open({ [LOOKUP]: registryRecord({ registry_status: "liquidating" }) });
     await find("0001000042");
-    expect(await screen.findByText("В процессе ликвидации")).toBeInTheDocument();
-    expect(screen.getByText(/кредит не выдадут/)).toBeInTheDocument();
+    expect(await screen.findByText("Ликвидируется")).toBeInTheDocument();
+    expect(screen.getByText(/кредит ей не выдадут/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Это моя компания" })).toBeEnabled();
   });
 

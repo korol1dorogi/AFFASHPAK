@@ -74,7 +74,7 @@ export function OfferCard({
           <dt className="text-xs text-ink-muted">Платёж в месяц</dt>
           <dd className="m-0">
             {offer.monthly_payment === null ? (
-              <span className="text-sm">Зависит от использования</span>
+              <span className="text-sm">Зависит от того, сколько возьмёте</span>
             ) : (
               <>
                 <MoneyText value={offer.monthly_payment} size="md" />
