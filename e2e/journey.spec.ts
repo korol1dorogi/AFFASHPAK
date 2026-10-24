@@ -38,7 +38,7 @@ test.describe("scenario 1: coffee shop — overdraft, auto offer, signing, disbu
     const first = page.locator("article").first();
     await expect(first).toContainText("Овердрафт");
     await expect(first).toContainText(rub("900 000"));
-    await expect(first.getByText("Лимит от оборота")).toBeVisible();
+    await expect(first.getByText("Лимит по оборотам")).toBeVisible();
   });
 
   test("wizard prefills the application; director submits (C5)", async ({ page }) => {
@@ -77,7 +77,7 @@ test.describe("scenario 1: coffee shop — overdraft, auto offer, signing, disbu
     await expect(statusBadge(page)).toHaveText("Есть предложение");
     const offer = page.getByRole("article", { name: "Предложение банка" });
     await expect(offer).toContainText(rub("900 000"));
-    await expect(offer).toContainText("Зависит от использования");
+    await expect(offer).toContainText("Зависит от того, сколько возьмёте");
     await expect(page.getByText("Предварительная оценка").first()).toBeVisible();
     await acceptAndSign(page, id);
   });
@@ -103,7 +103,7 @@ test.describe("scenario 2: supplier — factoring for a shipment", () => {
     await expect(statusBadge(page)).toHaveText("Есть предложение");
     const offer = page.getByRole("article", { name: "Предложение банка" });
     await expect(offer).toContainText(rub("4 500 000"));
-    await expect(page.getByText(`Сразу — 90% суммы отгрузки: ${rub("4 500 000")}`)).toBeVisible();
+    await expect(page.getByText(`Сразу получите 90% от суммы отгрузки: ${rub("4 500 000")}`)).toBeVisible();
     await acceptAndSign(page, id);
   });
 });
@@ -138,14 +138,14 @@ test.describe("scenario 3: seasonal store — counteroffer by DSCR", () => {
     await expect(offer).toContainText(`12${NBSP}мес`);
     await expect(offer).toContainText(rub("189 999,92"));
     const why = offer.getByRole("list", { name: "Почему такие условия" });
-    await expect(why).toContainText("Грейд B (87 из 100)");
-    await expect(why).toContainText("Сумма ограничена 2 009 314 ₽ на 12 мес при ставке 24%");
-    await expect(why).toContainText("поток покрывает платежи в 1,25 раза");
+    await expect(why).toContainText("Оценка риска B: 87 баллов из 100");
+    await expect(why).toContainText("На 12 мес под 24% можно взять не больше 2 009 314 ₽");
+    await expect(why).toContainText("свободных денег в 1,25 раза больше, чем уходит на все платежи");
 
     await acceptAndSign(page, id);
   });
   // docs/test-scenarios.md scenario 3, step 5: the counteroffer screen also shows «что улучшить»
-  // («При сроке 24 мес допустимо 3 593 645 ₽») and calls it a preliminary evaluation. Bug:
+  // («Если взять на 24 мес, можно получить до 3 593 645 ₽») and calls it a preliminary evaluation. Bug:
   // ApplicationPage hides DecisionCard while an offer is active and OfferCard renders neither.
   test("counteroffer screen shows what to improve and says «предварительная оценка» (C6)", async ({
     page,
@@ -167,7 +167,7 @@ test.describe("scenario 3: seasonal store — counteroffer by DSCR", () => {
     await expect(statusBadge(page)).toHaveText("Есть предложение");
     await expect(page.getByText("Предварительная оценка").first()).toBeVisible();
     const improve = page.getByRole("list", { name: "Что можно улучшить" });
-    await expect(improve).toContainText(`При сроке 24 мес допустимо ${rub("3 593 645")}`);
+    await expect(improve).toContainText(`Если взять на 24 мес, можно получить до ${rub("3 593 645")}`);
   });
 });
 
@@ -213,7 +213,7 @@ test.describe("scenario 4: manufacturer — manual review and info request", () 
       const note = director
         .getByRole("listitem")
         .filter({ hasText: `Заявка № ${id} готова к отправке` });
-      await expect(note).toContainText("отправить может только подписант");
+      await expect(note).toContainText("отправить заявку может только подписант");
       await note.getByRole("link", { name: "Открыть заявку" }).click();
       await expect(director).toHaveURL(new RegExp(`/app/applications/${id}$`));
       await expect(director.getByText("Заявка передана подписанту на отправку.")).toBeVisible();
@@ -223,11 +223,11 @@ test.describe("scenario 4: manufacturer — manual review and info request", () 
       await submitFromWizard(director, id);
       await expect(statusBadge(director)).toHaveText("У сотрудника банка");
       await expect(director.getByRole("list", { name: "Причины" })).toContainText(
-        "Грейд C (65 из 100)",
+        "Оценка риска C: 65 баллов из 100",
       );
       // BKI1: the 10-day overdue of two years ago is explained, not left as a black box (L01, R04)
       const history = director.getByRole("region", { name: "Кредитная история: что увидел банк" });
-      await expect(history).toContainText("10 дней — в пределах порога банка 30 дней");
+      await expect(history).toContainText("10 дней, а банк допускает до 30 дней");
       await expect(history.getByRole("listitem").first()).toContainText("Госуслугах");
     });
 
@@ -329,20 +329,20 @@ test.describe("scenario 5: dependent supplier — decline with improvements", ()
     await expect(statusBadge(page)).toHaveText("Отказ");
     await expect(page.getByRole("heading", { name: "Предварительная оценка" })).toBeVisible();
     const reasons = page.getByRole("list", { name: "Причины" });
-    await expect(reasons).toContainText("Грейд E (47 из 100)");
-    await expect(reasons).toContainText("1,1 ₽ на рубль при норме 1,25");
-    await expect(reasons).toContainText("Долги — 4,2 годовых прибыли, это больше нормы 3,5");
-    await expect(reasons).toContainText("Выручка упала на 20% к прошлому году");
-    await expect(reasons).toContainText("80% денег приходит от одного покупателя");
+    await expect(reasons).toContainText("Оценка риска E: 47 баллов из 100");
+    await expect(reasons).toContainText("только 1,1 ₽ свободных денег, а нужно не меньше 1,25 ₽");
+    await expect(reasons).toContainText("Долг равен 4,2 годовой прибыли (EBITDA), а норма — не больше 3,5");
+    await expect(reasons).toContainText("выручка упала на 20% к тем же месяцам прошлого года");
+    await expect(reasons).toContainText("80% денег приносит один покупатель");
     await expect(
       page
         .getByText("Что можно улучшить", { exact: true })
         .locator("xpath=following-sibling::ol[1]/li"),
     ).toHaveText([
-      /Снизьте текущие платежи по долгам или увеличьте свободный денежный поток/,
+      /Снизьте платежи по текущим долгам или увеличьте остаток денег после расходов/,
       /Снизьте долг до 3,5 годовой прибыли/,
-      /Восстановите выручку хотя бы до уровня прошлого года/,
-      /Снизьте долю крупнейшего покупателя до 50% и меньше/,
+      /Верните выручку хотя бы к уровню прошлого года/,
+      /Найдите ещё покупателей, чтобы на крупнейшего приходилось не больше 50% поступлений/,
     ]);
   });
 });
@@ -367,9 +367,9 @@ test.describe("scenario 6: company in liquidation — stop factor", () => {
     await expect(reasons).toHaveCount(1);
     await expect(reasons).toContainText("Статус в реестре");
     await expect(reasons).toContainText(
-      "По данным ЕГРЮЛ компания в процессе ликвидации — кредит оформить нельзя",
+      "По данным ЕГРЮЛ компания ликвидируется, поэтому кредит выдать нельзя",
     );
-    await expect(page.getByText(/Грейд [A-E]/)).toHaveCount(0);
+    await expect(page.getByText(/Оценка риска [A-E]/)).toHaveCount(0);
     await expect(page.getByText("Что можно улучшить", { exact: true })).toHaveCount(0);
   });
 });
@@ -411,9 +411,9 @@ test.describe("scenario 7: BKI outage — manual review", () => {
       await expect(client.getByRole("heading", { name: "Предварительная оценка" })).toBeVisible();
       const reasons = client.getByRole("list", { name: "Причины" });
       await expect(reasons).toContainText(
-        "Бюро кредитных историй сейчас не отвечает — заявку проверит сотрудник. Это не отказ",
+        "Бюро кредитных историй сейчас не отвечает, поэтому заявку проверит сотрудник банка. Это не отказ",
       );
-      await expect(reasons).toContainText("Грейд B (82 из 100)");
+      await expect(reasons).toContainText("Оценка риска B: 82 балла из 100");
 
       // The application met the outage: three failed calls opened the breaker for everyone.
       await expect(bkiRow).toContainText("Breaker открыт");
@@ -478,7 +478,7 @@ test.describe("scenario 8: equipment without collateral — alternative product"
     await expect(offer).toContainText(rub("440 000"));
     await expect(offer.getByText("Почему другой продукт")).toBeVisible();
     await expect(offer).toContainText(
-      "Инвестиционный кредит требует залог; подходит лизинг оборудования и транспорта",
+      "Инвестиционный кредит выдают только под залог, зато подходит лизинг оборудования и транспорта",
     );
     await acceptAndSign(page, id);
   });
