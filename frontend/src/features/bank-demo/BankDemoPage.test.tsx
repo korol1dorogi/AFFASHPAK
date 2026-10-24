@@ -105,7 +105,8 @@ describe("BankDemoPage — chaos demo (XP6)", () => {
 
     await vi.waitFor(() => expect(reads()).toBeGreaterThan(before));
     const put = fetchMock.mock.calls.find(([request]) => (request as Request).method === "PUT");
-    expect(await (put?.[0] as Request).clone().json()).toEqual(ALL_UP);
+    if (!put) throw new Error("the switch sent no PUT");
+    expect(await (put[0] as Request).clone().json()).toEqual(ALL_UP);
   });
 });
 
