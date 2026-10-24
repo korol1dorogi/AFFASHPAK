@@ -259,7 +259,7 @@ function ReviewStep({ application }: { application: ApplicationDetail }) {
           <dt className="text-xs text-ink-muted">Сумма и срок</dt>
           <dd className="m-0">
             <MoneyText value={application.requested_amount} className="font-semibold" />
-            <SourceTag source="client" /> на {application.term_months} мес
+            <SourceTag source="you" /> на {application.term_months} мес
           </dd>
         </div>
         <div className="col-span-full">

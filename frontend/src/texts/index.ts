@@ -840,6 +840,8 @@ export const SNAPSHOT_SOURCE: Record<Schemas["SnapshotSource"], string> = {
  */
 export const AMOUNT_SOURCE = {
   client: { label: "со слов клиента", hint: "Сумму указал клиент" },
+  /** The same amount in the client's own cabinet: «со слов клиента» about oneself reads odd. */
+  you: { label: "вы указали", hint: "Эту сумму вы указали в заявке" },
   statement: { label: "по выписке", hint: "Посчитано по выписке с расчётного счёта" },
   calc: {
     label: "расчёт",

@@ -37,6 +37,7 @@ function sourceOf(scope: HTMLElement) {
 describe("SourceTag", () => {
   it.each([
     ["client", "со слов клиента"],
+    ["you", "вы указали"],
     ["statement", "по выписке"],
     ["calc", "расчёт"],
     ["officer", "решение банка"],
@@ -258,11 +259,11 @@ describe("OfferCard", () => {
       "2 009 314 ₽расчёт",
     );
     expect(screen.getByText("Вы просили 5 300 000 ₽")).toHaveTextContent(
-      "Вы просили 5 300 000 ₽со слов клиента",
+      "Вы просили 5 300 000 ₽вы указали",
     );
     expect(screen.getByText("189 999,92 ₽").parentElement).toHaveTextContent("расчёт");
     // amount, asked, payment and the reason's value
-    expect(sourceOf(card)).toEqual(["расчёт", "со слов клиента", "расчёт", "расчёт"]);
+    expect(sourceOf(card)).toEqual(["расчёт", "вы указали", "расчёт", "расчёт"]);
   });
 
   it("an amount an officer set is labelled «решение банка»", () => {

@@ -45,7 +45,7 @@ describe("WizardPage — review (SRC7)", () => {
       "/app/applications/42/edit/review",
     );
     const amount = await screen.findByText("5 300 000 ₽");
-    expect(amount.parentElement).toHaveTextContent("5 300 000 ₽со слов клиента на 12 мес");
+    expect(amount.parentElement).toHaveTextContent("5 300 000 ₽вы указали на 12 мес");
   });
 });
 

@@ -53,7 +53,7 @@ export function OfferCard({
         {offer.is_counteroffer ? (
           <span className="text-sm text-ink-muted">
             Вы просили {formatMoney(offer.requested_amount)}
-            <SourceTag source="client" />
+            <SourceTag source="you" />
           </span>
         ) : null}
       </div>
