@@ -101,8 +101,8 @@ def test_prompt_is_plain_text_and_fits_a_small_model(profile):
     assert len(text) < 7500
 
 
-def test_client_prompt_is_version_4():
-    assert prompts.load("client").version == 4
+def test_client_prompt_is_version_5():
+    assert prompts.load("client").version == 5
 
 
 @pytest.mark.parametrize("profile", prompts.PROFILES)
