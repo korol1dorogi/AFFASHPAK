@@ -168,13 +168,13 @@ docker compose up -d --build --wait
 Задано в `docker-compose.yml`, в `.env` менять не нужно: `CELERY_BROKER_URL` (Redis; пусто — конвейер выполняется прямо в запросе), `THROTTLE_LOGIN` и `THROTTLE_ANON` (лимиты запросов, ослаблены для e2e).
 
 ### Подключить модель за минуту
-Без ключа ассистент работает на детерминированной заглушке. Чтобы включить модель с открытыми весами, впишите в `.env` (бесплатный ключ Groq — https://console.groq.com/keys):
+Без ключа ассистент работает на детерминированной заглушке. Чтобы включить модель с открытыми весами, впишите в `.env` — например, Cloud.ru Foundation Models (российский провайдер; ключ — в личном кабинете cloud.ru):
 
 ```env
 LLM_PROVIDER=openai
-LLM_BASE_URL=https://api.groq.com/openai/v1
+LLM_BASE_URL=https://foundation-models.api.cloud.ru/v1
 LLM_API_KEY=<ключ>
-LLM_MODEL=qwen/qwen3.8-27b,openai/gpt-oss-120b,openai/gpt-oss-20b
+LLM_MODEL=Qwen/Qwen3.6-35B-A3B
 ```
 
 `docker compose up -d backend`, затем `docker compose exec backend python -m apps.assistant.llm.smoke` — напишет «готово» или что не так. Подробнее — [docs/assistant.md](docs/assistant.md#как-подключить-модель).
