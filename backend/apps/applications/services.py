@@ -46,7 +46,7 @@ from apps.applications.transitions import (
 from apps.business.models import MemberRole
 from apps.products.models import Product
 from apps.scoring.policy import CURRENT_POLICY_VERSION
-from apps.scoring.texts import percent, rubles
+from apps.scoring.texts import months_genitive, percent, rubles
 
 S = ApplicationStatus
 SIGNATURE_TTL = timedelta(minutes=10)
@@ -362,7 +362,7 @@ def _check_product_terms(
     if not product.term_min_months <= term_months <= product.term_max_months:
         errors["term_months"] = [
             f"Этот продукт выдают на срок от {product.term_min_months} до "
-            f"{product.term_max_months} мес"
+            f"{months_genitive(product.term_max_months)}"
         ]
     if rate is not None and not product.rate_min <= rate <= product.rate_max:
         errors["rate"] = [
@@ -521,6 +521,13 @@ def start_processing(application_id: int) -> Application:
         return app
 
 
+def _outcome_text(decision: Decision) -> str:
+    """The outcome as the client reads it in the history: «другие условия», not «иные»."""
+    if decision.outcome == DecisionOutcome.COUNTEROFFER:
+        return "другие условия"
+    return decision.get_outcome_display().lower()
+
+
 def record_auto_decision(
     application_id: int,
     *,
@@ -548,8 +555,8 @@ def record_auto_decision(
     }[outcome]
     notify = {
         S.OFFER: ("Готово предложение", "Посмотрите условия и примите решение."),
-        S.MANUAL_REVIEW: ("Заявку смотрит сотрудник банка", "Обычно это занимает до одного дня."),
-        S.INFO_REQUESTED: ("Уточните данные", "Без этого мы не сможем продолжить проверку."),
+        S.MANUAL_REVIEW: ("Заявку смотрит сотрудник банка", "Обычно это занимает не больше дня."),
+        S.INFO_REQUESTED: ("Уточните данные", "Ответьте на запрос, и мы продолжим проверку."),
         S.DECLINED: (
             "Предварительная оценка: отказ",
             "Посмотрите причины и что можно улучшить.",
@@ -581,7 +588,7 @@ def record_auto_decision(
             SYSTEM,
             target=target,
             event_kind=EventKind.DECISION,
-            message=f"Предварительная оценка: {decision.get_outcome_display().lower()}.",
+            message=f"Предварительная оценка: {_outcome_text(decision)}.",
             notify=notify,
         )
         return app

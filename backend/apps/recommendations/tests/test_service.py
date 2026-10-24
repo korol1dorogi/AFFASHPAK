@@ -118,7 +118,7 @@ def test_amount_above_the_limit_is_cut_and_explained(personas):
         Decimal("2009314.00"), Decimal("5300000.00"), False,
     )  # fmt: skip
     assert cut.message == (
-        f"На 12 мес под 24% можно взять не больше {rubles(cut.value)}, "
+        f"На 12 месяцев под 24% можно взять не больше {rubles(cut.value)}, "
         "чтобы после платежей оставался запас 25%"
     )
     assert not offer.fits and offer.rank == 1
@@ -151,7 +151,7 @@ def test_term_outside_the_product_range_does_not_fit(personas):
     offer = run(persona_company("coffee_shop"), "cash_gap", term_months=24).offers[0]
 
     assert offer.term_months == 12
-    assert reason(offer, "term_months").message == "Этот продукт выдают на срок от 1 до 12 мес"
+    assert reason(offer, "term_months").message == "Этот продукт выдают на срок от 1 до 12 месяцев"
     assert not offer.fits
 
 
@@ -192,7 +192,7 @@ def test_young_business_gets_the_overdraft_alternative_first(edge_company):
     overdraft, loan = result.offers
     assert overdraft.fits and overdraft.amount == Decimal("912500.01")
     requirements = reason(loan, "product_requirements")
-    assert not requirements.passed and "не меньше 12 мес" in requirements.message
+    assert not requirements.passed and "не меньше 1 года" in requirements.message
     assert loan.rank == 2 and not loan.fits
 
 

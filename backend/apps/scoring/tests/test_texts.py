@@ -7,7 +7,17 @@ import pytest
 from apps.scoring import build_input, score
 from apps.scoring.tests.conftest import OK_TB, ON_DATE, UNAVAILABLE, bki, checks, company
 from apps.scoring.tests.d4 import SNAPSHOTS, table_input
-from apps.scoring.texts import days, number, percent, rubles
+from apps.scoring.texts import (
+    age,
+    age_genitive,
+    days,
+    months,
+    months_genitive,
+    number,
+    percent,
+    rubles,
+    years,
+)
 
 D = Decimal
 
@@ -34,6 +44,51 @@ def test_days(count, text):
     assert days(count) == text
 
 
+@pytest.mark.parametrize(
+    ("count", "after_na", "after_do"),
+    [
+        (1, "1 месяц", "1 месяца"),
+        (3, "3 месяца", "3 месяцев"),
+        (12, "12 месяцев", "12 месяцев"),
+        (21, "21 месяц", "21 месяца"),
+        (24, "24 месяца", "24 месяцев"),
+    ],
+)
+def test_months_in_both_cases(count, after_na, after_do):
+    assert months(count) == after_na  # «на 24 месяца», «через 3 месяца»
+    assert months_genitive(count) == after_do  # «до 24 месяцев», «не меньше 1 месяца»
+
+
+@pytest.mark.parametrize(
+    ("total", "nominative", "genitive"),
+    [
+        (5, "5 месяцев", "5 месяцев"),
+        (12, "1 год", "1 года"),
+        (15, "1 год и 3 месяца", "1 года и 3 месяцев"),
+        (24, "2 года", "2 лет"),
+        (144, "12 лет", "12 лет"),
+    ],
+)
+def test_business_age_in_years_and_months(total, nominative, genitive):
+    assert age(total) == nominative  # «Бизнесу 1 год и 3 месяца»
+    assert age_genitive(total) == genitive  # «нужно не меньше 2 лет»
+
+
+@pytest.mark.parametrize(
+    ("value", "accusative", "genitive"),
+    [
+        (D("4.2"), "4,2 года", "4,2 года"),
+        (D("3.5"), "3,5 года", "3,5 года"),
+        (D("1"), "1 год", "1 года"),
+        (D("2"), "2 года", "2 лет"),
+        (D("5.0000"), "5 лет", "5 лет"),
+    ],
+)
+def test_years_of_profit(value, accusative, genitive):
+    assert years(value) == accusative  # «прибыль за 4,2 года»
+    assert years(value, genitive=True) == genitive  # «норма — не больше 2 лет»
+
+
 def test_persona_5_messages():
     messages = {f.name: f.message for f in score(table_input("dependent_supplier")).factors}
     assert messages["dscr"] == (
@@ -41,10 +96,12 @@ def test_persona_5_messages():
         "а нужно не меньше 1,25 ₽"
     )
     assert messages["debt_to_ebitda"] == (
-        "Долг равен 4,2 годовой прибыли (EBITDA), а норма — не больше 3,5"
+        "Чтобы отдать долги, понадобится операционная прибыль (EBITDA) за 4,2 года, "
+        "а норма — не больше 3,5 года"
     )
     assert messages["revenue_trend"] == (
-        "За последние 3 месяца выручка упала на 20% к тем же месяцам прошлого года"
+        "Выручка за последние три месяца на 20% меньше, чем год назад, а допустимо не больше "
+        "чем на 10%"
     )
     assert messages["counterparty_concentration"].startswith("80% денег приносит один покупатель")
 

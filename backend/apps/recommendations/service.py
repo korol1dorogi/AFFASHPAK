@@ -44,7 +44,16 @@ from apps.scoring import (
     stop_factors,
 )
 from apps.scoring.inputs import SNAPSHOT_FIELDS
-from apps.scoring.texts import number, percent, points, rubles
+from apps.scoring.texts import (
+    age,
+    age_genitive,
+    months,
+    months_genitive,
+    number,
+    percent,
+    points,
+    rubles,
+)
 
 PRELIMINARY_CHECKS = {
     "bki": {"status": "ok", "data": {"current_overdue_days": 0, "past_overdue_max_days": 0}},
@@ -149,13 +158,15 @@ def _requirements(product: Product, inp: ScoringInput) -> Reason:
     requirements = product.requirements or {}
     legal_forms = requirements.get("legal_forms", [LegalForm.IP, LegalForm.OOO])
     min_age = int(requirements.get("min_business_age_months", 0))
-    age = business_age_months(inp.registered_at, inp.on_date)
+    business = business_age_months(inp.registered_at, inp.on_date)
     missing = []
     if inp.legal_form not in legal_forms:
         labels = " или ".join(LegalForm(form).label for form in legal_forms)
         missing.append(f"его выдают только {labels}")
-    if age < min_age:
-        missing.append(f"бизнес должен работать не меньше {min_age} мес, а вашему {age} мес")
+    if business < min_age:
+        missing.append(
+            f"бизнес должен работать не меньше {age_genitive(min_age)}, а вашему {age(business)}"
+        )
     if missing:
         message = f"{product.name} не подходит: {'; '.join(missing)}"
         return Reason("product_requirements", None, None, False, message)
@@ -172,7 +183,8 @@ def _term(product: Product, requested: int | None) -> tuple[int, Reason | None]:
     if requested is None or term == requested:
         return term, None
     message = (
-        f"Этот продукт выдают на срок от {product.term_min_months} до {product.term_max_months} мес"
+        f"Этот продукт выдают на срок от {product.term_min_months} до "
+        f"{months_genitive(product.term_max_months)}"
     )
     return term, Reason("term_months", Decimal(requested), None, False, message)
 
@@ -200,7 +212,7 @@ def _dscr_reason(
         "max_loan_by_dscr", limit, ctx.request.amount,
         ok=f"Платёж бизнесу по силам: можно взять до {rubles(limit)}",
         fail=(
-            f"На {term} мес под {percent(rate)} можно взять не больше {rubles(limit)}, "
+            f"На {months(term)} под {percent(rate)} можно взять не больше {rubles(limit)}, "
             f"чтобы после платежей оставался запас {reserve}"
         ),
     )  # fmt: skip
@@ -426,7 +438,7 @@ def what_if(application: Application, amount: Decimal, term: int, *, on_date: da
     if not product.term_min_months <= term <= product.term_max_months:
         raise TermOutOfRange(
             f"Этот продукт выдают на срок от {product.term_min_months} до "
-            f"{product.term_max_months} мес"
+            f"{months_genitive(product.term_max_months)}"
         )
 
     amount, rate, min_dscr = round_money(amount), offer.rate, _min_dscr(product)

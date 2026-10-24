@@ -108,7 +108,7 @@ def test_persona_8_explains_why_the_product_changed(seeded):
     )
     offer = application.offers.get()
     assert any(r["metric"] == "product_requirements" for r in offer.reasons)
-    assert "Если взять на 60 мес, можно получить до 15 768 379 ₽" in _texts(decision)
+    assert "Если взять на 60 месяцев, можно получить до 15 768 379 ₽" in _texts(decision)
 
 
 CASES = [

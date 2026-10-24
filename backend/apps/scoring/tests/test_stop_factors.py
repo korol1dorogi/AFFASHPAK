@@ -88,7 +88,7 @@ def test_c5_five_months(edge_case):
     assert stop.code == "С5"
     assert stop.reason.value == 5
     assert stop.improvement == (
-        "Подайте заявку снова, когда бизнесу исполнится 6 мес (сейчас 5 мес)"
+        "Подайте заявку снова, когда бизнесу исполнится 6 месяцев (сейчас 5 месяцев)"
     )
     assert expected["outcome"] == "declined"
     with pytest.raises(ValueError, match="С5"):

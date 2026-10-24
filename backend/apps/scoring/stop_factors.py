@@ -79,12 +79,14 @@ def _too_young(inp: ScoringInput, minimum: int) -> StopFactor | None:
         return None
     reason = Reason(
         "business_age_months", Decimal(age), Decimal(minimum), False,
-        f"Бизнесу {age} мес, а для этого продукта нужно не меньше {minimum}",
+        f"Бизнесу {texts.age(age)}, а для этого продукта нужно не меньше "
+        f"{texts.age_genitive(minimum)}",
     )  # fmt: skip
     return StopFactor(
         "С5",
         reason,
-        f"Подайте заявку снова, когда бизнесу исполнится {minimum} мес (сейчас {age} мес)",
+        f"Подайте заявку снова, когда бизнесу исполнится {texts.age(minimum)} "
+        f"(сейчас {texts.age(age)})",
     )
 
 

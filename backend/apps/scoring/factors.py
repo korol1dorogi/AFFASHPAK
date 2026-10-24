@@ -57,12 +57,13 @@ def business_age_factor(inp: ScoringInput, card: Scorecard) -> Factor:
     age = business_age_months(inp.registered_at, inp.on_date)
     passed = rule.passed(Decimal(age))
     if passed:
-        message, improvements = f"Бизнесу {age} мес, этого достаточно", ()
+        message, improvements = f"Бизнесу {texts.age(age)}, этого достаточно", ()
     else:
         message = (
-            f"Бизнесу {age} мес, а для этого продукта нужно не меньше {texts.number(threshold)}"
+            f"Бизнесу {texts.age(age)}, а для этого продукта нужно не меньше "
+            f"{texts.age_genitive(int(threshold))}"
         )
-        improvements = (f"Подайте заявку снова через {texts.number(threshold - age)} мес",)
+        improvements = (f"Подайте заявку снова через {texts.age(int(threshold) - age)}",)
     return Factor(
         "business_age_months", age, rule.scale.points(Decimal(age)), max_points, passed,
         threshold, message, improvements=improvements,
@@ -123,18 +124,22 @@ def debt_to_ebitda_factor(inp: ScoringInput, card: Scorecard) -> Factor:
         raise ValueError(f"EBITDA ≤ 0 is stop factor С3, not a score: {result.note}")
     value = result.value
     passed = rule.passed(value)
-    norm = texts.number(threshold)
+    norm = texts.years(threshold, genitive=True)
     if passed:
         message = (
-            f"Долг равен {texts.number(value)} годовой прибыли (EBITDA), "
+            f"Чтобы отдать долги, хватит операционной прибыли (EBITDA) за {texts.years(value)}, "
             f"это в пределах нормы до {norm}"
         )
         improvements = ()
     else:
         message = (
-            f"Долг равен {texts.number(value)} годовой прибыли (EBITDA), а норма — не больше {norm}"
+            f"Чтобы отдать долги, понадобится операционная прибыль (EBITDA) за "
+            f"{texts.years(value)}, а норма — не больше {norm}"
         )
-        improvements = (f"Снизьте долг до {norm} годовой прибыли (EBITDA) и меньше",)
+        improvements = (
+            "Снизьте долг так, чтобы его можно было отдать из прибыли за "
+            f"{texts.years(threshold)} или быстрее",
+        )
     return Factor(
         "debt_to_ebitda", value, rule.scale.points(value), max_points, passed, threshold,
         message, improvements=improvements,
@@ -153,22 +158,22 @@ def revenue_trend_factor(inp: ScoringInput, card: Scorecard) -> Factor:
         )  # fmt: skip
     passed = rule.passed(value)
     change = value - 1
-    same_months = "к тем же месяцам прошлого года"
+    period = "Выручка за последние три месяца"
     if passed:
         if change > 0:
-            message = (
-                f"За последние 3 месяца выручка выросла на {texts.percent(change)} {same_months}"
-            )
+            message = f"{period} на {texts.percent(change)} больше, чем год назад"
         elif change == 0:
-            message = "За последние 3 месяца выручка такая же, как год назад"
+            message = f"{period} такая же, как год назад"
         else:
             message = (
-                f"За последние 3 месяца выручка снизилась на {texts.percent(-change)} "
-                f"{same_months}, это в пределах нормы"
+                f"{period} на {texts.percent(-change)} меньше, чем год назад, это в пределах нормы"
             )
         improvements = ()
     else:
-        message = f"За последние 3 месяца выручка упала на {texts.percent(-change)} {same_months}"
+        message = (
+            f"{period} на {texts.percent(-change)} меньше, чем год назад, а допустимо не больше "
+            f"чем на {texts.percent(1 - threshold)}"
+        )
         improvements = (texts.IMPROVE_TREND,)
     return Factor(
         "revenue_trend", value, rule.scale.points(value), max_points, passed, threshold,

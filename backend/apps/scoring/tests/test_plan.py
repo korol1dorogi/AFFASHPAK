@@ -89,7 +89,8 @@ def test_the_business_age_is_a_step_of_waiting():
     assert plan is not None
     assert [s.metric for s in plan.steps] == ["business_age_months"]
     assert (
-        plan.steps[0].message == "Подайте заявку снова, когда бизнесу исполнится 12 мес (сейчас 10)"
+        plan.steps[0].message
+        == "Подайте заявку снова, когда бизнесу исполнится 1 год (сейчас 10 месяцев)"
     )
 
 

@@ -19,7 +19,7 @@ from apps.scoring import ScoringInput, business_age_months, get_scorecard, revie
 from apps.scoring.inputs import SOURCES
 from apps.scoring.policy import CURRENT_POLICY_VERSION, get_policy
 from apps.scoring.scorecard import ScoreResult
-from apps.scoring.texts import number, percent, points, rubles
+from apps.scoring.texts import age_genitive, months, number, percent, points, rubles
 
 # Who the client reads about when a source does not answer (decision-model.md §7).
 SOURCE_NAME = {
@@ -184,7 +184,7 @@ def _requirements_row(product: Product, inp: ScoringInput, alternative: Product 
     elif inp.registered_at is None:
         cause = f"{product.name}: в ЕГРЮЛ нет даты регистрации компании"
     elif business_age_months(inp.registered_at, inp.on_date) < minimum:
-        cause = f"{product.name} выдают бизнесу не младше {minimum} мес"
+        cause = f"{product.name} выдают бизнесу не младше {age_genitive(minimum)}"
     else:
         cause = f"{product.name} выдают только под залог"
     tail = f", зато подходит {alternative.name.lower()}" if alternative else ""
@@ -282,7 +282,7 @@ def _dscr_reason(limit: Decimal, requested: Decimal, rate: Decimal, term: int) -
         f"Платёж бизнесу по силам: можно взять до {rubles(limit)}"
         if passed
         else (
-            f"На {term} мес под {percent(rate)} можно взять не больше {rubles(limit)}: "
+            f"На {months(term)} под {percent(rate)} можно взять не больше {rubles(limit)}: "
             "платёж по большей сумме будет бизнесу не по силам"
         )
     )
@@ -294,8 +294,7 @@ def _need_reason(need, requested: Decimal) -> dict:
         return _row("working_capital_need", None, requested, False, need.note or "")
     passed = need.value >= requested
     text = (
-        f"Сейчас в обороте бизнеса {rubles(need.value)}, "
-        "запрошенная сумма в эти пределы укладывается"
+        f"Сейчас в обороте бизнеса {rubles(need.value)}, и запрошенная сумма не больше этого"
         if passed
         else f"Сейчас в обороте бизнеса {rubles(need.value)}, это меньше запрошенного"
     )
@@ -332,8 +331,8 @@ def _amount_improvements(
         return texts
     longer = max_loan_by_dscr(cfads, service, rate, product.term_max_months, _min_dscr(product))
     if longer.value is not None:
-        months = product.term_max_months
-        texts.insert(0, f"Если взять на {months} мес, можно получить до {rubles(longer.value)}")
+        term = months(product.term_max_months)
+        texts.insert(0, f"Если взять на {term}, можно получить до {rubles(longer.value)}")
     return texts
 
 
