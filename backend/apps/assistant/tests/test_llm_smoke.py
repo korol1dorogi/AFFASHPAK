@@ -35,6 +35,8 @@ def _server(behaviour: dict):
             model = body["model"]
             if model == "limited":
                 return self._send(429, {"error": {"message": "rate limit"}})
+            if model == "unpaid":
+                return self._send(402, {"error": {"message": "balance is insufficient"}})
             if model == "chatty":
                 message = {"role": "assistant", "content": "Платёж около 94 тысяч."}
             else:
@@ -130,3 +132,26 @@ def test_an_unreachable_provider_is_named():
     assert code == 2
     assert "не удалось подключиться" in output
     assert "заглушкой" in output  # LLM_PROVIDER is not openai
+
+
+def test_an_empty_balance_is_named(fake):
+    env = {
+        "LLM_PROVIDER": "openai",
+        "LLM_BASE_URL": fake["url"],
+        "LLM_API_KEY": KEY,
+        "LLM_MODEL": "unpaid",
+    }
+    code, output = _run(env)
+    assert code == 2
+    assert "на счёте провайдера нет денег" in output
+
+
+def test_reasoning_models_get_room_to_think(fake):
+    env = {
+        "LLM_PROVIDER": "openai",
+        "LLM_BASE_URL": fake["url"],
+        "LLM_API_KEY": KEY,
+        "LLM_MODEL": "good",
+    }
+    _run(env)
+    assert fake["requests"][0]["max_tokens"] >= 1500

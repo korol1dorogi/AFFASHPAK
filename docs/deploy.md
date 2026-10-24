@@ -101,14 +101,15 @@ echo 'restrict,command="/usr/local/bin/alfa-deploy" ssh-ed25519 AAAA... github-a
 
 ```
 LLM_PROVIDER=openai
-LLM_BASE_URL=https://api.groq.com/openai/v1
+LLM_BASE_URL=https://foundation-models.api.cloud.ru/v1
 LLM_API_KEY=<ключ провайдера>
-LLM_MODEL=qwen/qwen3.8-27b,openai/gpt-oss-120b,openai/gpt-oss-20b
-LLM_TIMEOUT_SECONDS=20
+LLM_MODEL=Qwen/Qwen3.6-35B-A3B
+LLM_TIMEOUT_SECONDS=90
 ```
 
-Затем `docker compose up -d backend worker` (перечитать `.env`). Проверка — вопрос ассистенту в кабинете или `docker compose exec backend python manage.py shell -c "from apps.assistant.llm import get_llm_client; print(type(get_llm_client()).__name__)"` → `OpenAICompatibleClient`.
+Затем `docker compose up -d backend worker` (перечитать `.env`) и проверка: `docker compose exec backend python -m apps.assistant.llm.smoke` — «готово» или что не так.
 
+- Провайдер должен пускать IP сервера. Стенд в России: Groq и OpenRouter отвечают ему 403 (с ноутбука тот же ключ работает), поэтому на стенде Cloud.ru Foundation Models — российский, OpenAI-совместимый, `Qwen/Qwen3.6-35B-A3B` на нём бесплатна.
 - Список моделей через запятую: модель, упёршаяся в лимит (429) или таймаут, сразу передаёт запрос следующей. На бесплатном тарифе Groq у каждой модели свои 8000 токенов в минуту, а ход ассистента тратит 3–7 тысяч, поэтому три модели ≈ втрое больше ходов в минуту.
 - Если не ответила ни одна модель, ассистент отвечает через mock с фразой «Ассистент сейчас недоступен…»; кабинет и заявки работают как обычно.
 - Вернуть mock: `LLM_PROVIDER=mock` и тот же перезапуск.

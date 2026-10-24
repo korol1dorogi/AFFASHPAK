@@ -40,6 +40,7 @@ SLOW_SECONDS = 15.0
 
 HINTS = {
     401: "ключ не подходит — проверьте LLM_API_KEY",
+    402: "на счёте провайдера нет денег — пополните баланс или выберите бесплатную модель",
     403: "доступ запрещён — ключ без прав на эту модель или регион",
     404: "нет такого адреса или модели — проверьте LLM_BASE_URL (обычно оканчивается на /v1) "
     "и имя модели в LLM_MODEL",
@@ -92,7 +93,8 @@ def check_model(base_url: str, key: str, model: str, timeout: float) -> tuple[fl
         "tools": [TOOL],
         "tool_choice": "auto",
         "temperature": 0,
-        "max_tokens": 300,
+        # Reasoning models (Qwen3.6, gpt-oss) think a few hundred tokens before the call.
+        "max_tokens": 2000,
     }
     completion = _request(base_url, key, "/chat/completions", body, timeout)
     seconds = time.monotonic() - started
