@@ -109,7 +109,7 @@ def monthly_totals(
 def _trend(totals: Mapping[str, MonthTotals], months: tuple[str, ...]) -> Metric:
     h = len(months)
     if h < TREND_MIN_MONTHS:
-        return Metric.unavailable("История короче 6 месяцев: динамику выручки сравнить не с чем.")
+        return Metric.unavailable("Выписка короче 6 месяцев, поэтому выручку сравнить не с чем.")
     current = months[-TREND_MONTHS:]
     year_over_year = h >= YEAR_OVER_YEAR_MIN_MONTHS
     base = months[-15:-12] if year_over_year else months[-6:-3]
@@ -129,7 +129,7 @@ def statement_metrics(
     txs = list(transactions)
     if period_from is None:
         if not txs:
-            note = "Выписки нет: метрики по счёту не считаются."
+            note = "Выписки нет, поэтому показатели по счёту не посчитать."
             empty = Metric.unavailable(note)
             return StatementMetrics((), (), empty, empty, empty, empty, empty)
         period_from = min(_as_date(tx["date"]) for tx in txs)

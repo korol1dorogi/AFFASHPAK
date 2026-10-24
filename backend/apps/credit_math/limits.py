@@ -38,7 +38,8 @@ def max_loan_by_dscr(
     a_max = max_payment_by_dscr(cfads, current_debt_service, min_dscr)
     if a_max <= 0:
         return Metric.unavailable(
-            "Свободного денежного потока для нового платежа нет: DSCR не выдержит кредит."
+            "Свободных денег на новый платёж не остаётся, поэтому кредит бизнесу сейчас "
+            "не по силам."
         )
     with precise():
         principal = floor_rubles(a_max * annuity_factor(annual_rate, months))
@@ -46,7 +47,7 @@ def max_loan_by_dscr(
     while principal > 0 and annuity_payment(principal, annual_rate, months) > a_max:
         principal -= 1
     if principal <= 0:
-        return Metric.unavailable("Допустимая по DSCR сумма меньше 1 рубля.")
+        return Metric.unavailable("Сумма, которую потянет бизнес, меньше 1 рубля.")
     return Metric(principal)
 
 
