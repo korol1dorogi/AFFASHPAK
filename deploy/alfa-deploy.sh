@@ -3,8 +3,13 @@
 # Installed as /usr/local/bin/alfa-deploy (docs/deploy.md). CI reaches it through an SSH key
 # restricted with command="/usr/local/bin/alfa-deploy", so the caller cannot choose what runs.
 #
-#   alfa-deploy           deploy (what CI runs)
-#   alfa-deploy backup    only dump the database, e.g. before a demo
+#   alfa-deploy                    deploy (what CI runs)
+#   alfa-deploy backup [label]     only dump the database (label: manual by default, daily for cron)
+#   alfa-deploy restore <file>     restore a dump in one command: a safety dump first, then the
+#                                  restore, the stack back up and the health check
+#   alfa-deploy verify-backup [f]  prove a dump restores: a fresh dump (or <f>) goes into a
+#                                  throwaway PostgreSQL container, row counts are compared with
+#                                  the live database; the live database is not touched
 #
 # Every deploy dumps the database first and does not start without the dump. A failed deploy
 # whose commits changed migrations restores that dump before the old code comes back up: old
@@ -20,10 +25,13 @@ INSTALLED="${INSTALLED:-/usr/local/bin/alfa-deploy}"
 SELF_IN_REPO=deploy/alfa-deploy.sh
 
 mode="${1:-deploy}"
-if [[ "$mode" != deploy && "$mode" != backup ]]; then
-  echo "usage: alfa-deploy [backup]" >&2
-  exit 2
-fi
+case "$mode" in
+  deploy | backup | restore | verify-backup) ;;
+  *)
+    echo "usage: alfa-deploy [backup [label] | restore <file> | verify-backup [file]]" >&2
+    exit 2
+    ;;
+esac
 
 # A dropped SSH connection (cancelled CI job) must not kill a half-done deploy.
 trap '' HUP
@@ -72,6 +80,43 @@ restore() {
     'psql -v ON_ERROR_STOP=1 -q -U "$POSTGRES_USER" "$POSTGRES_DB"' >/dev/null
 }
 
+# A dump restores into an empty PostgreSQL of the same version: every table and its rows are
+# there. The dump is checked against the live counts; rows written since the dump are reported,
+# a table missing or a failed restore is an error. The throwaway container is always removed.
+verify_backup() {
+  local file="$1" name="alfa-verify-$$" user image tables table live restored differ=0
+  user="$(sed -n 's/^POSTGRES_USER=//p' .env)"
+  image="$(docker compose config --images db 2>/dev/null | head -n 1)"
+  image="${image:-postgres:18.6}"
+  docker run -d --rm --name "$name" -e POSTGRES_USER="$user" -e POSTGRES_PASSWORD=verify \
+    -e POSTGRES_DB=verify "$image" >/dev/null
+  trap 'docker rm -f "$name" >/dev/null 2>&1 || true' RETURN
+  for _ in $(seq 1 60); do
+    docker exec "$name" pg_isready -q -U "$user" -d verify 2>/dev/null && break
+    sleep 1
+  done
+  sleep 2  # the image restarts PostgreSQL once after its first start
+  if ! gunzip -c "$file" | docker exec -i "$name" psql -v ON_ERROR_STOP=1 -q -U "$user" verify \
+    >/dev/null; then
+    log "FAILED: $file does not restore"
+    return 1
+  fi
+  tables="$(docker exec "$name" psql -At -U "$user" verify \
+    -c "select tablename from pg_tables where schemaname = 'public' order by 1")"
+  [[ -n "$tables" ]] || { log "FAILED: no tables after the restore"; return 1; }
+  for table in $tables; do
+    restored="$(docker exec "$name" psql -At -U "$user" verify -c "select count(*) from \"$table\"")"
+    live="$(docker compose exec -T db sh -c \
+      "psql -At -U \"\$POSTGRES_USER\" \"\$POSTGRES_DB\" -c 'select count(*) from \"$table\"'" 2>/dev/null)" \
+      || { log "FAILED: table $table is in the dump but not in the live database"; return 1; }
+    if [[ "$live" != "$restored" ]]; then
+      differ=$((differ + 1))
+      log "note: $table — live $live, dump $restored (rows written since the dump)"
+    fi
+  done
+  log "verified: $file restores — $(wc -w <<<"$tables") tables, $differ with rows written since"
+}
+
 # CI runs the installed copy: bring it in step with the repo for the next run. A rename, not
 # an overwrite: bash is still reading this very file.
 sync_self() {
@@ -84,12 +129,45 @@ sync_self() {
 }
 
 if [[ "$mode" == backup ]]; then
-  if ! dump="$(backup manual)"; then
+  label="${2:-manual}"
+  if [[ ! "$label" =~ ^[a-z]+$ ]]; then
+    echo "a backup label is lowercase letters, e.g. daily" >&2
+    exit 2
+  fi
+  if ! dump="$(backup "$label")"; then
     log "FAILED: database backup"
     exit 1
   fi
   log "backup: $dump"
   exit 0
+fi
+
+if [[ "$mode" == verify-backup ]]; then
+  file="${2:-}"
+  if [[ -z "$file" ]]; then
+    file="$(backup verify)" || { log "FAILED: database backup"; exit 1; }
+  fi
+  [[ -f "$file" ]] || { log "FAILED: no such dump: $file"; exit 1; }
+  verify_backup "$file"
+  exit $?
+fi
+
+if [[ "$mode" == restore ]]; then
+  file="${2:-}"
+  [[ -f "$file" ]] || { echo "usage: alfa-deploy restore <dump .sql.gz>" >&2; exit 2; }
+  if ! safety="$(backup prerestore)"; then
+    log "FAILED: no safety dump of the current database, nothing restored"
+    exit 1
+  fi
+  log "safety dump: $safety"
+  log "restoring $file"
+  if restore "$file" && up; then
+    log "ok: restored $file, the stack is healthy"
+    exit 0
+  fi
+  log "RESTORE FAILED: the current database is in $safety — alfa-deploy restore $safety"
+  docker compose up -d --wait || true
+  exit 1
 fi
 
 previous="$(git rev-parse HEAD)"

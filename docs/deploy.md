@@ -104,7 +104,7 @@ LLM_PROVIDER=openai
 LLM_BASE_URL=https://foundation-models.api.cloud.ru/v1
 LLM_API_KEY=<ключ провайдера>
 LLM_MODEL=Qwen/Qwen3.6-35B-A3B
-LLM_TIMEOUT_SECONDS=30
+LLM_TIMEOUT_SECONDS=45
 LLM_TURN_BUDGET_SECONDS=60
 ```
 
@@ -117,13 +117,36 @@ LLM_TURN_BUDGET_SECONDS=60
 - Вернуть mock: `LLM_PROVIDER=mock` и тот же перезапуск.
 
 ## 8. Обслуживание
-- Логи: `docker compose logs -f --tail 100 caddy backend`
-- Бэкап БД (например, перед демо): `alfa-deploy backup` → `/var/backups/alfa-cabinet/manual-<время>-<коммит>.sql.gz`, хранятся последние 10. Перед каждым деплоем дамп снимается сам (раздел 6).
-- Восстановление из дампа вручную (на сервере, в каталоге репозитория):
-  ```sh
-  docker compose stop backend worker
-  gunzip -c /var/backups/alfa-cabinet/<файл>.sql.gz | docker compose exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -q -U "$POSTGRES_USER" "$POSTGRES_DB"'
-  docker compose up -d --wait
-  ```
-  Дамп снят с `--clean --if-exists`: он сам удаляет и пересоздаёт таблицы.
-- После хакатона (docs/submission.md): ротировать LLM-ключ, удалить данные кейса с сервера.
+- Логи: `docker compose logs -f --tail 100 caddy backend`. Ротация — у каждого контейнера 3 файла по 10 МБ (`x-logging` в docker-compose.prod.yml; проверено 25.10: `docker inspect … LogConfig`).
+- Память: на VPS 3 ГБ, поэтому есть swap 2 ГБ (`/swapfile`, в `/etc/fstab`; проверка `swapon --show`).
+- После перезагрузки VPS стек поднимается сам (`restart: unless-stopped`; проверено 25.10 — сервер перезагрузился, стек и данные на месте).
+
+### Бэкапы и восстановление (OPS7)
+| Что | Команда на сервере |
+|---|---|
+| Ежедневный дамп | сам: `/etc/cron.d/alfa-cabinet-backup` — в 03:30 `alfa-deploy backup daily` → `/var/backups/alfa-cabinet/daily-<время>-<коммит>.sql.gz`, хранятся последние 10 |
+| Дамп руками (перед демо) | `alfa-deploy backup` → `manual-…sql.gz` |
+| Перед каждым деплоем | сам: `predeploy-…sql.gz`; деплой без дампа не начинается (раздел 6) |
+| Проверить, что дамп восстанавливается | `alfa-deploy verify-backup` — свежий дамп разворачивается во временном контейнере PostgreSQL той же версии и сверяется с живой базой по числу строк в каждой таблице; живая база не трогается. Для конкретного файла — `alfa-deploy verify-backup <файл>` |
+| Восстановить | `alfa-deploy restore /var/backups/alfa-cabinet/<файл>.sql.gz` — одна команда: дамп текущей базы (`prerestore-…`), остановка backend и worker, восстановление, подъём стека, проверка `/api/health`. Не получилось — в логе команда для отката на `prerestore-…` |
+
+Дамп снят с `--clean --if-exists`: он сам удаляет и пересоздаёт таблицы. Журнал всех операций — `/var/log/alfa-deploy.log`.
+
+### Внешний мониторинг (OPS1)
+UptimeRobot (бесплатно): монитор типа Keyword на `https://194-67-92-122.sslip.io/api/ready`, ключевое слово `"ready"`, интервал 5 минут, оповещение — в Telegram команды и на почту лида. `/api/ready` проверяет базу и миграции, поэтому ловит не только падение Caddy, но и «сайт открывается, а база лежит».
+
+## 9. Если стенд упал (runbook)
+Порядок — от быстрого к радикальному. Все команды — на сервере в `/srv/alfa-cabinet`.
+
+| # | Что проверить | Как | Что делать |
+|---|---|---|---|
+| 1 | Отвечает ли стенд | `curl -s https://<домен>/api/ready` (или оповещение мониторинга) | `{"status":"ready"…}` — стенд жив, проблема в конкретном экране: шаг 3 |
+| 2 | Живы ли контейнеры | `docker compose ps` | не `Up … (healthy)` → `docker compose up -d --wait`; после перезагрузки VPS стек поднимается сам — подождать минуту |
+| 3 | Что в логах | `docker compose logs --tail 100 backend worker caddy`; по `request_id` из ответа об ошибке — вся история запроса | трассировка — в чат команды; ошибки конвейера заявки — в `worker` |
+| 4 | Хватает ли ресурсов | `df -h /`, `free -m`, `dmesg -T \| grep -i -E "killed process\|oom"` | диск забит — `docker system prune -f` (образы), старые дампы в `/var/backups/alfa-cabinet`; OOM — проверить swap (`swapon --show`), перезапустить стек |
+| 5 | Сломал последний деплой | `tail -20 /var/log/alfa-deploy.log`, `git log --oneline -5` | неудачный деплой откатывается сам; если откат не помог: `git reset --hard <прошлый коммит> && docker compose up -d --build --wait`, затем исправление в `main` |
+| 6 | Испорчены данные | `ls -lt /var/backups/alfa-cabinet \| head` | `alfa-deploy restore <последний подходящий дамп>`; если демо просто «замусорено» — Демо-панель → «Сброс демо-данных» |
+| 7 | Ассистент отвечает «упрощённый режим» | `docker compose exec backend python -m apps.assistant.llm.smoke` | «ключ не подходит» / 402 / 403 — ключ или провайдер (раздел 7а); долго думает — норма раз в несколько ответов; совсем нет модели — `LLM_PROVIDER=mock` в `.env` и `docker compose up -d backend worker`: ассистент работает на заглушке |
+| 8 | Ничего не помогло | — | `docker compose down && docker compose up -d --build --wait` (данные в томе сохраняются; `down -v` — **никогда**: удалит базу) |
+
+После любого восстановления — сценарий 1 по HTTPS: `BASE_URL=https://<домен> HOST=<домен> python scripts/smoke_scenario_1.py` (с ноутбука) → «scenario 1 passed».
