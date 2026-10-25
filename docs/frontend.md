@@ -43,6 +43,7 @@
 | `/bank` | Очередь: счётчики по статусам, фильтры, сортировка, страницы | B3 | `listBankApplications` |
 | `/bank/applications/:id?tab=` | Карточка: вкладки `application`, `client`, `checks`, `scoring`, `documents`, `journal`; панель действий | B4, B5 | `getBankApplication`, `assignBankApplication`, `approveBankApplication`, `counterofferBankApplication`, `requestInfoBankApplication`, `declineBankApplication`, `commentBankApplication`, `downloadBankApplicationDocument` |
 | `/bank/dashboard` | Воронка, время в статусах, доля автоматических решений | B6 | `getBankDashboard` |
+| `/bank/policy` | Кредитная политика: пороги грейдов, шкалы факторов, стоп-факторы и «что если поменять порог» на синтетической популяции | XP7 | `getBankPolicy`, `bankPolicyWhatIf` |
 | `/bank/demo` | Демо-панель (только стенд): сбои симуляторов, сброс, вход за персону | B7 | `getDemoFailures`, `setDemoFailures`, `resetDemo`, `listDemoPersonas`, `demoLogin` |
 
 ### Служебное

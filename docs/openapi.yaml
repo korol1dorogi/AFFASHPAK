@@ -1216,6 +1216,40 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
 
+  /api/bank/policy:
+    get:
+      tags: [bank]
+      operationId: getBankPolicy
+      summary: Кредитная политика в силе — версии, пороги грейдов, шкалы факторов, стоп-факторы и раскладка синтетической популяции (XP7)
+      responses:
+        "200":
+          description: Политика и популяция
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PolicyOverview" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/bank/policy/what-if:
+    post:
+      tags: [bank]
+      operationId: bankPolicyWhatIf
+      summary: «Что если поменять порог» — сколько компаний синтетической популяции сменит грейд при других порогах (ничего не сохраняет)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PolicyWhatIfRequest" }
+      responses:
+        "200":
+          description: Популяция на текущих и предложенных порогах
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PolicyWhatIf" }
+        "400": { $ref: "#/components/responses/ValidationError" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
   # ───────────────────────────── assistant ─────────────────────────────
   /api/assistant/messages:
     get:
@@ -2553,6 +2587,118 @@ components:
       properties:
         message: { type: string, minLength: 1, maxLength: 2000 }
 
+    PolicyGradeCount:
+      type: object
+      required: [grade, count]
+      properties:
+        grade:
+          description: Грейд или stop — остановлена стоп-фактором до скоринга
+          type: string
+          enum: [A, B, C, D, E, stop]
+        count: { type: integer, minimum: 0 }
+    PolicyZones:
+      type: object
+      description: Что грейд значит для заявки — auto (A, B — автоматическое предложение), manual (C, D — сотрудник), decline (E и стоп-факторы)
+      required: [auto, manual, decline]
+      properties:
+        auto: { type: integer, minimum: 0 }
+        manual: { type: integer, minimum: 0 }
+        decline: { type: integer, minimum: 0 }
+    PolicyOverview:
+      type: object
+      required: [model_version, policy_version, grades, lowest_grade, factors, stop_factors, population]
+      properties:
+        model_version: { type: string, examples: ["scorecard-2026.10-v1"] }
+        policy_version: { type: string, examples: ["2026.10-v1"] }
+        grades:
+          type: array
+          description: Минимальный балл каждого грейда, от лучшего
+          items:
+            type: object
+            required: [grade, min_total]
+            properties:
+              grade: { $ref: "#/components/schemas/Grade" }
+              min_total: { type: integer, minimum: 0, maximum: 100 }
+        lowest_grade: { $ref: "#/components/schemas/Grade" }
+        factors:
+          type: array
+          items:
+            type: object
+            required: [name, max_points, higher_is_better, steps, floor_points, passed_threshold, unknown_points]
+            properties:
+              name: { type: string, examples: ["dscr"] }
+              max_points: { type: integer }
+              higher_is_better:
+                description: null — фактор без числовой шкалы (кредитная история, проверка ФНС)
+                oneOf: [{ type: boolean }, { type: "null" }]
+              steps:
+                type: array
+                description: Баллы по значению — первая достигнутая ступень
+                items:
+                  type: object
+                  required: [threshold, points]
+                  properties:
+                    threshold: { $ref: "#/components/schemas/DecimalString" }
+                    points: { type: integer }
+              floor_points:
+                description: Баллы ниже последней ступени; null — ниже последней ступени стоп-фактор
+                oneOf: [{ type: integer }, { type: "null" }]
+              passed_threshold:
+                oneOf: [{ $ref: "#/components/schemas/DecimalString" }, { type: "null" }]
+              unknown_points: { type: integer, description: Баллы, если значение посчитать нельзя }
+        stop_factors:
+          type: object
+          required: [current_overdue_days, min_business_age_months, max_missing_key_metrics]
+          properties:
+            current_overdue_days: { type: integer }
+            min_business_age_months: { type: integer }
+            max_missing_key_metrics: { type: integer }
+        population:
+          type: object
+          required: [companies, distribution, zones]
+          properties:
+            companies: { type: integer, minimum: 0 }
+            distribution:
+              type: array
+              items: { $ref: "#/components/schemas/PolicyGradeCount" }
+            zones: { $ref: "#/components/schemas/PolicyZones" }
+    PolicyWhatIfRequest:
+      type: object
+      required: [grades]
+      properties:
+        grades:
+          type: object
+          description: Минимальный балл грейдов A–D, строго по убыванию; ниже D — E
+          required: [A, B, C, D]
+          additionalProperties: false
+          properties:
+            A: { type: integer, minimum: 1, maximum: 100 }
+            B: { type: integer, minimum: 1, maximum: 100 }
+            C: { type: integer, minimum: 1, maximum: 100 }
+            D: { type: integer, minimum: 1, maximum: 100 }
+    PolicyWhatIf:
+      type: object
+      required: [companies, changed, before, after, zones_before, zones_after, transitions]
+      properties:
+        companies: { type: integer, minimum: 0 }
+        changed: { type: integer, minimum: 0, description: Сколько компаний сменят грейд }
+        before:
+          type: array
+          items: { $ref: "#/components/schemas/PolicyGradeCount" }
+        after:
+          type: array
+          items: { $ref: "#/components/schemas/PolicyGradeCount" }
+        zones_before: { $ref: "#/components/schemas/PolicyZones" }
+        zones_after: { $ref: "#/components/schemas/PolicyZones" }
+        transitions:
+          type: array
+          items:
+            type: object
+            required: [from_grade, to_grade, count]
+            properties:
+              from_grade: { type: string, enum: [A, B, C, D, E, stop] }
+              to_grade: { type: string, enum: [A, B, C, D, E, stop] }
+              count: { type: integer, minimum: 1 }
     BankDashboard:
       type: object
       required: [period_days, funnel, avg_hours_in_status, auto_decision_share, total_applications, sla_hours, sla_open_count, overdue_count, overdue_share]
