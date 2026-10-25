@@ -85,6 +85,17 @@ FACTORS = (
     "bki_history",
     "transparent_business",
 )
+# The factors as the officer sees them in the card (the interface's titles): the model and the
+# decision summary name these, never the keys (UX7: «debt_to_ebitda» reached the officer's text).
+FACTOR_LABELS = {
+    "business_age_months": "Возраст бизнеса",
+    "dscr": "Запас на платежи по долгам (DSCR)",
+    "debt_to_ebitda": "Долговая нагрузка (долг к EBITDA)",
+    "revenue_trend": "Выручка к прошлому году",
+    "counterparty_concentration": "Доля крупнейшего покупателя",
+    "bki_history": "Кредитная история",
+    "transparent_business": "Проверка ФНС",
+}
 GRADE_ZONES = {
     "A": "автоматическое предложение",
     "B": "автоматическое предложение",
@@ -310,6 +321,7 @@ def score_breakdown(user: AbstractBaseUser, arguments: dict) -> dict:
         factors.append(
             {
                 "name": factor["name"],
+                "label": FACTOR_LABELS.get(factor["name"], factor["name"]),
                 "value": factor["value"],
                 "points": factor["points"],
                 "max_points": maximum,

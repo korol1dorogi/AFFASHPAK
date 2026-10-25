@@ -248,10 +248,17 @@ def _guarded(turn: Turn, client, answer: str, profile: str, grounding: str,
     template = prompts.load(profile).text
     for attempt in (1, 2):
         plain = guards.check_output(answer)
+        if not plain and turn.journal:
+            # The model ran the tools and said nothing (Qwen3.6 on the stand, UX7): the person
+            # gets the answer made of the results, not «ассистент недоступен».
+            triggers.append("empty_answer")
+            _log_trigger("empty_answer", f"attempt {attempt}")
+            built = guards.check_output(safe_answer(profile, turn.journal, turn.messages))
+            return _with_preliminary(profile, turn, built)
         facts = grounding + " " + json.dumps(turn.journal, ensure_ascii=False, default=str)
         issues = guards.review_output(plain, grounding=facts, prompt=template)
         if not issues:
-            return plain
+            return _with_preliminary(profile, turn, plain)
         for issue in issues:
             triggers.append(issue.code)
             _log_trigger(issue.code, f"attempt {attempt}")
@@ -275,6 +282,22 @@ def _guarded(turn: Turn, client, answer: str, profile: str, grounding: str,
     triggers.append("safe_answer")
     _log_trigger("safe_answer", "replaced")
     return guards.check_output(safe_answer(profile, turn.journal, turn.messages))
+
+
+# Client tools whose result is an assessment: the answer must say it is preliminary (AGENTS.md,
+# «Деньги и расчёты» 4). Models drop the phrase now and then (UX7), so the engine adds it.
+PRELIMINARY_TOOLS = frozenset({"recommend_products", "what_if", "approval_plan"})
+PRELIMINARY_NOTE = "Это предварительная оценка, а не решение банка."
+
+
+def _with_preliminary(profile: str, turn: Turn, text: str) -> str:
+    assessed = any(
+        entry["name"] in PRELIMINARY_TOOLS and "error" not in entry["result"]
+        for entry in turn.journal
+    )
+    if profile != "client" or not assessed or not text or "предварительн" in text.lower():
+        return text
+    return f"{text.rstrip()}\n\n{PRELIMINARY_NOTE}"
 
 
 def safe_answer(profile: str, journal: list[dict], messages: list[Message]) -> str:

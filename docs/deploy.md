@@ -104,8 +104,8 @@ LLM_PROVIDER=openai
 LLM_BASE_URL=https://foundation-models.api.cloud.ru/v1
 LLM_API_KEY=<ключ провайдера>
 LLM_MODEL=Qwen/Qwen3.6-35B-A3B
-LLM_TIMEOUT_SECONDS=20
-LLM_TURN_BUDGET_SECONDS=35
+LLM_TIMEOUT_SECONDS=25
+LLM_TURN_BUDGET_SECONDS=30
 ```
 
 Затем `docker compose up -d backend worker` (перечитать `.env`) и проверка: `docker compose exec backend python -m apps.assistant.llm.smoke` — «готово» или что не так.

@@ -1,0 +1,21 @@
+id: bank-no-tech-keys-4
+description: 'UX7: риски названы как в карточке — без ключей факторов и имён инструментов'
+profile: bank
+persona: furniture_maker
+application: latest
+turns:
+- user: Перечисли риски по заявке со ссылками на источники
+  expect_tools:
+  - name: score_breakdown
+  must_not_include:
+  - debt_to_ebitda
+  - revenue_trend
+  - bki_history
+  - counterparty_concentration
+  - business_age_months
+  - score_breakdown
+  - policy_compare
+  - application_summary
+  - dscr_and_limits
+  - checks_with_provenance
+  - missing_documents

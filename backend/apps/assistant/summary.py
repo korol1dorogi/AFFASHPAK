@@ -55,8 +55,9 @@ def from_facts(results: dict[str, dict]) -> dict:
     score = results.get("score_breakdown") or {}
     for factor in score.get("factors") or []:
         if factor.get("passed") is False and factor.get("value") is not None:
-            risks.append(f"{factor['message']} (скоринг: {factor['name']})")
-            sources.append(f"скоринг: {factor['name']}")
+            label = factor.get("label") or factor["name"]
+            risks.append(f"{factor['message']} (скоринг: «{label}»)")
+            sources.append(f"скоринг: «{label}»")
     for factor in score.get("factors") or []:
         if factor.get("name") in KEY_METRICS and factor.get("value") is None:
             to_verify.append(f"{factor['message']} (нет данных — проверить вручную)")
