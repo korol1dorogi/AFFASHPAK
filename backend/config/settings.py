@@ -233,6 +233,8 @@ GUARDRAILS_MODE = env("GUARDRAILS_MODE", "block")
 
 # --- Demo stand: /api/demo/* and the seed of personas exist only with DEMO_MODE=1 ---
 DEMO_MODE = env_bool("DEMO_MODE", default=False)
+# Applications in the demo bank queue (seed and «Сброс демо-данных»); 0 or unset — 30 (UX6).
+DEMO_QUEUE_SIZE = env_int("DEMO_QUEUE_SIZE", 0)
 
 # --- Pipeline: Celery worker behind Redis when CELERY_BROKER_URL is set (compose), else
 # in-process. pytest always runs in-process, even inside a container that has a broker set,

@@ -30,10 +30,7 @@ export function factorValue(factor: Schemas["ScoreFactor"]): string {
   return number;
 }
 
-/**
- * Score explained factor by factor (design.md §3). Lives in bank-application until B1 takes it
- * into src/components/.
- */
+/** Score explained factor by factor (design.md §3): the bank card and the credit conclusion. */
 export function ScoreBreakdown({ score }: { score: Schemas["Score"] }) {
   return (
     <div className="flex flex-col gap-6">

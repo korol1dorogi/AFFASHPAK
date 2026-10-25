@@ -1,5 +1,5 @@
 import type { Schemas } from "@/api/client";
-import { FACTOR_MAX_POINTS } from "@/features/bank-application/ScoreBreakdown";
+import { FACTOR_MAX_POINTS } from "@/components/ScoreBreakdown";
 
 type Decision = Schemas["Decision"];
 type Event = Schemas["ApplicationEvent"];

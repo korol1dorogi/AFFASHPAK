@@ -34,7 +34,7 @@ from apps.pipeline.runner import execute
 from apps.products.models import Product
 
 QUEUE_MARK = "(демо-очередь)"
-DEFAULT_SIZE = 30
+DEFAULT_SIZE = 30  # DEMO_QUEUE_SIZE in .env overrides it (UX6: 300 for the speed check)
 # Requested product by position: every kind shows up; the pipeline may still change it.
 PLAN = (
     ("overdraft_basic", "cash_gap", "Зарплата и аренда до поступлений от покупателей"),
@@ -48,19 +48,37 @@ ISSUE_EVERY = 3  # one offer in three is accepted, signed and issued
 PDF = b"%PDF-1.4\n1 0 obj\n<<>>\ntrailer\n%%EOF"
 
 
-def queue_companies(size: int = DEFAULT_SIZE) -> list[dict]:
-    """Population companies of the demo queue: the first `size`, the same ones on every stand."""
+def queue_size() -> int:
+    """The size of the demo queue: DEMO_QUEUE_SIZE of the settings, else DEFAULT_SIZE."""
+    from django.conf import settings
+
+    return int(getattr(settings, "DEMO_QUEUE_SIZE", 0) or DEFAULT_SIZE)
+
+
+def queue_companies(size: int | None = None) -> list[dict]:
+    """Population companies of the demo queue, the same ones on every stand. A queue larger than
+    the population (240 companies) goes round again: a company's second application asks for
+    another product (the plan is by position)."""
     data = dataset()
-    return [c for c in data["companies"] if c["_key"] in data["_latent"]][:size]
+    population = [c for c in data["companies"] if c["_key"] in data["_latent"]]
+    size = queue_size() if size is None else size
+    return [population[index % len(population)] for index in range(min(size, 10 * len(population)))]
 
 
-def seed_queue(size: int = DEFAULT_SIZE) -> int:
+def plan_position(index: int, distinct: int) -> int:
+    """The plan position of the index-th application: a second round over the companies shifts
+    it by one, so a company never asks for the same product twice."""
+    return index + index // distinct
+
+
+def seed_queue(size: int | None = None) -> int:
     """Create the demo queue once; returns how many applications were created."""
     if Application.objects.filter(purpose__endswith=QUEUE_MARK).exists():
         return 0
     data = dataset()
     population = queue_companies(size)
     load_companies(data, {c["_key"] for c in population})
+    distinct = len({c["_key"] for c in population})
     created = 0
     for index, record in enumerate(population):
         company = Company.objects.get(inn=record["inn"])
@@ -71,7 +89,7 @@ def seed_queue(size: int = DEFAULT_SIZE) -> int:
         )
         if signatory is None:
             continue
-        application = _apply(index, company, signatory.user)
+        application = _apply(plan_position(index, distinct), company, signatory.user)
         # Through the state machine, like a client: consent, submit event, notifications.
         services.submit(application, _actor(signatory), consent_version=BKI_CONSENT_VERSION)
         execute(application.pk)

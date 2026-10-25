@@ -2,7 +2,7 @@ from django.conf import settings
 from django.core.management.base import BaseCommand
 
 from apps.accounts.demo import seed
-from apps.accounts.demo_queue import DEFAULT_SIZE, seed_queue
+from apps.accounts.demo_queue import queue_size, seed_queue
 
 
 class Command(BaseCommand):
@@ -18,8 +18,9 @@ class Command(BaseCommand):
         parser.add_argument(
             "--queue",
             type=int,
-            default=DEFAULT_SIZE,
-            help="Population applications for the bank queue, seeded once (0 — none).",
+            default=None,
+            help="Population applications for the bank queue, seeded once (0 — none); "
+            "by default DEMO_QUEUE_SIZE of .env, else 30.",
         )
         parser.add_argument("--force", action="store_true", help="Seed even when DEMO_MODE is off.")
 
@@ -28,6 +29,7 @@ class Command(BaseCommand):
             self.stdout.write("DEMO_MODE is off: nothing to seed.")
             return
         created = seed(n_companies)
-        created["queue applications"] = seed_queue(queue) if queue > 0 else 0
+        size = queue_size() if queue is None else queue
+        created["queue applications"] = seed_queue(size) if size > 0 else 0
         summary = ", ".join(f"{name} {count}" for name, count in created.items())
         self.stdout.write(f"Demo seed created: {summary}.")
