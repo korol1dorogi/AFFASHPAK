@@ -4,13 +4,14 @@ import { Link, useSearchParams } from "react-router";
 
 import { api, type Schemas } from "@/api/client";
 import { routes } from "@/app/routes";
-import { ErrorState, PageHeader, PageSkeleton } from "@/components/States";
+import { EmptyState, ErrorState, PageHeader, PageSkeleton } from "@/components/States";
+import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
 import { NativeSelect } from "@/components/ui/input";
 import { unwrap } from "@/lib/errors";
 import { formatDecimal } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { STATUS, BANK_DASHBOARD as T } from "@/texts";
+import { EMPTY, STATUS, BANK_DASHBOARD as T } from "@/texts";
 
 const PERIODS = [7, 30, 90] as const;
 
@@ -62,6 +63,28 @@ export function BankDashboardPage() {
     );
   }
   const data = dashboard.data;
+  if (data.total_applications === 0) {
+    return (
+      <div className="flex flex-col gap-6">
+        {header}
+        <EmptyState
+          title={EMPTY.dashboardTitle}
+          text={EMPTY.dashboardText}
+          action={
+            days < 90 ? (
+              <Button variant="secondary" onClick={() => setParams({ days: "90" })}>
+                {EMPTY.dashboardLonger}
+              </Button>
+            ) : (
+              <Button asChild variant="secondary">
+                <Link to={routes.bank}>{EMPTY.toQueue}</Link>
+              </Button>
+            )
+          }
+        />
+      </div>
+    );
+  }
   const top = Math.max(1, ...data.funnel.map((row) => row.count));
   const share = data.auto_decision_share;
   const hours = Object.entries(data.avg_hours_in_status).sort(

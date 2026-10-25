@@ -18,7 +18,7 @@ import { Input } from "@/components/ui/input";
 import { useCreateApplication } from "@/features/applications/api";
 import { errorMessage, unwrap } from "@/lib/errors";
 import { cn } from "@/lib/utils";
-import { NEED, variantsWord } from "@/texts";
+import { LIVE, NEED, variantsWord } from "@/texts";
 
 type Need = Schemas["NeedType"];
 type Offer = Schemas["RecommendedOffer"];
@@ -67,7 +67,9 @@ function NeedPicker({ value, onChange }: { value: Need | null; onChange: (need: 
                 {selected ? <CircleCheck className="size-5" aria-hidden="true" /> : null}
               </span>
               <span className="font-semibold">{NEED[need].title}</span>
-              <span className="text-sm text-ink-muted">{NEED[need].hint}</span>
+              <span className={cn("text-sm", selected ? "text-ink" : "text-ink-muted")}>
+                {NEED[need].hint}
+              </span>
             </label>
           );
         })}
@@ -278,6 +280,13 @@ export function MatchPage() {
         </p>
       ) : null}
 
+      <p aria-live="polite" className="sr-only">
+        {result
+          ? result.offers.length
+            ? LIVE.matchFound(result.offers.length)
+            : LIVE.matchNone
+          : ""}
+      </p>
       {result ? (
         <section aria-labelledby="results-title" className="flex flex-col gap-4">
           <h2 id="results-title" className="m-0 font-display text-[22px] leading-7 font-bold">

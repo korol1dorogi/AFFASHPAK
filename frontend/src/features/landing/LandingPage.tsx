@@ -62,7 +62,7 @@ function Hero() {
   return (
     <section className="grid grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] items-center gap-10 py-8">
       <div className="flex flex-col gap-5">
-        <p className="m-0 text-sm font-semibold tracking-wide text-primary uppercase">
+        <p className="m-0 text-sm font-semibold tracking-wide text-primary-ink uppercase">
           {T.eyebrow}
         </p>
         <h1 className="m-0 font-display text-[44px] leading-[48px] font-extrabold tracking-[-0.02em]">
@@ -207,7 +207,7 @@ function Personas() {
                 className="flex items-center gap-3 rounded-md border border-line bg-surface p-3"
               >
                 <span className="min-w-0 flex-1">
-                  <span className="block text-xs font-semibold text-primary">
+                  <span className="block text-xs font-semibold text-primary-ink">
                     {persona.kind === "bank" ? T.personaBank : T.personaClient(persona.scenario)}
                   </span>
                   <span className="block font-medium">{persona.title}</span>

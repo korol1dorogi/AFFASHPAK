@@ -171,6 +171,9 @@ export const APPROVAL_PLAN = {
         : "Тогда банк сможет её одобрить."
     }`,
   points: (n: number) => `+${n} ${pointsWord(n)}`,
+  gradeHint:
+    "Оценка риска — буква от A до E по сумме баллов из 100, A — лучше всего. " +
+    "При A или B банк может одобрить сразу, при C заявку смотрит сотрудник банка.",
   note: "Это предварительная оценка по данным вашего счёта, а не решение банка.",
 } as const;
 
@@ -1411,10 +1414,73 @@ export const WHAT_IF = {
   maxAmount: (term: number) => `Можно взять на ${term} мес`,
   noMaxAmount: "Не получается посчитать",
   coverage: "Запас на платежи",
+  coverageHint:
+    "Во сколько раз свободных денег больше, чем нужно на все платежи по долгам вместе с этим кредитом. " +
+    "Если меньше нужного, платёж будет не по силам.",
   coverageValue: (value: string, norm: string) => `${value}, нужно не меньше ${norm}`,
   fits: "Такие условия прошли бы",
   notFits: "Такие условия не пройдут",
   why: "Почему",
   counting: "Считаем…",
   note: "Это только расчёт: предложение банка от него не меняется. Оценка предварительная, решение принимает банк.",
+} as const;
+
+/** UX2: loading, empty and error states of blocks inside a screen (documents, history, metrics). */
+export const BLOCK_STATE = {
+  retry: "Повторить",
+  documentsLoading: "Загружаем документы",
+  documentsEmpty: "Документов пока нет.",
+  documentsError: "Не получилось загрузить документы.",
+  historyLoading: "Загружаем историю",
+  historyEmpty: "Событий пока нет: здесь появится каждый шаг по заявке.",
+  historyError: "Не получилось загрузить историю.",
+  companyLoading: "Загружаем данные компании",
+  companyError: "Не получилось загрузить данные компании.",
+  metricsLoading: "Загружаем показатели по счёту",
+  metricsError: "Не получилось загрузить показатели по счёту.",
+} as const;
+
+/** UX2: /status — what the check found and what to do. */
+export const HEALTH = {
+  title: "Состояние системы",
+  subtitle: "Проверка связи кабинета с API (GET /api/health)",
+  checking: "Проверяем…",
+  ok: "Бэкенд работает",
+  degraded: "База данных недоступна",
+  unavailable: "API недоступен",
+} as const;
+
+/** UX2: what screen readers hear when something changes without a click (aria-live, toasts). */
+export const LIVE = {
+  statusChanged: (label: string) => `Статус заявки изменился: ${label}`,
+  openApplication: (id: number) => `Открыть заявку № ${id}`,
+  matchFound: (count: number) => `Нашли ${count} ${variantsWord(count)}`,
+  matchNone: "Подходящих вариантов нет",
+} as const;
+
+/** UX2: empty states — what is (not) here and what to do next. */
+export const EMPTY = {
+  filteredApplicationsTitle: "В этом разделе заявок нет",
+  filteredApplicationsText: "Остальные заявки — в других разделах.",
+  showAll: "Показать все заявки",
+  productsTitle: "Каталог продуктов пуст",
+  productsText:
+    "Банк ещё не выложил условия. Подберите кредит по задаче — покажем, что можно взять сейчас.",
+  dashboardTitle: "Заявок за период нет",
+  dashboardText: "Выберите период подлиннее или откройте очередь заявок.",
+  dashboardLonger: "Показать за 90 дней",
+  toQueue: "Открыть очередь",
+  personasLoading: "Загружаем демо-персон",
+  personasError: "Не получилось загрузить демо-персон.",
+  personasEmptyTitle: "Демо-персон нет",
+  personasEmptyText:
+    "Они появятся после сброса демо-данных: нажмите «Сбросить» ниже и проверьте ещё раз.",
+  refresh: "Проверить ещё раз",
+} as const;
+
+/** UX2: the payment calculator says what is wrong instead of a grey button. */
+export const CALCULATOR_ERRORS = {
+  amount: "Укажите сумму",
+  term: "Укажите срок целым числом от 1 до 360 месяцев",
+  rate: "Укажите ставку больше нуля, например 24,5",
 } as const;

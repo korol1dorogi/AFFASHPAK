@@ -195,6 +195,10 @@ describe("WhatIf — the calculation comes from the backend", () => {
       /₽расчёт$/,
     );
     expect(within(block).getByText("1,26, нужно не меньше 1,25")).toBeInTheDocument();
+    // «Запас на платежи» is a term: it is explained next to the value (UX2).
+    expect(
+      within(block).getByText(/Во сколько раз свободных денег больше, чем нужно на все платежи/),
+    ).toBeInTheDocument();
     expect(within(block).getByRole("slider", { name: "Срок" })).toHaveAttribute("min", "3");
     expect(within(block).getByRole("slider", { name: "Срок" })).toHaveAttribute("max", "24");
   });

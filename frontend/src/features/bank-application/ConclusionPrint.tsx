@@ -24,6 +24,30 @@ export const PRINT_CSS = `
 }
 `;
 
+/** A modal keeps Tab inside: past the last control back to the first, and the other way round. */
+function keepFocusInside(event: KeyboardEvent, root: HTMLElement | null) {
+  if (!root) return;
+  const items = [
+    ...root.querySelectorAll<HTMLElement>(
+      'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])',
+    ),
+  ];
+  const first = items[0];
+  const last = items.at(-1);
+  if (!first || !last) return;
+  const active = document.activeElement;
+  if (!root.contains(active)) {
+    event.preventDefault();
+    first.focus();
+  } else if (event.shiftKey && active === first) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && active === last) {
+    event.preventDefault();
+    first.focus();
+  }
+}
+
 /**
  * XP3: full-screen preview of the credit conclusion with «Сохранить в PDF» (the browser's print,
  * «Сохранить как PDF»). Ctrl+P on the card prints the conclusion too: it is mounted for printing.
@@ -42,6 +66,7 @@ export function ConclusionPrint({
   const [generatedAt, setGeneratedAt] = useState(() => new Date());
   const [printing, setPrinting] = useState(false);
   const printButton = useRef<HTMLButtonElement>(null);
+  const dialog = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     // The print snapshot is taken right after beforeprint: render synchronously.
@@ -61,13 +86,19 @@ export function ConclusionPrint({
 
   useEffect(() => {
     if (!open) return;
+    // The button that opened the preview gets focus back when it closes.
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setGeneratedAt(new Date());
     printButton.current?.focus();
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") onClose();
+      if (event.key === "Tab") keepFocusInside(event, dialog.current);
     };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      if (opener?.isConnected) opener.focus();
+    };
   }, [open, onClose]);
 
   if (!open && !printing) return null;
@@ -85,6 +116,7 @@ export function ConclusionPrint({
   return createPortal(
     open ? (
       <div
+        ref={dialog}
         data-credit-conclusion
         role="dialog"
         aria-modal="true"

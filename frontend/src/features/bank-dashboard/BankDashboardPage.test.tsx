@@ -59,3 +59,17 @@ describe("BankDashboardPage, SLA (XP4)", () => {
     expect(within(card).queryByRole("link")).not.toBeInTheDocument();
   });
 });
+
+describe("BankDashboardPage — empty period (UX2)", () => {
+  it("says there were no applications and offers a longer period", async () => {
+    const fetchMock = mockApi({
+      [DASHBOARD]: dashboard({ total_applications: 0, funnel: [], overdue_share: null }),
+    });
+    const router = render();
+
+    expect(await screen.findByText("Заявок за период нет")).toBeInTheDocument();
+    screen.getByRole("button", { name: "Показать за 90 дней" }).click();
+    await vi.waitFor(() => expect(router.state.location.search).toBe("?days=90"));
+    expect(fetchMock).toHaveBeenCalled();
+  });
+});

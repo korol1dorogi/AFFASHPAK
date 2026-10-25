@@ -299,3 +299,21 @@ describe("CompanyPage — data sources", () => {
     );
   });
 });
+
+describe("CompanyPage — metrics never vanish silently (UX2)", () => {
+  it("a failed metrics request is an alert with retry", async () => {
+    open({
+      "GET /api/company/metrics": [
+        500,
+        { error: { code: "server_error", message: "Выписка не читается (демо)" } },
+      ],
+    });
+    const alert = await screen.findByText("Не получилось загрузить показатели по счёту.");
+    expect(alert.closest("[role=alert]")).toHaveTextContent("Выписка не читается (демо)");
+    expect(
+      within(alert.closest("[role=alert]") as HTMLElement).getByRole("button", {
+        name: "Повторить",
+      }),
+    ).toBeInTheDocument();
+  });
+});

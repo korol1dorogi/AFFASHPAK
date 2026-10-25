@@ -8,9 +8,10 @@ import { DemoBadge, ErrorState, PageHeader, PageSkeleton } from "@/components/St
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
+import { BlockError, BlockSkeleton } from "@/features/applications/BlockState";
 import { useDemoLogin, useDemoPersonas } from "@/features/auth/api";
 import { errorMessage, unwrap } from "@/lib/errors";
-import { BANK_DEMO as T } from "@/texts";
+import { EMPTY, BANK_DEMO as T } from "@/texts";
 
 type Failures = Schemas["DemoFailures"];
 type Source = Schemas["DemoSource"];
@@ -156,34 +157,56 @@ function Outages() {
 function Personas() {
   const personas = useDemoPersonas();
   const login = useDemoLogin();
-  if (!personas.data) return null;
   return (
     <Card>
       <CardTitle className="m-0">{T.personasTitle}</CardTitle>
       <p className="m-0 text-sm text-ink-muted">{T.personasHint}</p>
-      <ul aria-label={T.personasTitle} className="m-0 flex list-none flex-col gap-2 p-0">
-        {personas.data.map((persona) => (
-          <li
-            key={persona.code}
-            className="flex items-center gap-3 rounded-md border border-line p-3"
-          >
-            <span className="min-w-0 flex-1">
-              <span className="block font-medium">{persona.title}</span>
-              <span className="text-sm text-ink-muted">
-                {persona.kind === "bank" ? T.bankPlace : T.scenario(persona.scenario)}
-              </span>
-            </span>
-            <Button
-              size="sm"
-              variant="secondary"
-              loading={login.isPending && login.variables === persona.code}
-              onClick={() => login.mutate(persona.code)}
+      {personas.isError ? (
+        <BlockError
+          title={EMPTY.personasError}
+          error={personas.error}
+          onRetry={() => void personas.refetch()}
+        />
+      ) : personas.isPending ? (
+        <BlockSkeleton label={EMPTY.personasLoading} rows={3} />
+      ) : !personas.data?.length ? (
+        <div className="flex flex-col items-start gap-2">
+          <p className="m-0 font-semibold">{EMPTY.personasEmptyTitle}</p>
+          <p className="m-0 text-sm">{EMPTY.personasEmptyText}</p>
+          <Button variant="secondary" size="sm" onClick={() => void personas.refetch()}>
+            {EMPTY.refresh}
+          </Button>
+        </div>
+      ) : (
+        <ul aria-label={T.personasTitle} className="m-0 flex list-none flex-col gap-2 p-0">
+          {personas.data.map((persona) => (
+            <li
+              key={persona.code}
+              className="flex items-center gap-3 rounded-md border border-line p-3"
             >
-              {T.signInAs}
-            </Button>
-          </li>
-        ))}
-      </ul>
+              <span className="min-w-0 flex-1">
+                <span className="block font-medium">{persona.title}</span>
+                <span className="text-sm text-ink-muted">
+                  {persona.kind === "bank" ? T.bankPlace : T.scenario(persona.scenario)}
+                </span>
+              </span>
+              <Button
+                size="sm"
+                variant="secondary"
+                loading={login.isPending && login.variables === persona.code}
+                onClick={() => login.mutate(persona.code)}
+              >
+                {T.signInAs}
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {login.isError ? (
+        <p role="alert" className="m-0 text-sm text-status-danger">
+          {errorMessage(login.error)}
+        </p>
+      ) : null}
     </Card>
   );
 }

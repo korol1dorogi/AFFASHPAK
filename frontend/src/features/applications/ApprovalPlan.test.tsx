@@ -108,6 +108,8 @@ describe("ApprovalPlan on a decline", () => {
       "Сейчас у заявки 47 баллов из 100, оценка риска — E. Если выполнить шаги ниже, наберётся " +
         "60 баллов и оценка станет C. Тогда заявку рассмотрит сотрудник банка.",
     );
+    // «Оценка риска» is a term: the plan says what it means (UX2).
+    expect(plan).toHaveTextContent("Оценка риска — буква от A до E по сумме баллов из 100");
     const steps = within(plan).getAllByRole("listitem");
     expect(steps).toHaveLength(2);
     expect(steps[0]).toHaveTextContent("Доля крупнейшего покупателя");

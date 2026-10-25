@@ -24,6 +24,7 @@ export function ApprovalPlan({
       <p className="m-0 text-sm">
         {T.summary(plan.current_total, grade, plan.target_total, plan.target_grade)}
       </p>
+      <p className="m-0 text-xs text-ink-muted">{T.gradeHint}</p>
       <ol aria-label={T.title} className="m-0 flex list-none flex-col gap-2 p-0">
         {plan.steps.map((step, index) => (
           <li

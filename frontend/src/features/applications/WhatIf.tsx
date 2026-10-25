@@ -173,6 +173,7 @@ export function WhatIf({ application, offer }: { application: ApplicationDetail;
                         formatDecimal(result.dscr_after),
                         formatDecimal(result.min_dscr),
                       )}
+                  <span className="block text-xs text-ink-muted">{T.coverageHint}</span>
                 </dd>
               </div>
             </dl>

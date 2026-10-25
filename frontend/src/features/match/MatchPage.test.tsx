@@ -102,3 +102,13 @@ describe("MatchPage — where the amounts come from (SRC7)", () => {
     );
   });
 });
+
+describe("MatchPage — the result is announced (UX2)", () => {
+  it("a polite live region says how many options were found", async () => {
+    mockApi({ "POST /api/recommendations": RESULT });
+    renderRoutes([{ path: "/app/match", element: <MatchPage /> }], "/app/match?need=cash_gap");
+    fireEvent.click(screen.getByRole("button", { name: "Показать варианты" }));
+    await screen.findByRole("article", { name: "Овердрафт для бизнеса (демо)" });
+    expect(screen.getByText("Нашли 2 варианта")).toHaveAttribute("aria-live", "polite");
+  });
+});

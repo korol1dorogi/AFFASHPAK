@@ -1,5 +1,5 @@
 import { FileText, Lock, SearchX, WifiOff } from "lucide-react";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router";
 
 import { routes } from "@/app/routes";
@@ -24,7 +24,7 @@ import { DocumentsTab } from "@/features/bank-application/DocumentsTab";
 import { JournalTab } from "@/features/bank-application/JournalTab";
 import { ScoringTab } from "@/features/bank-application/ScoringTab";
 import { ApiError } from "@/lib/errors";
-import { BANK_CARD } from "@/texts";
+import { BANK_CARD, LIVE, STATUS } from "@/texts";
 
 function useProductName(card: BankApplicationDetail): string {
   const products = useProducts();
@@ -97,11 +97,23 @@ function Header({
   );
 }
 
+/** The card polls (15 s): a status changed by the client or the pipeline is read out politely. */
+function useStatusAnnouncement(status: BankApplicationDetail["application"]["status"]) {
+  const shown = useRef(status);
+  const [text, setText] = useState("");
+  useEffect(() => {
+    if (shown.current !== status) setText(LIVE.statusChanged(STATUS[status].label));
+    shown.current = status;
+  }, [status]);
+  return text;
+}
+
 function CardView({ card }: { card: BankApplicationDetail }) {
   const id = card.application.id;
   const product = useProductName(card);
   const [conclusion, setConclusion] = useState(false);
   const closeConclusion = useCallback(() => setConclusion(false), []);
+  const announcement = useStatusAnnouncement(card.application.status);
   // AI9: «Вставить в комментарий» — the draft goes to the journal's field, the officer saves it.
   const [commentDraft, setCommentDraft] = useState<{ text: string; key: number } | null>(null);
   const [, setParams] = useSearchParams();
@@ -118,6 +130,9 @@ function CardView({ card }: { card: BankApplicationDetail }) {
   };
   return (
     <div className="flex flex-col gap-6">
+      <p aria-live="polite" className="sr-only">
+        {announcement}
+      </p>
       <Header card={card} product={product} onConclusion={() => setConclusion(true)} />
       <ConclusionPrint card={card} product={product} open={conclusion} onClose={closeConclusion} />
       <ActionPanel card={card} />

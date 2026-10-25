@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { HealthPage } from "./HealthPage";
@@ -59,5 +59,26 @@ describe("HealthPage", () => {
     renderPage();
 
     expect(await screen.findByText("API недоступен")).toBeInTheDocument();
+  });
+});
+
+describe("HealthPage — a server error is not a database outage (UX2)", () => {
+  it("says the API failed, shows the server's text and retries", async () => {
+    const fetchMock = stubFetch(500, { error: { code: "server_error", message: "Сбой (демо)" } });
+
+    renderPage();
+
+    expect(await screen.findByText("API недоступен")).toBeInTheDocument();
+    expect(screen.queryByText("База данных недоступна")).not.toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent("Сбой (демо)");
+    fetchMock.mockImplementation(
+      async () =>
+        new Response(JSON.stringify({ status: "ok", database: "ok" }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Повторить" }));
+    expect(await screen.findByText("Бэкенд работает")).toBeInTheDocument();
   });
 });

@@ -52,11 +52,7 @@ export function CardTabs({ panels }: { panels: Record<BankTab, ReactNode> }) {
         ))}
       </Tabs.List>
       {BANK_TABS.map((tab) => (
-        <Tabs.Content
-          key={tab}
-          value={tab}
-          className="flex flex-col gap-6 focus-visible:outline-none"
-        >
+        <Tabs.Content key={tab} value={tab} className="flex flex-col gap-6 rounded-md">
           {panels[tab]}
         </Tabs.Content>
       ))}

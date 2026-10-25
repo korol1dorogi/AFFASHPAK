@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { toast } from "sonner";
 
@@ -27,13 +27,24 @@ import {
   useProducts,
   useRespondInfo,
 } from "@/features/applications/api";
+import { BlockError, BlockSkeleton } from "@/features/applications/BlockState";
 import { CreditHistory } from "@/features/applications/CreditHistory";
 import { DocumentList, DocumentUpload } from "@/features/applications/Documents";
+import { useReturnFocus } from "@/features/applications/returnFocus";
 import { showsWhatIf, WhatIf } from "@/features/applications/WhatIf";
 import { AskAssistant } from "@/features/assistant/AskAssistant";
 import { ApiError, errorMessage } from "@/lib/errors";
 import { formatDate, formatMoney } from "@/lib/format";
-import { ACTION, ASSISTANT, DECISION_OUTCOME, DOCUMENT_KIND, NEED } from "@/texts";
+import {
+  ACTION,
+  ASSISTANT,
+  BLOCK_STATE,
+  DECISION_OUTCOME,
+  DOCUMENT_KIND,
+  LIVE,
+  NEED,
+  STATUS,
+} from "@/texts";
 
 const FIELD_LABEL: Record<string, string> = {
   purpose: "цель",
@@ -104,11 +115,19 @@ function InfoRequestCard({
             id={`answer-${request.id}`}
             value={message}
             maxLength={2000}
+            aria-invalid={respond.isError || undefined}
+            aria-describedby={respond.isError ? `answer-${request.id}-error` : undefined}
             onChange={(event) => setMessage(event.target.value)}
             placeholder="Например: загрузили отчётность за 2025 год"
           />
           {respond.isError ? (
-            <p className="m-0 text-sm text-status-danger">{errorMessage(respond.error)}</p>
+            <p
+              id={`answer-${request.id}-error`}
+              role="alert"
+              className="m-0 text-sm text-status-danger"
+            >
+              {errorMessage(respond.error)}
+            </p>
           ) : null}
           <Button
             type="submit"
@@ -183,6 +202,21 @@ export function ApplicationPage() {
   const decline = useDeclineOffer(id);
   const cancel = useCancel(id);
   const [confirm, setConfirm] = useState<"decline" | "cancel" | null>(null);
+  const rememberOpener = useReturnFocus(confirm !== null);
+  const ask = (which: "decline" | "cancel") => {
+    rememberOpener();
+    setConfirm(which);
+  };
+
+  // A status changed by the bank or the pipeline (polling): a toast, read out politely.
+  const status = application.data?.status;
+  const shownStatus = useRef(status);
+  useEffect(() => {
+    if (status && shownStatus.current && shownStatus.current !== status) {
+      toast.info(LIVE.statusChanged(STATUS[status].label));
+    }
+    shownStatus.current = status;
+  }, [status]);
   const productName = useProductName(application.data?.product_code ?? null);
 
   if (application.isPending) return <PageSkeleton />;
@@ -224,7 +258,7 @@ export function ApplicationPage() {
         ].join(" · ")}
         actions={
           actions.includes("cancel") ? (
-            <Button variant="ghost" onClick={() => setConfirm("cancel")}>
+            <Button variant="ghost" onClick={() => ask("cancel")}>
               {ACTION.cancel}
             </Button>
           ) : undefined
@@ -256,7 +290,7 @@ export function ApplicationPage() {
                   onError: (error) => toast.error(errorMessage(error)),
                 })
               }
-              onDecline={() => setConfirm("decline")}
+              onDecline={() => ask("decline")}
             />
           ) : null}
           {data.offer && showsWhatIf(data) ? (
@@ -285,10 +319,21 @@ export function ApplicationPage() {
         <aside className="flex min-w-0 flex-[1_1_300px] flex-col gap-6">
           <Card>
             <CardTitle>История</CardTitle>
+            {/* A failed background poll keeps the history it already has. */}
             {events.data ? (
-              <StatusTimeline events={events.data} />
+              events.data.length === 0 ? (
+                <p className="m-0 text-sm text-ink-muted">{BLOCK_STATE.historyEmpty}</p>
+              ) : (
+                <StatusTimeline events={events.data} />
+              )
+            ) : events.isError ? (
+              <BlockError
+                title={BLOCK_STATE.historyError}
+                error={events.error}
+                onRetry={() => void events.refetch()}
+              />
             ) : (
-              <p className="m-0 text-sm text-ink-muted">Загружаем…</p>
+              <BlockSkeleton label={BLOCK_STATE.historyLoading} rows={3} />
             )}
           </Card>
           <Card>
