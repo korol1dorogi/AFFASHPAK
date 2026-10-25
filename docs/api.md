@@ -137,7 +137,7 @@ POST /api/applications/{id}/signature/confirm   {"code"}              → signed
 | POST | `/api/bank/applications/{id}/decline` | Отказать с причинами и «что улучшить» (manual_review → declined) | сессия |
 | POST | `/api/bank/applications/{id}/comments` | Внутренний комментарий в журнал (клиенту не виден) | сессия |
 | GET | `/api/bank/applications/{id}/documents/{document_id}` | Скачать документ заявки (сотрудник банка) | сессия |
-| GET | `/api/bank/dashboard` | Воронка, время в статусах, доля автоматических решений | сессия |
+| GET | `/api/bank/dashboard` | Где сейчас заявки периода, воронка, время в статусах, доля автоматических решений | сессия |
 | GET | `/api/bank/policy` | Кредитная политика в силе: версии, пороги грейдов, шкалы факторов, стоп-факторы, раскладка популяции (XP7) | сессия |
 | POST | `/api/bank/policy/what-if` | «Что если поменять порог»: сколько компаний синтетической популяции сменит грейд; ничего не сохраняет | сессия |
 
