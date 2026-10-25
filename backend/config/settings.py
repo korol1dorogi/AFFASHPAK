@@ -25,7 +25,9 @@ def env_bool(name: str, default: bool) -> bool:
 
 
 def env_int(name: str, default: int) -> int:
-    return int(env(name, str(default)))
+    """An empty value means the default, as .env.example documents (`DEMO_QUEUE_SIZE=`)."""
+    value = env(name, "").strip()
+    return int(value) if value else default
 
 
 def env_list(name: str, default: str = "") -> list[str]:
