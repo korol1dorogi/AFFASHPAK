@@ -1484,3 +1484,54 @@ export const CALCULATOR_ERRORS = {
   term: "Укажите срок целым числом от 1 до 360 месяцев",
   rate: "Укажите ставку больше нуля, например 24,5",
 } as const;
+
+/** XP7: the credit policy screen of the bank (/bank/policy). */
+export const BANK_POLICY = {
+  nav: "Кредитная политика",
+  title: "Кредитная политика",
+  subtitle: (policy: string, model: string) =>
+    `Действует версия правил ${policy}, балльная карта ${model}. Пересчёт «что если» идёт на синтетической популяции и ничего не меняет в заявках.`,
+  grades: "Пороги грейдов",
+  gradeCol: "Грейд",
+  minCol: "От баллов",
+  meaningCol: "Что значит для заявки",
+  meaning: {
+    auto: "автоматическое предложение",
+    manual: "решает сотрудник банка",
+    decline: "отказ",
+  } as Record<"auto" | "manual" | "decline", string>,
+  below: (minimum: number) => `меньше ${minimum}`,
+  factors: "Факторы балльной карты",
+  factorCol: "Фактор",
+  maxCol: "Максимум",
+  scaleCol: "Шкала",
+  unknownCol: "Нет данных",
+  points: (n: number) => `${n} б.`,
+  atLeast: "от",
+  atMost: "до",
+  floor: (points: number | null) =>
+    points === null ? "ниже — стоп-фактор" : `ниже — ${points} б.`,
+  bki: "без просрочек — максимум; была короткая — меньше; текущая просрочка — 0, дольше порога — стоп-фактор",
+  fns: "нарушений нет — максимум; один признак массовости — меньше; налоговый долг или оба признака — 0",
+  stops: "Стоп-факторы — отказ без скоринга",
+  stopOverdue: (days: number) => `текущая просрочка дольше ${days} дней`,
+  stopAge: (months: number) => `бизнесу меньше ${months} месяцев`,
+  stopMissing: (count: number) =>
+    `не хватает больше ${count} ключевого показателя (денежный поток, выручка, покупатели)`,
+  stopRegistry: "компания в ликвидации, исключается из реестра или её нет в ЕГРЮЛ/ЕГРИП",
+  whatIf: "Что если поменять пороги",
+  whatIfHint:
+    "Сдвиньте минимальный балл грейда — пересчитаем, сколько компаний популяции сменит грейд и куда уйдут их заявки.",
+  recount: "Пересчитать",
+  reset: "Вернуть действующие",
+  population: (n: number) => `Популяция: ${n} синтетических компаний`,
+  changed: (n: number, total: number) => `Грейд сменят ${n} из ${total} компаний`,
+  nothingChanged: "При этих порогах грейд не сменит ни одна компания.",
+  nowCol: "Сейчас",
+  thenCol: "Станет",
+  diffCol: "Разница",
+  stop: "стоп-фактор",
+  zones: "Куда уйдут заявки",
+  moves: "Кто куда перейдёт",
+  move: (from: string, to: string, count: number) => `${from} → ${to}: ${count}`,
+} as const;

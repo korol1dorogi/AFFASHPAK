@@ -13,6 +13,7 @@ import { RegisterPage } from "@/features/auth/RegisterPage";
 import { BankApplicationPage } from "@/features/bank-application/BankApplicationPage";
 import { BankDashboardPage } from "@/features/bank-dashboard/BankDashboardPage";
 import { BankDemoPage } from "@/features/bank-demo/BankDemoPage";
+import { BankPolicyPage } from "@/features/bank-policy/BankPolicyPage";
 import { BankQueuePage } from "@/features/bank-queue/BankQueuePage";
 import { CompanyNewPage } from "@/features/company/CompanyNewPage";
 import { CompanyPage } from "@/features/company/CompanyPage";
@@ -85,6 +86,7 @@ export const router = createBrowserRouter([
               { path: "/bank/applications/:id", element: <BankApplicationPage /> },
               { path: routes.bankDashboard, element: <BankDashboardPage /> },
               { path: routes.bankDemo, element: <BankDemoPage /> },
+              { path: routes.bankPolicy, element: <BankPolicyPage /> },
             ],
           },
         ],

@@ -979,6 +979,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/bank/policy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Кредитная политика в силе — версии, пороги грейдов, шкалы факторов, стоп-факторы и раскладка синтетической популяции (XP7) */
+        get: operations["getBankPolicy"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/bank/policy/what-if": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** «Что если поменять порог» — сколько компаний синтетической популяции сменит грейд при других порогах (ничего не сохраняет) */
+        post: operations["bankPolicyWhatIf"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/assistant/messages": {
         parameters: {
             query?: never;
@@ -1868,6 +1902,84 @@ export interface components {
         };
         CommentCreate: {
             message: string;
+        };
+        PolicyGradeCount: {
+            /**
+             * @description Грейд или stop — остановлена стоп-фактором до скоринга
+             * @enum {string}
+             */
+            grade: "A" | "B" | "C" | "D" | "E" | "stop";
+            count: number;
+        };
+        /** @description Что грейд значит для заявки — auto (A, B — автоматическое предложение), manual (C, D — сотрудник), decline (E и стоп-факторы) */
+        PolicyZones: {
+            auto: number;
+            manual: number;
+            decline: number;
+        };
+        PolicyOverview: {
+            /** @example scorecard-2026.10-v1 */
+            model_version: string;
+            /** @example 2026.10-v1 */
+            policy_version: string;
+            /** @description Минимальный балл каждого грейда, от лучшего */
+            grades: {
+                grade: components["schemas"]["Grade"];
+                min_total: number;
+            }[];
+            lowest_grade: components["schemas"]["Grade"];
+            factors: {
+                /** @example dscr */
+                name: string;
+                max_points: number;
+                /** @description null — фактор без числовой шкалы (кредитная история, проверка ФНС) */
+                higher_is_better: boolean | null;
+                /** @description Баллы по значению — первая достигнутая ступень */
+                steps: {
+                    threshold: components["schemas"]["DecimalString"];
+                    points: number;
+                }[];
+                /** @description Баллы ниже последней ступени; null — ниже последней ступени стоп-фактор */
+                floor_points: number | null;
+                passed_threshold: components["schemas"]["DecimalString"] | null;
+                /** @description Баллы */
+                unknown_points: number;
+            }[];
+            stop_factors: {
+                current_overdue_days: number;
+                min_business_age_months: number;
+                max_missing_key_metrics: number;
+            };
+            population: {
+                companies: number;
+                distribution: components["schemas"]["PolicyGradeCount"][];
+                zones: components["schemas"]["PolicyZones"];
+            };
+        };
+        PolicyWhatIfRequest: {
+            /** @description Минимальный балл грейдов A–D, строго по убыванию; ниже D — E */
+            grades: {
+                A: number;
+                B: number;
+                C: number;
+                D: number;
+            };
+        };
+        PolicyWhatIf: {
+            companies: number;
+            /** @description Сколько компаний сменят грейд */
+            changed: number;
+            before: components["schemas"]["PolicyGradeCount"][];
+            after: components["schemas"]["PolicyGradeCount"][];
+            zones_before: components["schemas"]["PolicyZones"];
+            zones_after: components["schemas"]["PolicyZones"];
+            transitions: {
+                /** @enum {string} */
+                from_grade: "A" | "B" | "C" | "D" | "E" | "stop";
+                /** @enum {string} */
+                to_grade: "A" | "B" | "C" | "D" | "E" | "stop";
+                count: number;
+            }[];
         };
         BankDashboard: {
             period_days: number;
@@ -3721,6 +3833,55 @@ export interface operations {
                     "application/json": components["schemas"]["BankDashboard"];
                 };
             };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getBankPolicy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Политика и популяция */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PolicyOverview"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    bankPolicyWhatIf: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PolicyWhatIfRequest"];
+            };
+        };
+        responses: {
+            /** @description Популяция на текущих и предложенных порогах */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PolicyWhatIf"];
+                };
+            };
+            400: components["responses"]["ValidationError"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
         };

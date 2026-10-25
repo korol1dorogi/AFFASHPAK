@@ -1,4 +1,6 @@
+import { Link } from "react-router";
 import type { Schemas } from "@/api/client";
+import { routes } from "@/app/routes";
 import { offerAmountSource, SourceTag } from "@/components/AmountSource";
 import { Facts } from "@/components/Facts";
 import { MoneyText, RateText } from "@/components/Money";
@@ -177,7 +179,14 @@ function DecisionItem({ decision }: { decision: Schemas["Decision"] }) {
             value: `${DECIDED_BY[decision.decided_by]}${decision.is_preliminary ? ` · ${T.preliminary}` : ""}`,
           },
           { label: BANK_CARD.header.grade, value: decision.grade ?? BANK_CARD.noGrade },
-          { label: T.policy, value: decision.policy_version },
+          {
+            label: T.policy,
+            value: (
+              <Link to={routes.bankPolicy} className="underline">
+                {decision.policy_version}
+              </Link>
+            ),
+          },
           ...(decision.comment ? [{ label: T.comment, value: decision.comment }] : []),
         ]}
       />

@@ -45,6 +45,7 @@ export const routes = {
   bankApplication: (id: Id, tab?: BankTab) => `/bank/applications/${id}${tab ? `?tab=${tab}` : ""}`,
   bankDashboard: "/bank/dashboard",
   bankDemo: "/bank/demo",
+  bankPolicy: "/bank/policy",
 
   devUi: "/dev/ui",
 } as const;

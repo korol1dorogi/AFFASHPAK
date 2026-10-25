@@ -72,7 +72,8 @@ test("bank: «Сводка для решения» for scenario 5 goes into the 
   await bank.getByRole("button", { name: "Сводка для решения" }).click();
   const risks = bank.getByRole("region", { name: "Риски" });
   await expect(risks.getByRole("listitem").first()).toBeVisible();
-  await expect(risks).toContainText("скоринг: dscr");
+  // UX7: the source is named as the card names the factor, not by its key
+  await expect(risks).toContainText("скоринг: «Запас на платежи по долгам (DSCR)»");
   const draft = bank.getByRole("region", { name: "Черновик комментария" });
   await expect(draft).toContainText("Грейд E (47 из 100)");
 
