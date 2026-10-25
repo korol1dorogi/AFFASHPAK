@@ -22,7 +22,7 @@
 | # | Шаг | Как проверить | rc1 |
 |---|---|---|---|
 | 1 | Фриз: в `main` после фриза — только исправления по итогам P8 | `git log` после времени фриза | — |
-| 2 | Чистый клон зелёный на финальном коммите | `scripts/check-clean-clone.sh` → «clean clone OK» | ✅ 105 с, сценарий 1 пройден |
+| 2 | Чистый клон зелёный на финальном коммите | `scripts/check-clean-clone.sh` → «clean clone OK» | ✅ 105 с, сценарий 1 пройден; прогон по README — [p8.md](p8.md) |
 | 3 | Стенд на том же коммите, ассистент на живой модели | `ssh root@<ip> alfa-deploy`; на сервере `docker compose exec backend python -m apps.assistant.llm.smoke` → «готово» | ✅ `9b8f82a`, Qwen3.6 через Cloud.ru |
 | 4 | Сценарий 1 на стенде по HTTPS | `BASE_URL=https://<домен> HOST=<домен> python scripts/smoke_scenario_1.py` → «scenario 1 passed» | ✅ |
 | 5 | Тест-набор зелёный (CI или ручной прогон с выводом) | pytest, фронт (lint, typecheck, test), e2e, `assistant_eval` на mock | CI не запускается (лимит Actions) — ручной прогон |
