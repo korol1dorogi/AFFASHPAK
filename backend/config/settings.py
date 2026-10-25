@@ -25,7 +25,9 @@ def env_bool(name: str, default: bool) -> bool:
 
 
 def env_int(name: str, default: int) -> int:
-    return int(env(name, str(default)))
+    # `NAME=` with nothing after it means «not set»: the default, not a crash at startup.
+    value = env(name, str(default)).strip()
+    return int(value) if value else default
 
 
 def env_list(name: str, default: str = "") -> list[str]:
