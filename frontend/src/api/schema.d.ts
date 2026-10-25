@@ -969,7 +969,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Воронка, время в статусах, доля автоматических решений */
+        /** Где сейчас заявки, воронка, время в статусах, доля автоматических решений */
         get: operations["getBankDashboard"];
         put?: never;
         post?: never;
@@ -1984,7 +1984,12 @@ export interface components {
         BankDashboard: {
             period_days: number;
             total_applications: number;
-            /** @description Сколько заявок дошло до каждого этапа */
+            /** @description Где заявки периода сейчас: сколько их в каждом статусе. Каждая заявка — в одной строке, сумма count равна total_applications. Все статусы, кроме draft, в порядке пути заявки, нули тоже. */
+            by_status: {
+                status: components["schemas"]["ApplicationStatus"];
+                count: number;
+            }[];
+            /** @description Сколько заявок дошло до каждого этапа (накопительно — заявка считается на каждом пройденном этапе) */
             funnel: {
                 stage: components["schemas"]["ApplicationStatus"];
                 count: number;

@@ -11,11 +11,11 @@ import { NativeSelect } from "@/components/ui/input";
 import { unwrap } from "@/lib/errors";
 import { formatDecimal } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { EMPTY, STATUS, BANK_DASHBOARD as T } from "@/texts";
+import { EMPTY, STATUS, type StatusGroup, BANK_DASHBOARD as T } from "@/texts";
 
 const PERIODS = [7, 30, 90] as const;
 
-/** B6: pipeline funnel, average hours in each status, share of automatic decisions; XP4: SLA. */
+/** B6: where the applications are now, average hours in each status, auto decisions; XP4: SLA. */
 export function BankDashboardPage() {
   const [params, setParams] = useSearchParams();
   const periodId = useId();
@@ -85,7 +85,6 @@ export function BankDashboardPage() {
       </div>
     );
   }
-  const top = Math.max(1, ...data.funnel.map((row) => row.count));
   const share = data.auto_decision_share;
   const hours = Object.entries(data.avg_hours_in_status).sort(
     (a, b) => Number(b[1]) - Number(a[1]),
@@ -112,28 +111,12 @@ export function BankDashboardPage() {
         <Card>
           <p className="m-0 text-sm text-ink-muted">{T.issued}</p>
           <p className="m-0 font-display text-3xl font-semibold tabular">
-            {data.funnel.find((row) => row.stage === "issued")?.count ?? 0}
+            {data.by_status.find((row) => row.status === "issued")?.count ?? 0}
           </p>
         </Card>
         <OverdueCard data={data} />
       </div>
-      <Card>
-        <CardTitle className="m-0">{T.funnel}</CardTitle>
-        <ul aria-label={T.funnel} className="m-0 flex list-none flex-col gap-2 p-0">
-          {data.funnel.map((row) => (
-            <li key={row.stage} className="grid grid-cols-[200px_1fr_56px] items-center gap-3">
-              <span className="text-sm">{STATUS[row.stage].label}</span>
-              <span className="h-3 rounded-full bg-sunken" aria-hidden="true">
-                <span
-                  className="block h-3 rounded-full bg-primary"
-                  style={{ width: `${(row.count / top) * 100}%` }}
-                />
-              </span>
-              <span className="text-right font-semibold tabular">{row.count}</span>
-            </li>
-          ))}
-        </ul>
-      </Card>
+      <StatusCards data={data} />
       <Card>
         <CardTitle className="m-0">{T.hours}</CardTitle>
         {hours.length === 0 ? (
@@ -156,6 +139,143 @@ export function BankDashboardPage() {
 }
 
 type Dashboard = Schemas["BankDashboard"];
+type Status = Schemas["ApplicationStatus"];
+type Row = { key: keyof typeof T.rows; statuses: Status[] };
+
+/*
+ * The period's applications by their current status (by_status). Each is counted once, so «В работе
+ * сейчас» and «Итоги за период» add up to the period's total; work is grouped by who has to act.
+ */
+const IN_WORK: { key: keyof typeof T.groups; rows: Row[] }[] = [
+  {
+    key: "bank",
+    rows: [
+      { key: "checking", statuses: ["submitted", "processing"] },
+      { key: "manual_review", statuses: ["manual_review"] },
+    ],
+  },
+  {
+    key: "client",
+    rows: [
+      { key: "info_requested", statuses: ["info_requested"] },
+      { key: "offer", statuses: ["offer"] },
+      { key: "signing", statuses: ["signing"] },
+    ],
+  },
+  { key: "payout", rows: [{ key: "signed", statuses: ["signed"] }] },
+];
+
+const RESULTS: Row[] = [
+  { key: "issued", statuses: ["issued"] },
+  { key: "declined", statuses: ["declined"] },
+  { key: "cancelled", statuses: ["cancelled"] },
+];
+
+// The same colours as the status badges in the queue.
+const BAR: Record<StatusGroup, string> = {
+  action: "bg-status-action",
+  progress: "bg-status-progress",
+  success: "bg-status-success",
+  danger: "bg-status-danger",
+  neutral: "bg-status-neutral",
+};
+
+/** «В работе сейчас» and «Итоги за период» side by side. */
+function StatusCards({ data }: { data: Dashboard }) {
+  const now = new Map(data.by_status.map((row) => [row.status, row.count]));
+  const count = (rows: Row[]) =>
+    rows.flatMap((row) => row.statuses).reduce((sum, status) => sum + (now.get(status) ?? 0), 0);
+  const inWork = count(IN_WORK.flatMap((group) => group.rows));
+  const finished = count(RESULTS);
+  return (
+    <div className="grid gap-4 lg:grid-cols-2">
+      <StatusCard title={T.inWork} hint={T.inWorkHint} total={inWork}>
+        {IN_WORK.map((group) => (
+          <section key={group.key} aria-label={T.groups[group.key]} className="flex flex-col gap-3">
+            <h3 className="m-0 flex justify-between gap-3 text-sm font-semibold">
+              {T.groups[group.key]}
+              <span className="tabular">{count(group.rows)}</span>
+            </h3>
+            <ul className="m-0 flex list-none flex-col gap-3 p-0">
+              {group.rows.map((row) => (
+                <StatusRow key={row.key} row={row} value={count([row])} total={inWork} />
+              ))}
+            </ul>
+          </section>
+        ))}
+      </StatusCard>
+      <StatusCard title={T.results} hint={T.resultsHint} total={finished}>
+        <ul className="m-0 flex list-none flex-col gap-3 p-0">
+          {RESULTS.map((row) => (
+            <StatusRow key={row.key} row={row} value={count([row])} total={finished} share />
+          ))}
+        </ul>
+      </StatusCard>
+    </div>
+  );
+}
+
+function StatusCard({
+  title,
+  hint,
+  total,
+  children,
+}: {
+  title: string;
+  hint: string;
+  total: number;
+  children: React.ReactNode;
+}) {
+  const titleId = useId();
+  return (
+    <Card aria-labelledby={titleId} className="gap-5">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex flex-col gap-1">
+          <CardTitle id={titleId} className="m-0">
+            {title}
+          </CardTitle>
+          <p className="m-0 text-sm text-ink-muted">{hint}</p>
+        </div>
+        <span className="font-display text-3xl font-semibold tabular">{total}</span>
+      </div>
+      {children}
+    </Card>
+  );
+}
+
+/** The label and the number side by side, a thin bar below; a zero row is muted. */
+function StatusRow({
+  row,
+  value,
+  total,
+  share = false,
+}: {
+  row: Row;
+  value: number;
+  total: number;
+  share?: boolean;
+}) {
+  const percent = total ? Math.round((value / total) * 100) : 0;
+  return (
+    <li data-row={row.key} className={cn("flex flex-col gap-1.5", value === 0 && "text-ink-muted")}>
+      <span className="flex items-baseline justify-between gap-3 text-sm">
+        <span>{T.rows[row.key]}</span>
+        <span className="flex items-baseline gap-3 tabular">
+          <span className="font-semibold">{value}</span>
+          {share ? (
+            <span className="w-24 text-right text-ink-muted">{T.share(value, percent)}</span>
+          ) : null}
+        </span>
+      </span>
+      <span className="h-1.5 rounded-full bg-sunken" aria-hidden="true">
+        <span
+          className={cn("block h-1.5 rounded-full", BAR[STATUS[row.statuses[0] as Status].group])}
+          style={{ width: `${percent}%` }}
+        />
+      </span>
+    </li>
+  );
+}
 
 /** XP4: how many applications waiting for the bank are past their status norm, and the norms. */
 function OverdueCard({ data }: { data: Dashboard }) {
