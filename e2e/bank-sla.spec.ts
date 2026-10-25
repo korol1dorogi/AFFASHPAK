@@ -17,7 +17,16 @@ test("the bank sees overdue applications marked in the queue and on the dashboar
   await expect(bank.locator("tbody tr:not([data-overdue])")).toHaveCount(0);
   await bank.screenshot({ path: "test-results/xp4-overdue-queue.png", fullPage: true });
 
-  await bank.goto("/bank/dashboard");
+  await bank.getByRole("link", { name: "Сводка" }).click();
+  await expect(bank).toHaveURL(/\/bank\/dashboard$/);
+  await expect(bank.getByRole("heading", { name: "Сводка", level: 1 })).toBeVisible();
+  // Each application of the period in one row: where it is now, not every stage it passed.
+  const now = bank.getByLabel("Где сейчас заявки");
+  for (const group of ["Ход за банком", "Ход за клиентом", "Выдача", "Завершены"]) {
+    await expect(now.getByRole("region", { name: group })).toBeVisible();
+  }
+  await expect(now.locator('li[data-row="manual_review"]')).toContainText(/\d+ · \d+ %/);
+
   const card = bank.getByLabel("Просрочено по нормативу");
   await expect(card).toContainText(/\d+ из \d+/);
   await expect(card).toContainText("У сотрудника банка — 24 ч");
