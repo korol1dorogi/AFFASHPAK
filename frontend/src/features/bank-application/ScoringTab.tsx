@@ -1,7 +1,7 @@
 import type { Schemas } from "@/api/client";
 import { EmptyState } from "@/components/States";
 import { Card, CardTitle } from "@/components/ui/card";
-import { ScoreBreakdown } from "@/features/bank-application/ScoreBreakdown";
+import { ScoreBreakdown } from "@/components/ScoreBreakdown";
 import { BANK_CARD } from "@/texts";
 
 const T = BANK_CARD.scoring;

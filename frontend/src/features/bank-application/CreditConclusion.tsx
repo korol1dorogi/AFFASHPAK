@@ -10,7 +10,7 @@ import {
   type OfficerVerdict,
   officerName,
 } from "@/features/bank-application/conclusion";
-import { FACTOR_MAX_POINTS, factorValue } from "@/features/bank-application/ScoreBreakdown";
+import { FACTOR_MAX_POINTS, factorValue } from "@/components/ScoreBreakdown";
 import { formatDate, formatDateTime, formatDecimal, formatMoney, formatRate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import {
