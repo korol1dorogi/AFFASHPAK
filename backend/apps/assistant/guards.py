@@ -86,6 +86,43 @@ def check_tool_call(allowed: set[str], name: str, calls_so_far: int) -> str | No
     return None
 
 
+# Tool names as people know these places in the cabinet and the card (UX7, round 2: the officer
+# read «(инструмент: dscr_and_limits)» despite the prompt).
+TOOL_WORDS = {
+    "recommend_products": "подбор",
+    "calc_payment": "калькулятор",
+    "explain_status": "статус заявки",
+    "explain_decision": "решение по заявке",
+    "create_draft": "черновик заявки",
+    "what_if": "расчёт «Что если»",
+    "approval_plan": "план «Как получить одобрение»",
+    "explain_check_status": "проверки",
+    "company_metrics": "показатели компании",
+    "required_documents": "документы",
+    "explain_term": "словарь",
+    "application_summary": "карточка заявки",
+    "checks_with_provenance": "вкладка «Проверки»",
+    "score_breakdown": "вкладка «Скоринг»",
+    "dscr_and_limits": "платёжеспособность",
+    "policy_compare": "кредитная политика",
+    "missing_documents": "документы заявки",
+    "draft_officer_comment": "черновик комментария",
+}
+_TECH = re.compile(r"\b(" + "|".join(sorted(TOOL_WORDS, key=len, reverse=True)) + r")\b")
+_TECH_SOURCE = re.compile(r"\(\s*инструмент\s*:\s*", re.IGNORECASE)
+
+
+def humanize(text: str) -> str:
+    """Tool names and scoring keys in an answer → the words of the interface."""
+    from apps.assistant.tools_bank import FACTOR_LABELS  # the card's names of the factors
+
+    text = _TECH_SOURCE.sub("(источник: ", text)
+    text = _TECH.sub(lambda match: TOOL_WORDS[match.group(1)], text)
+    for key, label in FACTOR_LABELS.items():
+        text = re.sub(rf"\b{key}\b", f"«{label}»", text)
+    return text
+
+
 def check_output(text: str) -> str:
     """Layer 4. Plain text only: tags, markdown marks and links removed, entities decoded."""
     plain = html.unescape(_TAG.sub("", text or ""))

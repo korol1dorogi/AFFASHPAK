@@ -78,3 +78,14 @@ def test_the_decision_summary_names_factors_as_the_card_does():
     built = summary.from_facts(results)
     assert built["sources"] == ["скоринг: «Долговая нагрузка (долг к EBITDA)»"]
     assert "debt_to_ebitda" not in str(built)
+
+
+def test_tool_names_and_factor_keys_become_interface_words():
+    from apps.assistant import guards
+
+    text = "Платежи 1 000 000 ₽ (инструмент: dscr_and_limits); debt_to_ebitda выше нормы; DSCR 1,1"
+    human = guards.humanize(text)
+    assert "dscr_and_limits" not in human and "debt_to_ebitda" not in human
+    assert "(источник: платёжеспособность)" in human
+    assert "«Долговая нагрузка (долг к EBITDA)» выше нормы" in human
+    assert "DSCR 1,1" in human  # the abbreviation people know stays

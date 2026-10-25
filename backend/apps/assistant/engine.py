@@ -227,7 +227,9 @@ def respond(
             reply_text = UNAVAILABLE_ONLY
         else:
             grounding = " ".join([checked.text, application_context, _today()])
-            reply_text = _guarded(turn, client, answer, profile, grounding, triggers)
+            reply_text = guards.humanize(
+                _guarded(turn, client, answer, profile, grounding, triggers)
+            )
             if fallback:
                 reply_text = f"{UNAVAILABLE} {reply_text}"
         saved = _save(
