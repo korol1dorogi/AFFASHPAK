@@ -235,6 +235,7 @@ CI ([.github/workflows/ci.yml](.github/workflows/ci.yml)) на каждый PR �
 | Принятые решения | [docs/decisions.md](docs/decisions.md) |
 | Сторонние компоненты и смоделированные интеграции | [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) |
 | Стенд и деплой | [docs/deploy.md](docs/deploy.md), [docker-compose.prod.yml](docker-compose.prod.yml) |
+| Нагрузочный прогон k6: профиль, результаты, узкое место | [docs/perf.md](docs/perf.md), сценарии — [scripts/k6/](scripts/k6/) |
 
 ## Ограничения и допущения
 - **Данные синтетические.** Данных от организаторов нет: компании, люди, выписки, реестры и кредитные истории создаёт детерминированный генератор команды при старте, всё помечено «демо».
