@@ -83,10 +83,27 @@ def test_dashboard_counts_the_seeded_queue(demo, django_capture_on_commit_callba
     assert "processing" in body["avg_hours_in_status"]
 
 
+def test_dashboard_says_where_each_application_is_now(demo, django_capture_on_commit_callbacks):
+    with django_capture_on_commit_callbacks(execute=True):
+        seed_queue(12)
+    body = login("bank").get("/api/bank/dashboard?days=30").json()
+    statuses = [row["status"] for row in body["by_status"]]
+    assert statuses == [
+        "submitted", "processing", "manual_review", "info_requested", "offer", "signing",
+        "signed", "issued", "declined", "cancelled",
+    ]  # fmt: skip
+    now = {row["status"]: row["count"] for row in body["by_status"]}
+    # Each application once, in its current status: the counts add up, unlike the funnel.
+    assert sum(now.values()) == body["total_applications"] == 12
+    in_db = Application.objects.exclude(status="draft")
+    assert now == {state: in_db.filter(status=state).count() for state in statuses}
+
+
 def test_dashboard_without_applications_has_no_share(demo):
     body = login("bank").get("/api/bank/dashboard").json()
     assert body["total_applications"] == 0
     assert body["auto_decision_share"] is None
+    assert {row["count"] for row in body["by_status"]} == {0}
 
 
 def test_dashboard_is_for_the_bank_only(demo):

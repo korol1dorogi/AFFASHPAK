@@ -1202,7 +1202,7 @@ paths:
     get:
       tags: [bank]
       operationId: getBankDashboard
-      summary: Воронка, время в статусах, доля автоматических решений
+      summary: Где сейчас заявки, воронка, время в статусах, доля автоматических решений
       parameters:
         - name: days
           in: query
@@ -2701,13 +2701,24 @@ components:
               count: { type: integer, minimum: 1 }
     BankDashboard:
       type: object
-      required: [period_days, funnel, avg_hours_in_status, auto_decision_share, total_applications, sla_hours, sla_open_count, overdue_count, overdue_share]
+      required: [period_days, by_status, funnel, avg_hours_in_status, auto_decision_share, total_applications, sla_hours, sla_open_count, overdue_count, overdue_share]
       properties:
         period_days: { type: integer }
         total_applications: { type: integer, minimum: 0 }
+        by_status:
+          type: array
+          description: >-
+            Где заявки периода сейчас: сколько их в каждом статусе. Каждая заявка — в одной строке,
+            сумма count равна total_applications. Все статусы, кроме draft, в порядке пути заявки, нули тоже.
+          items:
+            type: object
+            required: [status, count]
+            properties:
+              status: { $ref: "#/components/schemas/ApplicationStatus" }
+              count: { type: integer, minimum: 0 }
         funnel:
           type: array
-          description: Сколько заявок дошло до каждого этапа
+          description: Сколько заявок дошло до каждого этапа (накопительно — заявка считается на каждом пройденном этапе)
           items:
             type: object
             required: [stage, count]

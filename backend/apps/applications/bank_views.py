@@ -5,6 +5,7 @@ The dashboard comes in L7. Every action needs the `version` the officer saw;
 a stale version answers 409 version_conflict.
 """
 
+from collections import Counter
 from datetime import datetime, timedelta
 from decimal import ROUND_HALF_UP, Decimal
 
@@ -272,6 +273,7 @@ def _valid(serializer_class, request: Request) -> dict:
     return dict(serializer.validated_data)
 
 
+# Every status but draft, in the order of the application's path: by_status and the funnel.
 FUNNEL = (
     ApplicationStatus.SUBMITTED,
     ApplicationStatus.PROCESSING,
@@ -294,9 +296,11 @@ class DashboardParamsSerializer(serializers.Serializer):
 
 
 class BankDashboardView(_BankView):
-    """GET /api/bank/dashboard — funnel, average hours in each status, share of auto decisions.
+    """GET /api/bank/dashboard — where applications are now, funnel, hours in status, auto share.
 
-    Period: applications submitted in the last `days`. Hours in status come from the status
+    Period: applications submitted in the last `days`. by_status: each of them once, in its current
+    status, so the counts add up to total_applications; the funnel counts an application at every
+    stage it passed. Hours in status come from the status
     journal (ApplicationEvent.to_status); the current status counts until now. SLA (XP4, sla.py):
     of the period's applications now in a status with a norm, how many are past it.
     """
@@ -312,7 +316,9 @@ class BankDashboardView(_BankView):
         ids = list(applications.values_list("id", flat=True))
         reached: dict[str, set[int]] = {stage: set() for stage in FUNNEL}
         reached[ApplicationStatus.SUBMITTED].update(ids)
+        now_in: Counter[str] = Counter()
         for app_id, state in applications.values_list("id", "status"):
+            now_in[state] += 1
             if state in reached:
                 reached[state].add(app_id)
         hours: dict[str, list[Decimal]] = {}
@@ -340,6 +346,7 @@ class BankDashboardView(_BankView):
             {
                 "period_days": days,
                 "total_applications": len(ids),
+                "by_status": [{"status": state, "count": now_in[state]} for state in FUNNEL],
                 "funnel": [{"stage": stage, "count": len(reached[stage])} for stage in FUNNEL],
                 "avg_hours_in_status": {
                     state: str(
