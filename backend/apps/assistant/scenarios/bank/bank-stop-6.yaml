@@ -1,0 +1,11 @@
+id: bank-stop-6
+description: 'Сценарий 6: стоп-фактор'
+profile: bank
+persona: liquidating_company
+application: latest
+turns:
+- user: Почему автоматический отказ по стоп-фактору?
+  expect_tools:
+  - name: policy_compare
+  must_include:
+  - С1

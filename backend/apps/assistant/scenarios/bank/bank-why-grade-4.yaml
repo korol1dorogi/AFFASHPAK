@@ -1,0 +1,11 @@
+id: bank-why-grade-4
+description: Почему грейд C
+profile: bank
+persona: furniture_maker
+application: latest
+turns:
+- user: Почему грейд C?
+  expect_tools:
+  - name: score_breakdown
+  must_include:
+  - '65'

@@ -6,7 +6,7 @@ a stale version answers 409 version_conflict.
 """
 
 from datetime import datetime, timedelta
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 
 from django.db.models import Count, Q, QuerySet
 from django.utils import timezone
@@ -47,6 +47,7 @@ from apps.applications.serializers import (
 )
 from apps.applications.sla import open_q, overdue_q, sla_hours, sla_state
 from apps.core.permissions import IsBankUser
+from apps.credit_math import round_ratio
 from apps.documents.serializers import DocumentSerializer
 from apps.products.models import ProductKind
 
@@ -284,6 +285,8 @@ FUNNEL = (
     ApplicationStatus.CANCELLED,
 )
 FINAL_OUTCOMES = ("offer", "counteroffer", "alternative_product", "declined")
+# Hours in status to 0.01, half up like every other rounding here; shares go through round_ratio.
+HOURS_STEP = Decimal("0.01")
 
 
 class DashboardParamsSerializer(serializers.Serializer):
@@ -339,19 +342,19 @@ class BankDashboardView(_BankView):
                 "total_applications": len(ids),
                 "funnel": [{"stage": stage, "count": len(reached[stage])} for stage in FUNNEL],
                 "avg_hours_in_status": {
-                    state: str((sum(values) / len(values)).quantize(Decimal("0.01")))
+                    state: str(
+                        (sum(values) / len(values)).quantize(HOURS_STEP, rounding=ROUND_HALF_UP)
+                    )
                     for state, values in hours.items()
                 },
                 "auto_decision_share": (
-                    str((Decimal(auto) / total_decisions).quantize(Decimal("0.0001")))
-                    if total_decisions
-                    else None
+                    str(round_ratio(Decimal(auto) / total_decisions)) if total_decisions else None
                 ),
                 "sla_hours": sla_hours(),
                 "sla_open_count": sla_open_count,
                 "overdue_count": overdue_count,
                 "overdue_share": (
-                    str((Decimal(overdue_count) / sla_open_count).quantize(Decimal("0.0001")))
+                    str(round_ratio(Decimal(overdue_count) / sla_open_count))
                     if sla_open_count
                     else None
                 ),

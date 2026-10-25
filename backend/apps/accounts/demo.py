@@ -2,7 +2,7 @@
 
 Everything comes from the synthetic generator (apps/demo_data, S2) and is marked «демо».
 Seeding only creates what is missing, so restarts keep what people changed during a demo;
-a full reset is /api/demo/reset (B7).
+/api/demo/reset (B7) returns the seeded companies to their starting state.
 """
 
 import json
@@ -201,8 +201,28 @@ def seed_products() -> int:
     return created
 
 
-def reset_demo() -> None:
-    """Back to the seeded state: no applications, no notifications, no outages, fresh queue."""
+def seeded_company_inns() -> set[str]:
+    """Companies the stand seeds itself: the personas and the demo queue.
+
+    Not `is_demo`: a company someone connects by INN is demo too (its data come from the
+    registry simulator), and a reset must not wipe what another visitor is doing in it.
+    """
+    from apps.accounts.demo_queue import queue_companies
+
+    return {c["inn"] for c in persona_dataset()["companies"]} | {
+        c["inn"] for c in queue_companies()
+    }
+
+
+def _delete_files(storage, names: list[str]) -> None:
+    for name in names:
+        storage.delete(name)
+
+
+def reset_demo() -> dict[str, int]:
+    """Seeded companies back to their starting state: their applications (with notifications and
+    files) go, outages are off and the demo queue is seeded again. Applications of companies
+    people connected themselves stay. Returns what was deleted."""
     from apps.accounts.demo_queue import seed_queue
     from apps.applications.models import Application
     from apps.documents.models import Document
@@ -210,12 +230,23 @@ def reset_demo() -> None:
     from apps.integrations.breaker import breaker
     from apps.notifications.models import Notification
 
-    for document in Document.objects.exclude(file=""):
-        document.file.delete(save=False)  # files first: the rows go with their applications
+    applications = Application.objects.filter(company__inn__in=seeded_company_inns())
+    storage = Document._meta.get_field("file").storage
     with transaction.atomic():
-        Notification.objects.all().delete()
-        Application.objects.all().delete()
+        files = list(
+            Document.objects.filter(application__in=applications)
+            .exclude(file="")
+            .values_list("file", flat=True)
+        )
+        deleted = {
+            "applications": applications.count(),
+            "notifications": Notification.objects.filter(application__in=applications).count(),
+        }
+        applications.delete()  # notifications and documents go with them (CASCADE)
         flags.reset()
+        # Files only once the rows are gone for good: a rollback must not leave rows without files.
+        transaction.on_commit(lambda: _delete_files(storage, files))
     breaker.reset()
     seed()
     seed_queue()
+    return deleted

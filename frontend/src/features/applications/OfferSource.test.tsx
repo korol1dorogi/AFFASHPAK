@@ -110,7 +110,7 @@ describe("where the offer's amounts come from (SRC7)", () => {
     const offer = await screen.findByRole("article", { name: "Предложение банка" });
     expect(amountLine(offer, "2 009 314 ₽")).toHaveTextContent("2 009 314 ₽расчёт");
     expect(within(offer).getByText("Вы просили 5 300 000 ₽")).toHaveTextContent(
-      "Вы просили 5 300 000 ₽со слов клиента",
+      "Вы просили 5 300 000 ₽вы указали",
     );
     expect(amountLine(offer, "189 999,92 ₽")).toHaveTextContent("189 999,92 ₽расчёт");
   });

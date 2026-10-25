@@ -70,7 +70,8 @@ def test_create_list_and_get_match_contract(world):
     assert data["status"] == "draft"
     assert data["version"] == 0
     assert data["product_code"] == "overdraft_demo"
-    assert data["available_actions"] == ["edit", "upload_document"]  # preparer cannot submit
+    # The preparer cannot submit, only hand the draft to the signatory (XP5).
+    assert data["available_actions"] == ["edit", "upload_document", "hand_off"]
 
     listed = world["as_signatory"].get("/api/applications")
     assert_matches_contract(listed, method="get", path="/api/applications")
@@ -190,7 +191,7 @@ def test_consent_is_stored_and_written_to_the_journal(world):
     assert consent.user == world["signatory"]
     assert consent.text_version == BKI_CONSENT_VERSION
     event = ApplicationEvent.objects.get(application=application, kind="consent_given")
-    assert event.message == "Согласие на запрос в БКИ"
+    assert event.message == "Согласие на запрос кредитной истории"
     assert event.is_internal is False  # the client sees it in the history, the bank too
     assert event.actor == world["signatory"]
 

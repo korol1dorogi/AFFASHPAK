@@ -474,6 +474,33 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/applications/{id}/hand-off": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ApplicationId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Передать готовый черновик подписанту (XP5)
+         * @description Готовит заявку `preparer` (бухгалтер), отправляет только `signatory`. Когда черновик
+         *     готов, бухгалтер передаёт его подписантам: в журнале — событие `handed_off`, каждому
+         *     подписанту компании — уведомление. Статус и `version` не меняются; повторная передача —
+         *     напоминание. Доступно только в `draft` и только бухгалтеру (`hand_off` в
+         *     `available_actions`). Поля проверяются так же, как при отправке (400 с ошибкой по полю),
+         *     кроме согласия на запрос в БКИ — его даёт подписант при отправке.
+         */
+        post: operations["handOffApplication"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/applications/{id}/events": {
         parameters: {
             query?: never;
@@ -876,6 +903,45 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/bank/applications/{id}/assistant/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ApplicationId"];
+            };
+            cookie?: never;
+        };
+        /** История диалога сотрудника с ассистентом по заявке (журнал вызовов инструментов) */
+        get: operations["listBankAssistantMessages"];
+        put?: never;
+        /** Сообщение ассистенту сотрудника (AI11). Инструменты только читают; pending_action всегда null: статус, решение и комментарий меняет сотрудник сам */
+        post: operations["sendBankAssistantMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/bank/applications/{id}/assistant/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ApplicationId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** «Сводка для решения» (И2а): риски по убыванию веса, что перепроверить, черновик комментария и источники. Ничего не сохраняет в заявке */
+        post: operations["createBankAssistantSummary"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/bank/applications/{id}/documents/{document_id}": {
         parameters: {
             query?: never;
@@ -978,6 +1044,30 @@ export interface paths {
         put?: never;
         /** Быстрый вход за персону */
         post: operations["demoLogin"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/demo/sources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Живой статус источников — сбой и circuit breaker (XP6, сотрудник банка)
+         * @description Для демо-панели: по каждому из четырёх источников — включён ли сбой и когда погаснет сам
+         *     (через 15 минут после включения), и состояние circuit breaker. Breaker общий для всех
+         *     процессов стенда: три неудачных вызова подряд открывают его на 30 секунд, затем один
+         *     пробный вызов (half_open), удачный — закрывает. Выключение сбоя закрывает breaker
+         *     источника. Только на стенде (`DEMO_MODE=1`).
+         */
+        get: operations["getDemoSources"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1403,7 +1493,7 @@ export interface components {
          */
         ApplicationStatus: "draft" | "submitted" | "processing" | "manual_review" | "info_requested" | "offer" | "signing" | "signed" | "issued" | "declined" | "cancelled";
         /** @enum {string} */
-        ApplicationAction: "edit" | "upload_document" | "submit" | "cancel" | "respond_info" | "accept_offer" | "decline_offer" | "sign" | "assign" | "approve" | "counteroffer" | "request_info" | "decline";
+        ApplicationAction: "edit" | "upload_document" | "submit" | "hand_off" | "cancel" | "respond_info" | "accept_offer" | "decline_offer" | "sign" | "assign" | "approve" | "counteroffer" | "request_info" | "decline";
         /** @enum {string} */
         PrefillSource: "manual" | "recommendation" | "assistant";
         Application: {
@@ -1463,7 +1553,7 @@ export interface components {
         /** @enum {string} */
         ActorKind: "client" | "bank" | "system";
         /** @enum {string} */
-        EventKind: "status_changed" | "document_uploaded" | "info_requested" | "info_responded" | "assigned" | "check_completed" | "score_calculated" | "decision" | "comment" | "signed" | "issued" | "consent_given";
+        EventKind: "status_changed" | "document_uploaded" | "info_requested" | "info_responded" | "assigned" | "check_completed" | "score_calculated" | "decision" | "comment" | "signed" | "issued" | "consent_given" | "handed_off";
         ApplicationEvent: {
             /** @example 1 */
             id: number;
@@ -1540,7 +1630,7 @@ export interface components {
             points: number;
             /**
              * @description Что сделать — простым языком
-             * @example Снизьте долю крупнейшего покупателя до 50 % и меньше (сейчас 80 %)
+             * @example Найдите ещё покупателей, чтобы на крупнейшего приходилось не больше 50% поступлений (сейчас 80%)
              */
             message: string;
         };
@@ -1817,7 +1907,7 @@ export interface components {
         };
         /** @description Запись журнала — что ассистент вызвал и что получил */
         AssistantToolCall: {
-            /** @example get_recommendations */
+            /** @example recommend_products */
             name: string;
             arguments: {
                 [key: string]: unknown;
@@ -1853,6 +1943,17 @@ export interface components {
             tool_calls: components["schemas"]["AssistantToolCall"][];
             pending_action: components["schemas"]["PendingAction"] | null;
         };
+        BankAssistantMessageRequest: {
+            text: string;
+        };
+        /** @description «Сводка для решения» сотрудника (И2а). Каждая строка — из результатов инструментов; у риска в скобках источник (проверка или фактор скоринга) */
+        AssistantSummary: {
+            risks: string[];
+            to_verify: string[];
+            /** @description Текст */
+            draft_comment: string;
+            sources: string[];
+        };
         AssistantActionResult: {
             /** Format: uuid */
             action_id: string;
@@ -1869,6 +1970,27 @@ export interface components {
             /** @description Номер сценария из docs/plan.md (8 — D15) */
             scenario: number;
             kind: components["schemas"]["UserKind"];
+        };
+        DemoSource: {
+            source: components["schemas"]["CheckSource"];
+            /** @description Сбой включён на демо-панели */
+            failing: boolean;
+            /** @description Когда сбой погаснет сам; null — сбоя нет */
+            failing_until: string | null;
+            breaker: {
+                /**
+                 * @description closed — вызовы идут; open — вызовов нет до open_until, источник сразу
+                 *     «не отвечает»; half_open — следующий вызов пробный
+                 * @enum {string}
+                 */
+                state: "closed" | "open" | "half_open";
+                /** @description Неудачных вызовов подряд */
+                failures: number;
+                /** @description До какого момента breaker открыт; null — не открывался */
+                open_until: string | null;
+                /** @description Последний неудачный вызов; null — с последнего успеха не было */
+                last_failure_at: string | null;
+            };
         };
         /** @description true — источник «падает» (симулятор отвечает ошибкой или таймаутом) */
         DemoFailures: {
@@ -2825,6 +2947,33 @@ export interface operations {
             409: components["responses"]["Conflict"];
         };
     };
+    handOffApplication: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ApplicationId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Передано, подписанты уведомлены */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationDetail"];
+                };
+            };
+            400: components["responses"]["ValidationError"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
     listApplicationEvents: {
         parameters: {
             query?: never;
@@ -3442,6 +3591,88 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    listBankAssistantMessages: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ApplicationId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Сообщения этого сотрудника по этой заявке, от старых к новым */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssistantMessage"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    sendBankAssistantMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ApplicationId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BankAssistantMessageRequest"];
+            };
+        };
+        responses: {
+            /** @description Ответ и вызванные инструменты */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssistantReply"];
+                };
+            };
+            400: components["responses"]["ValidationError"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    createBankAssistantSummary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ApplicationId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Сводка */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssistantSummary"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
     downloadBankApplicationDocument: {
         parameters: {
             query?: never;
@@ -3618,6 +3849,29 @@ export interface operations {
                     "application/json": components["schemas"]["Me"];
                 };
             };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getDemoSources: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Четыре источника в порядке egrul, transparent_business, bki, bank_account */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DemoSource"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
         };

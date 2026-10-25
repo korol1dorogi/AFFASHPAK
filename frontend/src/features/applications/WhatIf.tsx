@@ -9,10 +9,11 @@ import { ReasonList } from "@/components/ReasonList";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardDescription, CardTitle } from "@/components/ui/card";
 import { type ApplicationDetail, useWhatIf } from "@/features/applications/api";
+import { AskAssistant } from "@/features/assistant/AskAssistant";
 import { errorMessage } from "@/lib/errors";
 import { formatDecimal, formatMoney } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { WHAT_IF as T } from "@/texts";
+import { ASSISTANT, WHAT_IF as T } from "@/texts";
 
 type Offer = Schemas["Offer"];
 
@@ -80,6 +81,14 @@ export function WhatIf({ application, offer }: { application: ApplicationDetail;
         <CardTitle id={titleId}>{T.title}</CardTitle>
         <CardDescription>{T.subtitle}</CardDescription>
       </div>
+      {/* AI6: the same question in words — the assistant answers with the same service. */}
+      <AskAssistant
+        question={ASSISTANT.ask.whatIfLonger(
+          formatMoney(offer.amount),
+          Math.min(offer.term_months + 6, product.term_max_months),
+        )}
+        applicationId={application.id}
+      />
       <div className="grid gap-6 sm:grid-cols-2">
         <div className="flex flex-col gap-2">
           <Field label={T.amount}>

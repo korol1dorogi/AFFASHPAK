@@ -10,7 +10,7 @@ from apps.business.inn import inn_is_valid
 from apps.business.models import Invitation, MemberRole
 
 INN = r"^\d{10}(\d{2})?$"
-INN_MESSAGE = "ИНН — 10 цифр у ООО или 12 у ИП."
+INN_MESSAGE = "В ИНН должно быть 10 цифр у ООО или 12 у ИП."
 INN_CHECKSUM_MESSAGE = "В ИНН ошибка: не сходятся контрольные цифры. Проверьте номер."
 
 

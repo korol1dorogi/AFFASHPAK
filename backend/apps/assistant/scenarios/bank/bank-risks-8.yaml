@@ -1,0 +1,10 @@
+id: bank-risks-8
+description: 'Сценарий 8: риски по заявке'
+profile: bank
+persona: equipment_no_collateral
+application: latest
+turns:
+- user: Какие риски по заявке?
+  expect_tools:
+  - name: application_summary
+  - name: score_breakdown

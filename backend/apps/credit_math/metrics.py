@@ -24,7 +24,9 @@ def dscr(cfads: Number, debt_service: Number) -> Metric:
     if service < 0:
         raise ValueError("debt_service must be >= 0")
     if service == 0:
-        return Metric.unavailable("Долга нет: платежей по кредитам нет, DSCR не определён.")
+        return Metric.unavailable(
+            "Платежей по кредитам нет, поэтому запас на платежи не посчитать."
+        )
     with precise():
         return Metric(round_ratio(flow / service))
 
@@ -38,7 +40,8 @@ def debt_to_ebitda(debt: Number, ebitda: Number, cash: Number = 0) -> Metric:
         raise ValueError("debt and cash must be >= 0")
     if e <= 0:
         return Metric.unavailable(
-            "EBITDA ≤ 0: долговая нагрузка не определена — это стоп-фактор, а не хороший знак."
+            "Операционной прибыли нет, поэтому долговую нагрузку не посчитать. "
+            "Это стоп-фактор, а не хороший знак."
         )
     with precise():
         return Metric(round_ratio((d - c) / e))
@@ -76,18 +79,18 @@ def ccc(
         dso = (
             Metric(round_ratio(ar / rev * days_in_year))
             if rev > 0
-            else Metric.unavailable("Выручки нет: оборачиваемость дебиторки не определена.")
+            else Metric.unavailable("Выручки нет, поэтому оборачиваемость дебиторки не посчитать.")
         )
         if cost > 0:
             dio = Metric(round_ratio(inv / cost * days_in_year))
             dpo = Metric(round_ratio(ap / cost * days_in_year))
         else:
-            note = "Себестоимости нет (услуги): DIO и DPO не определены."
+            note = "Себестоимости нет (бизнес на услугах), поэтому DIO и DPO не посчитать."
             dio = Metric.unavailable(note)
             dpo = Metric.unavailable(note)
 
     if dso.value is None or dio.value is None or dpo.value is None:
-        cycle = Metric.unavailable("Финансовый цикл не определён: не хватает DSO, DIO или DPO.")
+        cycle = Metric.unavailable("Финансовый цикл не посчитать: не хватает DSO, DIO или DPO.")
     else:
         cycle = Metric(dio.value + dso.value - dpo.value)
     return CashConversionCycle(dso=dso, dio=dio, dpo=dpo, ccc=cycle)
@@ -114,8 +117,8 @@ def working_capital_need_metric(
     """
     if receivables is None or inventory is None or payables is None:
         return Metric.unavailable(
-            "Нет остатков дебиторки, запасов или кредиторки: потребность в оборотных средствах "
-            "не посчитать, сумму ограничивает только DSCR."
+            "Нет данных о запасах, долгах покупателей или долгах поставщикам, поэтому деньги в "
+            "обороте не посчитать. Сумму ограничивает только платёж, который бизнес потянет."
         )
     return Metric(working_capital_need(receivables, inventory, payables))
 
@@ -127,7 +130,9 @@ def counterparty_concentration(top_inflow: Number, total_inflow: Number) -> Metr
     if top < 0 or total < 0:
         raise ValueError("inflows must be >= 0")
     if total == 0:
-        return Metric.unavailable("Поступлений нет: концентрацию посчитать нельзя.")
+        return Metric.unavailable(
+            "Поступлений на счёт нет, поэтому долю крупнейшего покупателя не посчитать."
+        )
     if top > total:
         raise ValueError("top_inflow cannot exceed total_inflow")
     with precise():
@@ -145,11 +150,14 @@ def revenue_trend(current_avg: Number, base_avg: Number, *, year_over_year: bool
     if current < 0 or base < 0:
         raise ValueError("revenue averages must be >= 0")
     if base == 0:
-        return Metric.unavailable("Нет базы для сравнения: выручка в базовом периоде равна нулю.")
+        return Metric.unavailable(
+            "В периоде для сравнения выручки не было, поэтому сравнить не с чем."
+        )
     note = (
         None
         if year_over_year
-        else "Истории меньше 15 месяцев: сравнение с предыдущими 3 месяцами, сезонность не учтена."
+        else "Выписка короче 15 месяцев, поэтому выручку сравнили с предыдущими "
+        "тремя месяцами, без учёта сезонности."
     )
     with precise():
         return Metric(round_ratio(current / base), note=note)

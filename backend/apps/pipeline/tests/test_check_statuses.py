@@ -117,7 +117,7 @@ def test_restricted_data_goes_to_an_officer_not_to_a_decline(seeded, answer_with
     assert any("сведения скрыты" in text for text in _messages(decision))
     check = Check.objects.get(application=application, source=source)
     assert check.status == "restricted"
-    assert check.summary.endswith("сведения скрыты — проверит сотрудник")
+    assert check.summary.endswith("сведения скрыты, проверит сотрудник банка")
 
 
 @pytest.mark.django_db
@@ -127,7 +127,10 @@ def test_restricted_bureau_scores_neutral_points_with_its_own_text(seeded, answe
 
     factor = next(f for f in application.score.factors if f["name"] == "bki_history")
     assert factor["value"] is None
-    assert "Сведения в БКИ скрыты — историю проверит сотрудник" in _messages(decision)
+    assert (
+        "Сведения в бюро кредитных историй скрыты, поэтому историю проверит сотрудник банка"
+        in _messages(decision)
+    )
 
 
 @pytest.mark.django_db
@@ -139,7 +142,10 @@ def test_consent_missing_goes_to_an_officer_without_an_outage_mark(seeded, answe
     assert decision.outcome == "manual_review"
     assert not application.source_unavailable
     assert Check.objects.get(application=application, source="bki").status == "consent_missing"
-    assert "Нет согласия на запрос в БКИ — историю проверит сотрудник" in _messages(decision)
+    assert (
+        "Согласия на запрос в бюро кредитных историй нет, поэтому историю проверит сотрудник банка"
+        in _messages(decision)
+    )
 
 
 @pytest.mark.django_db

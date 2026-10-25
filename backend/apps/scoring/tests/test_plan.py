@@ -37,8 +37,11 @@ def test_persona_5_two_concrete_steps_to_grade_c():
         ("revenue_trend", Decimal("0.8000"), Decimal("0.9"), 6),
     ]
     assert [s.message for s in plan.steps] == [
-        "Снизьте долю крупнейшего покупателя до 50% и меньше (сейчас 80%)",
-        "Верните выручку хотя бы к 90% прошлогодней (сейчас 80%)",
+        (
+            "Найдите ещё покупателей, чтобы на крупнейшего приходилось "
+            "не больше 50% поступлений (сейчас 80%)"
+        ),
+        "Верните выручку хотя бы к 90% от прошлого года (сейчас 80%)",
     ]
 
 
@@ -85,7 +88,10 @@ def test_the_business_age_is_a_step_of_waiting():
     )
     assert plan is not None
     assert [s.metric for s in plan.steps] == ["business_age_months"]
-    assert plan.steps[0].message == "Подайте заявку снова, когда бизнесу будет 12 мес (сейчас 10)"
+    assert (
+        plan.steps[0].message
+        == "Подайте заявку снова, когда бизнесу исполнится 1 год (сейчас 10 месяцев)"
+    )
 
 
 def test_out_of_reach_gives_no_plan():

@@ -73,7 +73,7 @@ def _inspect_pdf(data: bytes) -> None:
         raise UnsafeFile("после конца PDF дописаны лишние данные")
     names = _pdf_names(data)
     if b"Encrypt" in names:
-        raise UnsafeFile("PDF защищён паролем — его содержимое нельзя проверить")
+        raise UnsafeFile("PDF защищён паролем, поэтому его содержимое нельзя проверить")
     budget = _INFLATE_BUDGET
     for match in _PDF_STREAM.finditer(data):
         inflated, budget = _inflate(match.group(1), budget)

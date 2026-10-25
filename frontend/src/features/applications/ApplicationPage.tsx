@@ -32,9 +32,19 @@ import { CreditHistory } from "@/features/applications/CreditHistory";
 import { DocumentList, DocumentUpload } from "@/features/applications/Documents";
 import { useReturnFocus } from "@/features/applications/returnFocus";
 import { showsWhatIf, WhatIf } from "@/features/applications/WhatIf";
+import { AskAssistant } from "@/features/assistant/AskAssistant";
 import { ApiError, errorMessage } from "@/lib/errors";
 import { formatDate, formatMoney } from "@/lib/format";
-import { ACTION, BLOCK_STATE, DECISION_OUTCOME, DOCUMENT_KIND, LIVE, NEED, STATUS } from "@/texts";
+import {
+  ACTION,
+  ASSISTANT,
+  BLOCK_STATE,
+  DECISION_OUTCOME,
+  DOCUMENT_KIND,
+  LIVE,
+  NEED,
+  STATUS,
+} from "@/texts";
 
 const FIELD_LABEL: Record<string, string> = {
   purpose: "цель",
@@ -139,11 +149,14 @@ function InfoRequestCard({
  */
 function DecisionCard({
   decision,
+  applicationId,
   withReasons = true,
 }: {
   decision: Schemas["Decision"];
+  applicationId: number;
   withReasons?: boolean;
 }) {
+  const explainable = ["declined", "counteroffer", "alternative_product", "manual_review"];
   return (
     <Card>
       <div className="flex flex-wrap items-center gap-2">
@@ -155,10 +168,16 @@ function DecisionCard({
         </Badge>
       </div>
       {decision.comment ? <p className="m-0">{decision.comment}</p> : null}
+      {explainable.includes(decision.outcome) ? (
+        <AskAssistant question={ASSISTANT.ask.whyDecision} applicationId={applicationId} />
+      ) : null}
       {withReasons ? <ReasonList reasons={decision.reasons} /> : null}
       {decision.approval_plan && decision.grade ? (
         // The shortest way to grade C with targets; all the advice stays below it.
-        <ApprovalPlan plan={decision.approval_plan} grade={decision.grade} />
+        <>
+          <ApprovalPlan plan={decision.approval_plan} grade={decision.grade} />
+          <AskAssistant question={ASSISTANT.ask.howToApprove} applicationId={applicationId} />
+        </>
       ) : null}
       {/* BKI1: a past overdue cannot be planned away — say what the bank saw and what to do. */}
       <CreditHistory reasons={decision.reasons} finished={decision.outcome === "declined"} />
@@ -227,7 +246,7 @@ export function ApplicationPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <Link to={routes.applications} className="w-fit text-sm no-underline">
+      <Link to={routes.applications} className="link w-fit text-sm">
         ← Все заявки
       </Link>
       <PageHeader
@@ -249,6 +268,7 @@ export function ApplicationPage() {
       </PageHeader>
 
       <NextStep status={data.status} title={nextStepTitle(data)} action={mainAction}>
+        <AskAssistant question={ASSISTANT.ask.whatIsStatus} applicationId={data.id} />
         {data.status === "offer" && data.offer ? (
           <p className="m-0 text-sm">
             Предложение действует до {formatDate(data.offer.expires_at)}.
@@ -283,6 +303,7 @@ export function ApplicationPage() {
           {data.decision ? (
             <DecisionCard
               decision={data.decision}
+              applicationId={data.id}
               // OfferCard lists the reasons only for a changed amount or product
               withReasons={
                 !(
@@ -329,7 +350,7 @@ export function ApplicationPage() {
         open={confirm === "decline"}
         onOpenChange={(open) => setConfirm(open ? "decline" : null)}
         title="Отказаться от предложения?"
-        text="Заявка будет закрыта. Чтобы получить деньги позже, придётся подать новую."
+        text="Заявка закроется. Если деньги понадобятся позже, подайте новую."
         confirmLabel="Отказаться"
         cancelLabel="Оставить"
         danger

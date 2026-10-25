@@ -1,0 +1,17 @@
+id: client-season-1
+description: 'Сценарий 3: закупка к сезону → кредит на оборотные средства'
+profile: client
+persona: garden_store
+application: null
+turns:
+- user: Нужно закупить рассаду к сезону
+  expect_tools:
+  - name: recommend_products
+    args:
+      need_type: working_capital
+  must_include:
+  - предварительн
+  must_not_include:
+  - одобрено
+  - гарантир
+  - точно одобрят

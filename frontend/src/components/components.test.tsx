@@ -37,6 +37,7 @@ function sourceOf(scope: HTMLElement) {
 describe("SourceTag", () => {
   it.each([
     ["client", "со слов клиента"],
+    ["you", "вы указали"],
     ["statement", "по выписке"],
     ["calc", "расчёт"],
     ["officer", "решение банка"],
@@ -158,11 +159,11 @@ describe("ReasonList", () => {
   it("uses plain titles for everyone and adds metric codes for the bank", () => {
     const { rerender } = render(<ReasonList reasons={reasons.slice(0, 1)} />);
     expect(
-      screen.getByText("Лимит от оборота", { selector: "p.font-semibold" }),
+      screen.getByText("Лимит по оборотам", { selector: "p.font-semibold" }),
     ).toBeInTheDocument();
     rerender(<ReasonList reasons={reasons.slice(0, 1)} variant="bank" />);
     expect(
-      screen.getByText("Лимит от оборота", { selector: "p.font-semibold" }),
+      screen.getByText("Лимит по оборотам", { selector: "p.font-semibold" }),
     ).toBeInTheDocument();
     expect(screen.getByText("overdraft_limit")).toBeInTheDocument();
   });
@@ -258,11 +259,11 @@ describe("OfferCard", () => {
       "2 009 314 ₽расчёт",
     );
     expect(screen.getByText("Вы просили 5 300 000 ₽")).toHaveTextContent(
-      "Вы просили 5 300 000 ₽со слов клиента",
+      "Вы просили 5 300 000 ₽вы указали",
     );
     expect(screen.getByText("189 999,92 ₽").parentElement).toHaveTextContent("расчёт");
     // amount, asked, payment and the reason's value
-    expect(sourceOf(card)).toEqual(["расчёт", "со слов клиента", "расчёт", "расчёт"]);
+    expect(sourceOf(card)).toEqual(["расчёт", "вы указали", "расчёт", "расчёт"]);
   });
 
   it("an amount an officer set is labelled «решение банка»", () => {
@@ -289,7 +290,7 @@ describe("OfferCard", () => {
         actions={[]}
       />,
     );
-    expect(screen.getByText("Зависит от использования")).toBeInTheDocument();
+    expect(screen.getByText("Зависит от того, сколько возьмёте")).toBeInTheDocument();
   });
 });
 

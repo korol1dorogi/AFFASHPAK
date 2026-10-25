@@ -386,7 +386,7 @@ class InfoRequestResponseSerializer(serializers.Serializer):
 
 
 class SignatureConfirmSerializer(serializers.Serializer):
-    code = serializers.RegexField(r"^\d{6}$", error_messages={"invalid": "Код — 6 цифр."})
+    code = serializers.RegexField(r"^\d{6}$", error_messages={"invalid": "Код состоит из 6 цифр."})
 
 
 class VersionedActionSerializer(serializers.Serializer):

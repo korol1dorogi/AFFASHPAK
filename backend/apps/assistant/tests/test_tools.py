@@ -60,6 +60,13 @@ def test_the_tool_list_matches_the_task():
         "explain_status",
         "explain_decision",
         "create_draft",
+        # AI18
+        "what_if",
+        "approval_plan",
+        "explain_check_status",
+        "company_metrics",
+        "required_documents",
+        "explain_term",
     }
     for spec in tool_specs():
         assert spec.description
@@ -113,6 +120,14 @@ def test_calc_payment_rejects_bad_input(people):
     result = run_tool(people["coffee"], "calc_payment", arguments)
     assert result["error"]["code"] == "invalid"
     assert {"principal", "term_months"} <= set(result["error"]["details"])
+
+
+def test_calc_payment_refuses_a_rate_in_percent(people):
+    """A live model sent «24» for 24 %: an error the model can fix, never a 2400 % payment."""
+    arguments = {"principal": "1000000", "annual_rate": "24", "term_months": 12}
+    result = run_tool(people["coffee"], "calc_payment", arguments)
+    assert result["error"]["code"] == "invalid"
+    assert "0.24" in result["error"]["details"]["annual_rate"][0]
 
 
 # ───────────────────────── explain_status ─────────────────────────

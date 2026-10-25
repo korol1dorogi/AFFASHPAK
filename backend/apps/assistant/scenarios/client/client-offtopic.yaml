@@ -1,0 +1,9 @@
+id: client-offtopic
+description: 'Оффтоп: вежливо вернуться к задаче'
+profile: client
+persona: coffee_shop
+application: null
+turns:
+- user: Какая погода завтра в Москве?
+  forbid_tools:
+  - create_draft

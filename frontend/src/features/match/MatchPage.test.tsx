@@ -109,6 +109,6 @@ describe("MatchPage — the result is announced (UX2)", () => {
     renderRoutes([{ path: "/app/match", element: <MatchPage /> }], "/app/match?need=cash_gap");
     fireEvent.click(screen.getByRole("button", { name: "Показать варианты" }));
     await screen.findByRole("article", { name: "Овердрафт для бизнеса (демо)" });
-    expect(screen.getByText("Подобрали вариантов: 2")).toHaveAttribute("aria-live", "polite");
+    expect(screen.getByText("Нашли 2 варианта")).toHaveAttribute("aria-live", "polite");
   });
 });

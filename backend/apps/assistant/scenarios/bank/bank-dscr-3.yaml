@@ -1,0 +1,11 @@
+id: bank-dscr-3
+description: 'Сценарий 3: DSCR и максимум суммы'
+profile: bank
+persona: garden_store
+application: latest
+turns:
+- user: Какой DSCR против порога и сколько выдержит денежный поток?
+  expect_tools:
+  - name: dscr_and_limits
+  must_include:
+  - 2 009 314

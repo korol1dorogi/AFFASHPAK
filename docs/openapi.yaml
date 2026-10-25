@@ -601,6 +601,32 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/Conflict" }
 
+  /api/applications/{id}/hand-off:
+    parameters:
+      - $ref: "#/components/parameters/ApplicationId"
+    post:
+      tags: [applications]
+      operationId: handOffApplication
+      summary: Передать готовый черновик подписанту (XP5)
+      description: |
+        Готовит заявку `preparer` (бухгалтер), отправляет только `signatory`. Когда черновик
+        готов, бухгалтер передаёт его подписантам: в журнале — событие `handed_off`, каждому
+        подписанту компании — уведомление. Статус и `version` не меняются; повторная передача —
+        напоминание. Доступно только в `draft` и только бухгалтеру (`hand_off` в
+        `available_actions`). Поля проверяются так же, как при отправке (400 с ошибкой по полю),
+        кроме согласия на запрос в БКИ — его даёт подписант при отправке.
+      responses:
+        "200":
+          description: Передано, подписанты уведомлены
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApplicationDetail" }
+        "400": { $ref: "#/components/responses/ValidationError" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
   /api/applications/{id}/events:
     parameters:
       - $ref: "#/components/parameters/ApplicationId"
@@ -1089,6 +1115,67 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /api/bank/applications/{id}/assistant/messages:
+    parameters:
+      - $ref: "#/components/parameters/ApplicationId"
+    get:
+      tags: [bank, assistant]
+      operationId: listBankAssistantMessages
+      summary: История диалога сотрудника с ассистентом по заявке (журнал вызовов инструментов)
+      responses:
+        "200":
+          description: Сообщения этого сотрудника по этой заявке, от старых к новым
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/AssistantMessage" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      tags: [bank, assistant]
+      operationId: sendBankAssistantMessage
+      summary: >-
+        Сообщение ассистенту сотрудника (AI11). Инструменты только читают; pending_action всегда
+        null: статус, решение и комментарий меняет сотрудник сам
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BankAssistantMessageRequest" }
+      responses:
+        "200":
+          description: Ответ и вызванные инструменты
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AssistantReply" }
+        "400": { $ref: "#/components/responses/ValidationError" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
+  /api/bank/applications/{id}/assistant/summary:
+    parameters:
+      - $ref: "#/components/parameters/ApplicationId"
+    post:
+      tags: [bank, assistant]
+      operationId: createBankAssistantSummary
+      summary: >-
+        «Сводка для решения» (И2а): риски по убыванию веса, что перепроверить, черновик
+        комментария и источники. Ничего не сохраняет в заявке
+      responses:
+        "200":
+          description: Сводка
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AssistantSummary" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
   /api/bank/applications/{id}/documents/{document_id}:
     parameters:
       - $ref: "#/components/parameters/ApplicationId"
@@ -1229,6 +1316,29 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Me" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/demo/sources:
+    get:
+      tags: [demo]
+      operationId: getDemoSources
+      summary: Живой статус источников — сбой и circuit breaker (XP6, сотрудник банка)
+      description: |
+        Для демо-панели: по каждому из четырёх источников — включён ли сбой и когда погаснет сам
+        (через 15 минут после включения), и состояние circuit breaker. Breaker общий для всех
+        процессов стенда: три неудачных вызова подряд открывают его на 30 секунд, затем один
+        пробный вызов (half_open), удачный — закрывает. Выключение сбоя закрывает breaker
+        источника. Только на стенде (`DEMO_MODE=1`).
+      responses:
+        "200":
+          description: Четыре источника в порядке egrul, transparent_business, bki, bank_account
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/DemoSource" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
 
@@ -1908,6 +2018,7 @@ components:
         - edit
         - upload_document
         - submit
+        - hand_off
         - cancel
         - respond_info
         - accept_offer
@@ -2037,6 +2148,7 @@ components:
         - signed
         - issued
         - consent_given
+        - handed_off
 
     ApplicationEvent:
       type: object
@@ -2118,7 +2230,7 @@ components:
         current: { $ref: "#/components/schemas/DecimalString" }
         target: { $ref: "#/components/schemas/DecimalString" }
         points: { type: integer, minimum: 1, description: Сколько баллов добавит шаг }
-        message: { type: string, description: Что сделать — простым языком, examples: ["Снизьте долю крупнейшего покупателя до 50 % и меньше (сейчас 80 %)"] }
+        message: { type: string, description: Что сделать — простым языком, examples: ["Найдите ещё покупателей, чтобы на крупнейшего приходилось не больше 50% поступлений (сейчас 80%)"] }
 
     InfoRequest:
       type: object
@@ -2487,7 +2599,7 @@ components:
       required: [name, arguments, result]
       description: Запись журнала — что ассистент вызвал и что получил
       properties:
-        name: { type: string, examples: [get_recommendations] }
+        name: { type: string, examples: [recommend_products] }
         arguments: { type: object, additionalProperties: true }
         result:
           oneOf: [{ type: object, additionalProperties: true }, { type: "null" }]
@@ -2526,6 +2638,34 @@ components:
         pending_action:
           oneOf: [{ $ref: "#/components/schemas/PendingAction" }, { type: "null" }]
 
+    BankAssistantMessageRequest:
+      type: object
+      required: [text]
+      additionalProperties: false
+      properties:
+        text: { type: string, minLength: 1, maxLength: 2000 }
+
+    AssistantSummary:
+      type: object
+      required: [risks, to_verify, draft_comment, sources]
+      description: >-
+        «Сводка для решения» сотрудника (И2а). Каждая строка — из результатов инструментов;
+        у риска в скобках источник (проверка или фактор скоринга)
+      properties:
+        risks:
+          type: array
+          maxItems: 8
+          items: { type: string, examples: ["[риск] (скоринг: dscr)"] }
+        to_verify:
+          type: array
+          maxItems: 8
+          items: { type: string }
+        draft_comment: { type: string, description: Текст, который сотрудник вставляет и правит сам }
+        sources:
+          type: array
+          maxItems: 8
+          items: { type: string, examples: ["скоринг: dscr"] }
+
     AssistantActionResult:
       type: object
       required: [action_id, status, application]
@@ -2544,6 +2684,35 @@ components:
         username: { type: string }
         scenario: { type: integer, minimum: 1, maximum: 8, description: Номер сценария из docs/plan.md (8 — D15) }
         kind: { $ref: "#/components/schemas/UserKind" }
+
+    DemoSource:
+      type: object
+      required: [source, failing, failing_until, breaker]
+      additionalProperties: false
+      properties:
+        source: { $ref: "#/components/schemas/CheckSource" }
+        failing: { type: boolean, description: Сбой включён на демо-панели }
+        failing_until:
+          description: Когда сбой погаснет сам; null — сбоя нет
+          oneOf: [{ type: string, format: date-time }, { type: "null" }]
+        breaker:
+          type: object
+          required: [state, failures, open_until, last_failure_at]
+          additionalProperties: false
+          properties:
+            state:
+              type: string
+              enum: [closed, open, half_open]
+              description: |
+                closed — вызовы идут; open — вызовов нет до open_until, источник сразу
+                «не отвечает»; half_open — следующий вызов пробный
+            failures: { type: integer, minimum: 0, description: Неудачных вызовов подряд }
+            open_until:
+              description: До какого момента breaker открыт; null — не открывался
+              oneOf: [{ type: string, format: date-time }, { type: "null" }]
+            last_failure_at:
+              description: Последний неудачный вызов; null — с последнего успеха не было
+              oneOf: [{ type: string, format: date-time }, { type: "null" }]
 
     DemoFailures:
       type: object

@@ -36,8 +36,10 @@ class VersionConflict(APIException):
     default_code = "version_conflict"
 
 
-# Who may perform an action: a client signatory, any client member, a bank user or the system.
+# Who may perform an action: a client signatory or preparer, any client member, a bank user or
+# the system.
 SIGNATORY = "signatory"
+PREPARER = "preparer"
 CLIENT = "client"
 BANK = "bank"
 SYSTEM = "system"
@@ -69,8 +71,11 @@ TRANSITIONS: dict[str, Transition] = {
     "decline_offer": _t({S.OFFER}, {S.CANCELLED}, SIGNATORY),
     "confirm_signature": _t({S.SIGNING}, {S.SIGNED}, SIGNATORY),
     "disburse": _t({S.SIGNED}, {S.ISSUED}, SYSTEM),
+    # Up to the signature the client may walk away, signing included (fix 3.2).
     "cancel": _t(
-        {S.DRAFT, S.SUBMITTED, S.MANUAL_REVIEW, S.INFO_REQUESTED, S.OFFER}, {S.CANCELLED}, SIGNATORY
+        {S.DRAFT, S.SUBMITTED, S.MANUAL_REVIEW, S.INFO_REQUESTED, S.OFFER, S.SIGNING},
+        {S.CANCELLED},
+        SIGNATORY,
     ),
 }
 
@@ -79,6 +84,8 @@ NON_TRANSITION_ACTIONS: dict[str, Transition] = {
     "edit": _t({S.DRAFT}, set(), CLIENT),
     "upload_document": _t({S.DRAFT, S.INFO_REQUESTED}, set(), CLIENT),
     "sign": _t({S.SIGNING}, set(), SIGNATORY),
+    # XP5: a preparer cannot send — they hand the ready draft to the signatories.
+    "hand_off": _t({S.DRAFT}, set(), PREPARER),
     "assign": _t({S.SUBMITTED, S.PROCESSING, S.MANUAL_REVIEW, S.INFO_REQUESTED}, set(), BANK),
 }
 
@@ -87,6 +94,7 @@ UI_ACTIONS: tuple[str, ...] = (
     "edit",
     "upload_document",
     "submit",
+    "hand_off",
     "respond_info",
     "accept_offer",
     "decline_offer",
@@ -103,6 +111,8 @@ UI_ACTIONS: tuple[str, ...] = (
 def allowed(who: str, actor: Actor) -> bool:
     if who == SIGNATORY:
         return actor.is_signatory
+    if who == PREPARER:
+        return actor.is_preparer
     if who == CLIENT:
         return actor.is_client
     if who == BANK:

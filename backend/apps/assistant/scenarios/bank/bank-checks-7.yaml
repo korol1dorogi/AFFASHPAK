@@ -1,0 +1,16 @@
+id: bank-checks-7
+description: 'Сценарий 7: нет данных — не негатив'
+profile: bank
+persona: bki_outage
+application: latest
+setup:
+  failing:
+  - bki
+turns:
+- user: Что с проверками и откуда данные?
+  expect_tools:
+  - name: checks_with_provenance
+  must_include:
+  - не ответил
+  must_not_include:
+  - отказать

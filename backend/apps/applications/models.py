@@ -148,6 +148,7 @@ class EventKind(models.TextChoices):
     SIGNED = "signed", "Подписано"
     ISSUED = "issued", "Выдано"
     CONSENT_GIVEN = "consent_given", "Согласие на запрос в БКИ"
+    HANDED_OFF = "handed_off", "Передано подписанту"
 
 
 class ApplicationEvent(models.Model):

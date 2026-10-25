@@ -32,6 +32,10 @@ class Actor:
         return self.is_client and self.role == MemberRole.SIGNATORY
 
     @property
+    def is_preparer(self) -> bool:
+        return self.is_client and self.role == MemberRole.PREPARER
+
+    @property
     def is_bank(self) -> bool:
         return self.kind == ActorKind.BANK
 

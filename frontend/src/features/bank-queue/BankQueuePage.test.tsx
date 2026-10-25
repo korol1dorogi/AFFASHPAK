@@ -85,7 +85,7 @@ describe("BankQueuePage", () => {
     expect(rows).toHaveLength(3); // header + 2
 
     const first = rows[1] as HTMLElement;
-    expect(within(first).getByRole("link", { name: "Заявка №41" })).toHaveAttribute(
+    expect(within(first).getByRole("link", { name: "Заявка № 41" })).toHaveAttribute(
       "href",
       "/bank/applications/41",
     );

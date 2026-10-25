@@ -1,0 +1,14 @@
+id: client-what-if
+description: 'XP1: «что если» под контрпредложением'
+profile: client
+persona: garden_store
+application: latest
+turns:
+- user: Что если взять 1 500 000 на 18 месяцев?
+  expect_tools:
+  - name: what_if
+    args:
+      amount: '1500000'
+      term_months: 18
+  must_include:
+  - платёж

@@ -81,7 +81,7 @@ def test_persona_8_capex_without_collateral_gets_leasing_with_reasons(demo_on):
     loan, leasing = response.json()["offers"]
     assert (loan["product"]["code"], loan["rank"]) == ("investment_loan_basic", 1)
     requirements = next(r for r in loan["reasons"] if r["metric"] == "product_requirements")
-    assert "нужен залог" in requirements["message"]  # the match has no collateral input
+    assert "Нужен залог" in requirements["message"]  # the match has no collateral input
     assert (leasing["product"]["code"], leasing["rank"]) == ("leasing_basic", 2)
     assert (leasing["amount"], leasing["monthly_payment"]) == ("11443551.00", "440000.00")
     for offer in (loan, leasing):

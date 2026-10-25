@@ -5,6 +5,7 @@ import { toast } from "sonner";
 
 import { routes } from "@/app/routes";
 import { offerAmountSource, SourceTag } from "@/components/AmountSource";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Field } from "@/components/Field";
 import { MoneyText, RateText } from "@/components/Money";
 import { ErrorState, PageHeader, PageSkeleton } from "@/components/States";
@@ -13,11 +14,13 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
   useApplication,
+  useCancel,
   useConfirmSignature,
   useStartSignature,
 } from "@/features/applications/api";
 import { errorMessage } from "@/lib/errors";
 import { formatDateTime } from "@/lib/format";
+import { ACTION } from "@/texts";
 
 /**
  * Signing with a code shown on screen — instead of SMS, by the case's rules (O5).
@@ -29,7 +32,9 @@ export function SignPage() {
   const application = useApplication(id, { poll: false });
   const start = useStartSignature(id);
   const confirm = useConfirmSignature(id);
+  const cancel = useCancel(id);
   const [code, setCode] = useState("");
+  const [leaving, setLeaving] = useState(false);
 
   if (application.isPending) return <PageSkeleton />;
   if (application.isError)
@@ -56,12 +61,12 @@ export function SignPage() {
 
   return (
     <div className="flex max-w-[640px] flex-col gap-6">
-      <Link to={routes.application(id)} className="w-fit text-sm no-underline">
+      <Link to={routes.application(id)} className="link w-fit text-sm">
         ← К заявке № {id}
       </Link>
       <PageHeader
         title="Подписание договора"
-        subtitle="Код показываем на экране вместо SMS — так по условиям прототипа."
+        subtitle="В прототипе код не приходит по SMS, а показывается прямо на экране."
       />
       {offer ? (
         <Card className="flex-row flex-wrap gap-6">
@@ -101,7 +106,7 @@ export function SignPage() {
               ))}
             </div>
             <p className="m-0 text-sm text-ink-muted">
-              Действует до {formatDateTime(challenge.expires_at)} · попыток:{" "}
+              Код действует до {formatDateTime(challenge.expires_at)} · осталось попыток:{" "}
               {challenge.attempts_left}
             </p>
             <form
@@ -161,6 +166,33 @@ export function SignPage() {
           </>
         )}
       </Card>
+
+      {data.available_actions.includes("cancel") ? (
+        // Up to the signature the client may still say no (fix 3.2).
+        <Button variant="ghost" className="self-start" onClick={() => setLeaving(true)}>
+          Отказаться и отозвать заявку
+        </Button>
+      ) : null}
+      <ConfirmDialog
+        open={leaving}
+        onOpenChange={setLeaving}
+        title="Отказаться от договора?"
+        text="Договор не будет подписан, заявка закроется. Это нельзя отменить."
+        confirmLabel={ACTION.cancel}
+        cancelLabel="Вернуться к подписанию"
+        danger
+        pending={cancel.isPending}
+        onConfirm={() =>
+          cancel.mutate(undefined, {
+            onSuccess: () => {
+              toast.success("Заявка отозвана");
+              navigate(routes.application(id));
+            },
+            onError: (error) => toast.error(errorMessage(error)),
+            onSettled: () => setLeaving(false),
+          })
+        }
+      />
     </div>
   );
 }

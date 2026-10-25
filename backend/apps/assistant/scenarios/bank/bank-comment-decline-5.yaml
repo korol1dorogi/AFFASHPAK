@@ -1,0 +1,15 @@
+id: bank-comment-decline-5
+description: 'Черновик под предварительное намерение: отказ'
+profile: bank
+persona: dependent_supplier
+application: latest
+turns:
+- user: Подготовь черновик комментария на отказ
+  expect_tools:
+  - name: draft_officer_comment
+    args:
+      preliminary_intent: decline
+  must_include:
+  - Предварительно
+  must_not_include:
+  - сохранен

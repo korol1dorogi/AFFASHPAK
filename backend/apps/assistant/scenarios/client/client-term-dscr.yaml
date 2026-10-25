@@ -1,0 +1,11 @@
+id: client-term-dscr
+description: 'Глоссарий: термин банка'
+profile: client
+persona: garden_store
+application: null
+turns:
+- user: Что значит DSCR?
+  expect_tools:
+  - name: explain_term
+  must_include:
+  - долг

@@ -187,7 +187,7 @@ function OverdueCard({ data }: { data: Dashboard }) {
         {T.norms}: {norms.join(", ")}
       </p>
       {data.overdue_count > 0 ? (
-        <Link to={`${routes.bank}?overdue=1`} className="w-fit text-sm">
+        <Link to={`${routes.bank}?overdue=1`} className="link w-fit text-sm">
           {T.overdueLink}
         </Link>
       ) : null}

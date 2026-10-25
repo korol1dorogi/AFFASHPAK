@@ -187,17 +187,17 @@ describe("WhatIf — the calculation comes from the backend", () => {
     const block = await region();
     expect(await within(block).findByText("Такие условия прошли бы")).toBeInTheDocument();
     expect(sent[0]).toEqual({ amount: "2009314.00", term_months: 12 });
-    expect(within(block).getByText("Допустимо на 12 мес")).toBeInTheDocument();
+    expect(within(block).getByText("Можно взять на 12 мес")).toBeInTheDocument();
     expect(within(block).getByText(/189\s999,92\s₽/)).toBeInTheDocument();
     // Both amounts are counted by the bank (SRC7).
     expect(within(block).getByText(/189\s999,92\s₽/).parentElement).toHaveTextContent("расчёт");
-    expect(within(block).getByText("Допустимо на 12 мес").nextElementSibling).toHaveTextContent(
+    expect(within(block).getByText("Можно взять на 12 мес").nextElementSibling).toHaveTextContent(
       /₽расчёт$/,
     );
-    expect(within(block).getByText("1,26 при норме от 1,25")).toBeInTheDocument();
-    // «Покрытие платежей» is a term: it is explained next to the value (UX2).
+    expect(within(block).getByText("1,26, нужно не меньше 1,25")).toBeInTheDocument();
+    // «Запас на платежи» is a term: it is explained next to the value (UX2).
     expect(
-      within(block).getByText(/Во сколько раз денежный поток больше всех платежей/),
+      within(block).getByText(/Во сколько раз свободных денег больше, чем нужно на все платежи/),
     ).toBeInTheDocument();
     expect(within(block).getByRole("slider", { name: "Срок" })).toHaveAttribute("min", "3");
     expect(within(block).getByRole("slider", { name: "Срок" })).toHaveAttribute("max", "24");
@@ -207,13 +207,13 @@ describe("WhatIf — the calculation comes from the backend", () => {
     const sent = stubApi(detail());
     open();
     const block = await region();
-    await within(block).findByText("Допустимо на 12 мес");
+    await within(block).findByText("Можно взять на 12 мес");
 
     fireEvent.change(within(block).getByRole("slider", { name: "Срок" }), {
       target: { value: "18" },
     });
 
-    expect(await within(block).findByText("Допустимо на 18 мес")).toBeInTheDocument();
+    expect(await within(block).findByText("Можно взять на 18 мес")).toBeInTheDocument();
     expect(within(block).getByText(/2\s848\s485\s₽/)).toBeInTheDocument();
     expect(sent.at(-1)).toEqual({ amount: "2009314.00", term_months: 18 });
   });
@@ -222,7 +222,7 @@ describe("WhatIf — the calculation comes from the backend", () => {
     stubApi(detail());
     open();
     const block = await region();
-    const results = (await within(block).findByText("Допустимо на 12 мес")).closest(
+    const results = (await within(block).findByText("Можно взять на 12 мес")).closest(
       "[aria-live]",
     ) as HTMLElement;
     expect(results).not.toHaveAttribute("aria-busy");
@@ -232,7 +232,7 @@ describe("WhatIf — the calculation comes from the backend", () => {
     });
     expect(results).toHaveAttribute("aria-busy", "true"); // the slider says 18, the answer 12
 
-    await within(block).findByText("Допустимо на 18 мес");
+    await within(block).findByText("Можно взять на 18 мес");
     await waitFor(() => expect(results).not.toHaveAttribute("aria-busy"));
   });
 
@@ -240,11 +240,11 @@ describe("WhatIf — the calculation comes from the backend", () => {
     const sent = stubApi(detail());
     open();
     const block = await region();
-    await within(block).findByText("Допустимо на 12 мес");
+    await within(block).findByText("Можно взять на 12 мес");
     const term = within(block).getByRole("slider", { name: "Срок" });
     for (const value of ["13", "15", "18"]) fireEvent.change(term, { target: { value } });
 
-    await within(block).findByText("Допустимо на 18 мес");
+    await within(block).findByText("Можно взять на 18 мес");
     expect(sent.map((body) => body.term_months)).toEqual([12, 18]);
   });
 
@@ -252,7 +252,7 @@ describe("WhatIf — the calculation comes from the backend", () => {
     const sent = stubApi(detail());
     open();
     const block = await region();
-    await within(block).findByText("Допустимо на 12 мес");
+    await within(block).findByText("Можно взять на 12 мес");
 
     fireEvent.change(within(block).getByRole("slider", { name: "Сумма" }), {
       target: { value: "1500000" },
@@ -269,7 +269,7 @@ describe("WhatIf — the calculation comes from the backend", () => {
     stubApi(detail());
     open();
     const block = await region();
-    await within(block).findByText("Допустимо на 12 мес");
+    await within(block).findByText("Можно взять на 12 мес");
     fireEvent.change(within(block).getByLabelText("Сумма точно, ₽"), {
       target: { value: "3 000 000" },
     });
@@ -287,7 +287,7 @@ describe("WhatIf — the calculation comes from the backend", () => {
     ]);
     open();
     const block = await region();
-    expect(await within(block).findAllByText("Посчитать нельзя")).toHaveLength(2);
+    expect(await within(block).findAllByText("Не получается посчитать")).toHaveLength(2);
   });
 
   it("an error answer is shown as text", async () => {

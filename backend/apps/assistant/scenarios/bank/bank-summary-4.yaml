@@ -1,0 +1,14 @@
+id: bank-summary-4
+description: 'Сценарий 4: сводка по заявке грейда C'
+profile: bank
+persona: furniture_maker
+application: latest
+turns:
+- user: Сделай сводку по заявке
+  expect_tools:
+  - name: application_summary
+  - name: score_breakdown
+  must_include:
+  - грейд C
+  must_not_include:
+  - одобрено

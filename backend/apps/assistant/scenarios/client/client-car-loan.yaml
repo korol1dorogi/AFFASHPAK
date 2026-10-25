@@ -1,0 +1,15 @@
+id: client-car-loan
+description: Кредит на машину для бизнеса → подбор (инвестиционный кредит или лизинг)
+profile: client
+persona: retail_supplier
+application: null
+turns:
+- user: Нужен кредит на машину
+  expect_tools:
+  - name: recommend_products
+    args:
+      need_type: capex
+  must_include:
+  - предварительн
+  must_not_include:
+  - Расскажите, зачем бизнесу деньги

@@ -1,0 +1,11 @@
+id: client-term-bki
+description: 'SRC1: согласие на запрос в БКИ'
+profile: client
+persona: coffee_shop
+application: null
+turns:
+- user: Что такое БКИ и зачем банку согласие?
+  expect_tools:
+  - name: explain_term
+  must_include:
+  - согласи

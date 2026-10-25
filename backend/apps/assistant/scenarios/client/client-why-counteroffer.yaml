@@ -1,0 +1,12 @@
+id: client-why-counteroffer
+description: 'Сценарий 3: почему контрпредложение'
+profile: client
+persona: garden_store
+application: latest
+turns:
+- user: Почему одобрили меньше, чем я просил?
+  expect_tools:
+  - name: explain_decision
+  must_include:
+  - иных условиях
+  - 2 009 314

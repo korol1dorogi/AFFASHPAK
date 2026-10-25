@@ -3,6 +3,7 @@ import type { BankApplicationDetail } from "@/features/bank-application/api";
 /**
  * Synthetic card of persona 4 `furniture_maker` (демо) at step 7 of scenario 4
  * (docs/test-scenarios.md): grade C, 65 = 10 + 18 + 7 + 10 + 7 + 8 + 5, no financial report yet.
+ * Check data are the generator's answers for this INN (docs/external/*.yaml).
  */
 export function persona4Card(): BankApplicationDetail {
   return {
@@ -79,7 +80,23 @@ export function persona4Card(): BankApplicationDetail {
         source: "egrul",
         status: "ok",
         summary: "Компания действует",
-        data: {},
+        data: {
+          registry_status: "active",
+          registered_at: "2014-10-01",
+          okved: "31.09",
+          okved_name: "Производство прочей мебели",
+          address: "000098, Демо-регион, г. Образцовск, ул. Вишнёвая, д. 80 (демо)",
+          director_name: "Орлов Сергей Николаевич (демо)",
+          founders: [
+            { name: "Полякова Маргарита Олеговна (демо)", inn: "000300000227", share: "0.5000" },
+            { name: "Виноградов Михаил Петрович (демо)", inn: "000300000308", share: "0.3000" },
+            { name: "Григорьева Надежда Павловна (демо)", inn: "000300000474", share: "0.2000" },
+          ],
+          kpp: "000101001",
+          unreliable_address: false,
+          unreliable_director: false,
+          pending_exclusion: false,
+        },
         checked_at: "2026-10-20T09:30:10Z",
         received_at: "2026-10-20T09:30:10Z",
         response_sha256: "04ab99570b8f3edb7b58f8898450582b15487f07647f8d53a2f8c9b24b5bd322",
@@ -89,7 +106,7 @@ export function persona4Card(): BankApplicationDetail {
         source: "transparent_business",
         status: "ok",
         summary: "Признаков риска нет",
-        data: {},
+        data: { mass_address: false, mass_director: false, tax_arrears: "0.00" },
         checked_at: "2026-10-20T09:30:11Z",
         received_at: "2026-10-20T09:30:11Z",
         response_sha256: "8285dc33d07f719627b30724ccb96692ea4e135dd149eea84db6b0a66a844f9f",
@@ -99,7 +116,24 @@ export function persona4Card(): BankApplicationDetail {
         source: "bki",
         status: "ok",
         summary: "Текущей просрочки нет, прошлая — 10 дн.",
-        data: {},
+        data: {
+          current_overdue_days: 0,
+          past_overdue_max_days: 10,
+          obligations: [
+            {
+              kind: "loan",
+              monthly_payment: "600000.00",
+              balance: "19800000.00",
+              opened_at: "2024-06-07",
+            },
+            {
+              kind: "leasing",
+              monthly_payment: "400000.00",
+              balance: "13200000.00",
+              opened_at: "2023-11-13",
+            },
+          ],
+        },
         checked_at: "2026-10-20T09:30:12Z",
         received_at: "2026-10-20T09:30:12Z",
         response_sha256: "d994ace4001cac74f248e55fc3df74bc0da0a085a9ee4d527ac0652d63f85824",
@@ -109,7 +143,7 @@ export function persona4Card(): BankApplicationDetail {
         source: "bank_account",
         status: "ok",
         summary: "Выписка за 12 мес получена",
-        data: {},
+        data: { months: 12 },
         checked_at: "2026-10-20T09:30:13Z",
         received_at: "2026-10-20T09:30:13Z",
         response_sha256: "f3828498183adbb9a7867da5539180f7d6553a5c43261a95434517082345a52a",

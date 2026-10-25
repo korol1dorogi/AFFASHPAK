@@ -29,8 +29,8 @@ export const paramsSchema = z
     requested_amount: z.string().regex(MONEY, "Укажите сумму"),
     term_months: z.coerce
       .number<string | number>()
-      .int("Целое число месяцев")
-      .min(1, "От 1 месяца")
+      .int("Укажите целое число месяцев")
+      .min(1, "Не меньше 1 месяца")
       .max(360, "Не больше 360 месяцев"),
     product_code: z.string(),
     invoice_amount: z.string(),
@@ -142,7 +142,7 @@ export function ParamsFields({
         render={({ field }) => (
           <Field
             label="Продукт"
-            hint="Нужен, чтобы отправить заявку. Не знаете какой — откройте подбор"
+            hint="Без него заявку не отправить. Если не знаете, какой выбрать, откройте подбор"
             error={errors.product_code?.message}
           >
             <NativeSelect
@@ -209,7 +209,7 @@ export function ParamsFields({
       {need === "capex" ? (
         <Field
           label="Что можете предложить в залог"
-          hint="Можно оставить пустым — банк подскажет"
+          hint="Можно оставить пустым, банк подскажет"
           error={errors.collateral_description?.message}
           className="col-span-full"
         >

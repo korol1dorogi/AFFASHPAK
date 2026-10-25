@@ -15,24 +15,39 @@ import { applyFieldErrors } from "@/lib/errors";
 
 const FIELDS = ["username", "password", "full_name"] as const;
 
-// Limits mirror RegisterRequest in docs/openapi.yaml.
-const schema = z.object({
-  full_name: z.string().trim().min(1, "Как к вам обращаться").max(200),
-  username: z
-    .string()
-    .trim()
-    .min(3, "Логин — от 3 символов")
-    .max(150)
-    .regex(/^[\w.@+-]+$/, "Только буквы, цифры и . @ + - _"),
-  password: z.string().min(8, "Пароль — от 8 символов").max(128),
-});
+const PASSWORD_HINT =
+  "От 8 символов, не только цифры, не простой вроде qwerty123 и не похожий на логин";
+
+// Limits mirror RegisterRequest in docs/openapi.yaml. One message per field, the first check
+// that fails; the server adds «распространённый» and «похож на логин» the same way. The repeat
+// of the password is checked here only and never sent.
+const schema = z
+  .object({
+    full_name: z.string().trim().min(1, "Как к вам обращаться").max(200),
+    username: z
+      .string()
+      .trim()
+      .min(3, "Логин — от 3 символов")
+      .max(150)
+      .regex(/^[\w.@+-]+$/, "Только буквы, цифры и . @ + - _"),
+    password: z
+      .string()
+      .min(8, "Пароль — от 8 символов")
+      .max(128)
+      .refine((value) => !/^\d+$/.test(value), "Пароль не может состоять только из цифр"),
+    password_repeat: z.string().min(1, "Повторите пароль"),
+  })
+  .refine((values) => values.password === values.password_repeat, {
+    message: "Пароли не совпадают",
+    path: ["password_repeat"],
+  });
 type Values = z.infer<typeof schema>;
 
 export function RegisterPage() {
   const register = useRegister();
   const form = useForm<Values>({
     resolver: zodResolver(schema),
-    defaultValues: { full_name: "", username: "", password: "" },
+    defaultValues: { full_name: "", username: "", password: "", password_repeat: "" },
   });
   const { errors } = form.formState;
   const [rest, setRest] = useState<string | null>(null);
@@ -47,7 +62,7 @@ export function RegisterPage() {
         <form
           className="flex flex-col gap-4"
           noValidate
-          onSubmit={form.handleSubmit((values) => {
+          onSubmit={form.handleSubmit(({ password_repeat: _, ...values }) => {
             setRest(null);
             register.mutate(values, {
               onError: (error) => setRest(applyFieldErrors(error, form.setError, FIELDS)),
@@ -60,8 +75,15 @@ export function RegisterPage() {
           <Field label="Логин" error={errors.username?.message}>
             <Input autoComplete="username" {...form.register("username")} />
           </Field>
-          <Field label="Пароль" hint="Не короче 8 символов" error={errors.password?.message}>
+          <Field label="Пароль" hint={PASSWORD_HINT} error={errors.password?.message}>
             <Input type="password" autoComplete="new-password" {...form.register("password")} />
+          </Field>
+          <Field label="Повторите пароль" error={errors.password_repeat?.message}>
+            <Input
+              type="password"
+              autoComplete="new-password"
+              {...form.register("password_repeat")}
+            />
           </Field>
           {rest ? (
             <p role="alert" className="m-0 text-sm text-status-danger">
@@ -73,7 +95,10 @@ export function RegisterPage() {
           </Button>
         </form>
         <p className="m-0 text-sm text-ink-muted">
-          Уже есть учётная запись? <Link to={routes.login}>Войти</Link>
+          Уже есть учётная запись?{" "}
+          <Link to={routes.login} className="link">
+            Войти
+          </Link>
         </p>
       </Card>
     </div>

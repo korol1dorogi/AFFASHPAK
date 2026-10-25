@@ -42,7 +42,7 @@ export function OfferCard({
           <span className="text-xs font-medium tracking-[0.02em] text-ink-muted">
             {PRODUCT_KIND[offer.product.kind].toUpperCase()}
           </span>
-          {offer.is_counteroffer ? <Badge variant="action">Иные условия</Badge> : null}
+          {offer.is_counteroffer ? <Badge variant="action">Другие условия</Badge> : null}
           {offer.product_changed ? <Badge variant="action">Другой продукт</Badge> : null}
           {offer.status === "accepted" ? <Badge variant="success">Принято</Badge> : null}
         </div>
@@ -53,7 +53,7 @@ export function OfferCard({
         {offer.is_counteroffer ? (
           <span className="text-sm text-ink-muted">
             Вы просили {formatMoney(offer.requested_amount)}
-            <SourceTag source="client" />
+            <SourceTag source="you" />
           </span>
         ) : null}
       </div>
@@ -74,7 +74,7 @@ export function OfferCard({
           <dt className="text-xs text-ink-muted">Платёж в месяц</dt>
           <dd className="m-0">
             {offer.monthly_payment === null ? (
-              <span className="text-sm">Зависит от использования</span>
+              <span className="text-sm">Зависит от того, сколько возьмёте</span>
             ) : (
               <>
                 <MoneyText value={offer.monthly_payment} size="md" />

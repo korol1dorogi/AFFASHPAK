@@ -61,4 +61,4 @@ def test_documents_are_named_in_the_request(seeded):
     request = application.info_requests.get()
     assert request.fields == []
     assert set(request.document_kinds) == {"contract", "shipment_document"}
-    assert "Загрузите: договор, документ отгрузки (упд)" in request.message
+    assert "Не хватает документов: договор, документ отгрузки (УПД)" in request.message

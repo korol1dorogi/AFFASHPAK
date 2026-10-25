@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
@@ -12,17 +12,35 @@ import { Textarea } from "@/components/ui/input";
 import { useComment } from "@/features/bank-application/api";
 import { type CommentValues, commentSchema } from "@/features/bank-application/schema";
 import { applyFieldErrors } from "@/lib/errors";
-import { BANK_CARD } from "@/texts";
+import { ASSISTANT, BANK_CARD } from "@/texts";
 
 const T = BANK_CARD.journal;
 
-function CommentForm({ applicationId }: { applicationId: number }) {
+export interface CommentDraft {
+  text: string;
+  key: number;
+}
+
+function CommentForm({
+  applicationId,
+  draft,
+}: {
+  applicationId: number;
+  draft: CommentDraft | null;
+}) {
   const comment = useComment(applicationId);
   const [rest, setRest] = useState<string | null>(null);
   const form = useForm<CommentValues>({
     resolver: zodResolver(commentSchema),
     defaultValues: { message: "" },
   });
+  const { setValue, setFocus } = form;
+  // The assistant's draft (AI9) lands in the field; saving stays the officer's own action.
+  useEffect(() => {
+    if (!draft) return;
+    setValue("message", draft.text, { shouldDirty: true });
+    setFocus("message");
+  }, [draft, setValue, setFocus]);
 
   const submit = form.handleSubmit(({ message }) => {
     setRest(null);
@@ -44,6 +62,7 @@ function CommentForm({ applicationId }: { applicationId: number }) {
       >
         <Textarea {...form.register("message")} maxLength={2000} />
       </Field>
+      {draft ? <p className="m-0 text-sm text-ink-muted">{ASSISTANT.bank.inserted}</p> : null}
       {rest ? (
         <p role="alert" className="m-0 text-sm text-status-danger">
           {rest}
@@ -62,15 +81,17 @@ function CommentForm({ applicationId }: { applicationId: number }) {
 export function JournalTab({
   applicationId,
   events,
+  draft = null,
 }: {
   applicationId: number;
   events: Schemas["ApplicationEvent"][];
+  draft?: CommentDraft | null;
 }) {
   return (
     <Card>
       <CardTitle>{T.title}</CardTitle>
       <StatusTimeline events={events} showInternal />
-      <CommentForm applicationId={applicationId} />
+      <CommentForm applicationId={applicationId} draft={draft} />
     </Card>
   );
 }

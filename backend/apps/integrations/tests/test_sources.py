@@ -42,12 +42,12 @@ def test_retries_then_the_breaker_opens(monkeypatch):
         raise ConnectionError("simulator down")
 
     monkeypatch.setattr(adapters, "_answer", down)
-    for _ in range(THRESHOLD):
-        assert adapters.fetch("bki", INN, has_account=True)["status"] == "unavailable"
-    assert len(calls) == THRESHOLD * adapters.ATTEMPTS
+    # Every failed call counts (XP6): the three retries of one request open the breaker.
+    assert adapters.fetch("bki", INN, has_account=True)["status"] == "unavailable"
+    assert len(calls) == adapters.ATTEMPTS == THRESHOLD
     assert not breaker.allow("bki")
     assert adapters.fetch("bki", INN, has_account=True)["status"] == "unavailable"
-    assert len(calls) == THRESHOLD * adapters.ATTEMPTS  # open breaker: no more calls
+    assert len(calls) == THRESHOLD  # open breaker: no more calls
 
 
 @pytest.mark.django_db

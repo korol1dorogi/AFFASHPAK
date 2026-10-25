@@ -55,7 +55,7 @@ describe("ProductsPage (UX2)", () => {
     fireEvent.click(within(form).getByRole("button", { name: "Рассчитать платёж" }));
 
     expect(term).toHaveAttribute("aria-invalid", "true");
-    expect(term).toHaveAccessibleDescription("Срок — целое число месяцев от 1 до 360");
+    expect(term).toHaveAccessibleDescription("Укажите срок целым числом от 1 до 360 месяцев");
     expect(
       fetchMock.mock.calls.some(
         ([request]) => new URL((request as Request).url).pathname === "/api/calculators/annuity",

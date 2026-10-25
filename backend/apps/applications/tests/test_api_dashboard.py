@@ -116,3 +116,25 @@ def test_reset_is_for_the_bank_and_the_demo_stand_only(demo, settings):
     assert login("coffee_shop").post("/api/demo/reset").status_code == 403
     settings.DEMO_MODE = False
     assert APIClient().post("/api/demo/reset").status_code == 404
+
+
+def test_shares_are_rounded_half_up(demo):
+    """1 automatic decision of 32 is 0.03125: half up gives 0.0313, as every rounding here
+    (credit_math), not the banker's 0.0312 of Decimal's default context."""
+    from django.utils import timezone
+
+    from apps.applications.models import Decision, DecisionOutcome
+    from apps.business.models import Company
+    from apps.core.factories import make_application
+
+    company = Company.objects.get(memberships__user__username="demo_coffee_shop")
+    for index in range(32):
+        application = make_application(company, status="declined", submitted_at=timezone.now())
+        Decision.objects.create(
+            application=application,
+            outcome=DecisionOutcome.DECLINED,
+            decided_by="auto" if index == 0 else "officer",
+            policy_version="test",
+        )
+    body = login("bank").get("/api/bank/dashboard?days=30").json()
+    assert body["auto_decision_share"] == "0.0313"

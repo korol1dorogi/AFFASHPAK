@@ -14,11 +14,14 @@ def notify_company(
     title: str,
     message: str = "",
     exclude: AbstractBaseUser | None = None,
+    roles: tuple[str, ...] | None = None,
 ) -> int:
-    """Create one notification per company member, except the user who caused it."""
-    members = Membership.objects.filter(company_id=application.company_id).values_list(
-        "user_id", flat=True
-    )
+    """Create one notification per company member, except the user who caused it.
+    `roles` narrows it to members with these MemberRole values (XP5: signatories only)."""
+    memberships = Membership.objects.filter(company_id=application.company_id)
+    if roles is not None:
+        memberships = memberships.filter(role__in=roles)
+    members = memberships.values_list("user_id", flat=True)
     exclude_id = getattr(exclude, "pk", None)
     notifications = [
         Notification(
