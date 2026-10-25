@@ -107,9 +107,18 @@ TOOL_WORDS = {
     "policy_compare": "кредитная политика",
     "missing_documents": "документы заявки",
     "draft_officer_comment": "черновик комментария",
+    # catalogue codes (products.md): the model sometimes echoes them from required_documents
+    "overdraft_basic": "овердрафт",
+    "factoring_basic": "факторинг",
+    "working_capital_loan_basic": "кредит на пополнение оборотных средств",
+    "investment_loan_basic": "инвестиционный кредит",
+    "leasing_basic": "лизинг",
 }
 _TECH = re.compile(r"\b(" + "|".join(sorted(TOOL_WORDS, key=len, reverse=True)) + r")\b")
 _TECH_SOURCE = re.compile(r"\(\s*инструмент\s*:\s*", re.IGNORECASE)
+_CODE_IN_BRACKETS = re.compile(
+    r"\s*\((?:overdraft|factoring|working_capital_loan|investment_loan|leasing)_basic\)"
+)
 
 
 def humanize(text: str) -> str:
@@ -117,6 +126,7 @@ def humanize(text: str) -> str:
     from apps.assistant.tools_bank import FACTOR_LABELS  # the card's names of the factors
 
     text = _TECH_SOURCE.sub("(источник: ", text)
+    text = _CODE_IN_BRACKETS.sub("", text)
     text = _TECH.sub(lambda match: TOOL_WORDS[match.group(1)], text)
     for key, label in FACTOR_LABELS.items():
         text = re.sub(rf"\b{key}\b", f"«{label}»", text)

@@ -220,7 +220,7 @@ LLM_API_KEY = env("LLM_API_KEY", "")
 LLM_MODEL = env("LLM_MODEL", "")
 # One model request; with LLM_TURN_BUDGET_SECONDS it must fit the web worker's 120 s
 # (gunicorn --timeout 120 in docker-compose.prod.yml): budget + one request < 120.
-LLM_TIMEOUT_SECONDS = env_int("LLM_TIMEOUT_SECONDS", 30)
+LLM_TIMEOUT_SECONDS = env_int("LLM_TIMEOUT_SECONDS", 45)
 # A whole answer: after this many seconds no new model request starts — the mock finishes the
 # turn from the results in hand, with the «упрощённый режим» note, instead of a killed request.
 LLM_TURN_BUDGET_SECONDS = env_int("LLM_TURN_BUDGET_SECONDS", 60)

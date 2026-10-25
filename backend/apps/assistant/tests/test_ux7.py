@@ -89,3 +89,12 @@ def test_tool_names_and_factor_keys_become_interface_words():
     assert "(источник: платёжеспособность)" in human
     assert "«Долговая нагрузка (долг к EBITDA)» выше нормы" in human
     assert "DSCR 1,1" in human  # the abbreviation people know stays
+
+
+def test_product_codes_are_dropped_or_named():
+    from apps.assistant import guards
+
+    assert guards.humanize("Для инвестиционного кредита (investment_loan_basic) нужны") == (
+        "Для инвестиционного кредита нужны"
+    )
+    assert guards.humanize("код leasing_basic") == "код лизинг"
