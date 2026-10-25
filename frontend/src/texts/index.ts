@@ -1329,28 +1329,25 @@ export const BANK_DASHBOARD = {
   autoShareHint:
     "Какую часть итоговых решений (предложение, другие условия, другой продукт, отказ) система приняла без сотрудника",
   issued: "Деньги выданы",
-  now: "Где сейчас заявки",
-  nowHint: "Каждая заявка — в одной строке, поэтому вместе они дают все заявки периода.",
-  nowGroups: {
-    bank: "Ход за банком",
-    client: "Ход за клиентом",
-    payout: "Выдача",
-    done: "Завершены",
-  },
-  nowRows: {
+  inWork: "В работе сейчас",
+  inWorkHint: "Заявки периода, по которым ещё нет итога",
+  results: "Итоги за период",
+  resultsHint: "Чем закончились заявки, по которым всё решено",
+  groups: { bank: "Ждут банк", client: "Ждут клиента", payout: "Выдача денег" },
+  rows: {
     checking: "Проверяет система",
-    manual_review: "У сотрудника банка",
-    info_requested: "Нужны уточнения",
-    offer: "Ждём решения по предложению",
-    signing: "Ждём подписи",
-    signed: "Договор подписан, выдаём деньги",
+    manual_review: "Смотрит сотрудник банка",
+    info_requested: "Отвечают на запрос банка",
+    offer: "Решают, принять ли предложение",
+    signing: "Подписывают договор",
+    signed: "Деньги отправляются на счёт",
     issued: "Деньги выданы",
     declined: "Отказ",
     cancelled: "Клиент отозвал заявку",
   },
   /** A share that rounds to 0 % but is not zero reads «меньше 1 %», not «0 %». */
-  nowValue: (count: number, percent: number) =>
-    `${count} · ${count > 0 && percent === 0 ? "меньше 1" : percent} %`,
+  share: (count: number, percent: number) =>
+    `${count > 0 && percent === 0 ? "меньше 1" : percent} %`,
   hours: "Среднее время в статусе",
   hoursValue: (value: string) => `${value} ч`,
   noData: "Данных пока нет.",

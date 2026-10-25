@@ -45,27 +45,39 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe("BankDashboardPage — where the applications are now", () => {
-  it("puts each application in one row: the groups add up to the period total", async () => {
+describe("BankDashboardPage — in work now and the period's results", () => {
+  it("splits the period into work by who has to act and results; together the total", async () => {
     mockApi({ [DASHBOARD]: dashboard() });
     render();
 
     expect(await screen.findByRole("heading", { name: "Сводка", level: 1 })).toBeInTheDocument();
-    const card = screen.getByLabelText("Где сейчас заявки");
-    const group = (name: string) => within(card).getByRole("region", { name });
-    const row = (key: string) => card.querySelector(`li[data-row="${key}"]`) as HTMLElement;
+    const work = screen.getByLabelText("В работе сейчас");
+    const results = screen.getByLabelText("Итоги за период");
+    const row = (card: HTMLElement, key: string) =>
+      card.querySelector(`li[data-row="${key}"]`) as HTMLElement;
 
-    expect(within(group("Ход за банком")).getByRole("heading")).toHaveTextContent("4");
-    expect(within(group("Ход за клиентом")).getByRole("heading")).toHaveTextContent("3");
-    expect(within(group("Выдача")).getByRole("heading")).toHaveTextContent("0");
-    expect(within(group("Завершены")).getByRole("heading")).toHaveTextContent("5");
+    // 7 in work + 5 finished = 12, the period's total
+    expect(within(work).getByText("7")).toBeInTheDocument();
+    expect(within(results).getByText("5")).toBeInTheDocument();
+    const group = (name: string) => within(work).getByRole("region", { name });
+    expect(within(group("Ждут банк")).getByRole("heading")).toHaveTextContent("Ждут банк4");
+    expect(within(group("Ждут клиента")).getByRole("heading")).toHaveTextContent("Ждут клиента3");
+    expect(within(group("Выдача денег")).getByRole("heading")).toHaveTextContent("Выдача денег0");
     // submitted and processing are one row: the system is checking them
-    expect(row("checking")).toHaveTextContent("Проверяет система1 · 8 %");
-    expect(row("manual_review")).toHaveTextContent("У сотрудника банка3 · 25 %");
-    expect(row("offer")).toHaveTextContent("Ждём решения по предложению2 · 17 %");
-    expect(row("cancelled")).toHaveTextContent("Клиент отозвал заявку0 · 0 %");
-    expect(BANK_DASHBOARD.nowValue(1, 0)).toBe("1 · меньше 1 %");
+    expect(row(work, "checking")).toHaveTextContent("Проверяет система1");
+    expect(row(work, "manual_review")).toHaveTextContent("Смотрит сотрудник банка3");
+    expect(row(work, "offer")).toHaveTextContent("Решают, принять ли предложение2");
+    // results: the share of the finished applications, not of the whole period
+    expect(row(results, "issued")).toHaveTextContent("Деньги выданы360 %");
+    expect(row(results, "declined")).toHaveTextContent("Отказ240 %");
+    expect(row(results, "cancelled")).toHaveTextContent("Клиент отозвал заявку00 %");
+    expect(row(results, "cancelled")).toHaveClass("text-ink-muted");
     expect(screen.queryByText(/Воронка/)).not.toBeInTheDocument();
+  });
+
+  it("a share below 1 % is «меньше 1 %», not 0", () => {
+    expect(BANK_DASHBOARD.share(1, 0)).toBe("меньше 1 %");
+    expect(BANK_DASHBOARD.share(0, 0)).toBe("0 %");
   });
 
   it("takes «Деньги выданы» from where the applications are now", async () => {

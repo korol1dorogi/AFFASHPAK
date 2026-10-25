@@ -116,7 +116,7 @@ export function BankDashboardPage() {
         </Card>
         <OverdueCard data={data} />
       </div>
-      <NowCard data={data} />
+      <StatusCards data={data} />
       <Card>
         <CardTitle className="m-0">{T.hours}</CardTitle>
         {hours.length === 0 ? (
@@ -140,15 +140,13 @@ export function BankDashboardPage() {
 
 type Dashboard = Schemas["BankDashboard"];
 type Status = Schemas["ApplicationStatus"];
+type Row = { key: keyof typeof T.rows; statuses: Status[] };
 
 /*
- * Where the period's applications are now. Each is counted once, in its current status, so the
- * rows add up to the total — unlike the funnel, which counts an application at every stage it passed.
+ * The period's applications by their current status (by_status). Each is counted once, so «В работе
+ * сейчас» and «Итоги за период» add up to the period's total; work is grouped by who has to act.
  */
-const NOW_GROUPS: {
-  key: keyof typeof T.nowGroups;
-  rows: { key: keyof typeof T.nowRows; statuses: Status[] }[];
-}[] = [
+const IN_WORK: { key: keyof typeof T.groups; rows: Row[] }[] = [
   {
     key: "bank",
     rows: [
@@ -165,14 +163,12 @@ const NOW_GROUPS: {
     ],
   },
   { key: "payout", rows: [{ key: "signed", statuses: ["signed"] }] },
-  {
-    key: "done",
-    rows: [
-      { key: "issued", statuses: ["issued"] },
-      { key: "declined", statuses: ["declined"] },
-      { key: "cancelled", statuses: ["cancelled"] },
-    ],
-  },
+];
+
+const RESULTS: Row[] = [
+  { key: "issued", statuses: ["issued"] },
+  { key: "declined", statuses: ["declined"] },
+  { key: "cancelled", statuses: ["cancelled"] },
 ];
 
 // The same colours as the status badges in the queue.
@@ -184,60 +180,100 @@ const BAR: Record<StatusGroup, string> = {
   neutral: "bg-status-neutral",
 };
 
-function NowCard({ data }: { data: Dashboard }) {
-  const titleId = useId();
+/** «В работе сейчас» and «Итоги за период» side by side. */
+function StatusCards({ data }: { data: Dashboard }) {
   const now = new Map(data.by_status.map((row) => [row.status, row.count]));
-  const total = data.total_applications;
-  const count = (statuses: Status[]) =>
-    statuses.reduce((sum, status) => sum + (now.get(status) ?? 0), 0);
-  const percent = (value: number) => (total ? Math.round((value / total) * 100) : 0);
+  const count = (rows: Row[]) =>
+    rows.flatMap((row) => row.statuses).reduce((sum, status) => sum + (now.get(status) ?? 0), 0);
+  const inWork = count(IN_WORK.flatMap((group) => group.rows));
+  const finished = count(RESULTS);
   return (
-    <Card aria-labelledby={titleId}>
-      <div className="flex flex-col gap-1">
-        <CardTitle id={titleId} className="m-0">
-          {T.now}
-        </CardTitle>
-        <p className="m-0 text-sm text-ink-muted">{T.nowHint}</p>
+    <div className="grid gap-4 lg:grid-cols-2">
+      <StatusCard title={T.inWork} hint={T.inWorkHint} total={inWork}>
+        {IN_WORK.map((group) => (
+          <section key={group.key} aria-label={T.groups[group.key]} className="flex flex-col gap-3">
+            <h3 className="m-0 flex justify-between gap-3 text-sm font-semibold">
+              {T.groups[group.key]}
+              <span className="tabular">{count(group.rows)}</span>
+            </h3>
+            <ul className="m-0 flex list-none flex-col gap-3 p-0">
+              {group.rows.map((row) => (
+                <StatusRow key={row.key} row={row} value={count([row])} total={inWork} />
+              ))}
+            </ul>
+          </section>
+        ))}
+      </StatusCard>
+      <StatusCard title={T.results} hint={T.resultsHint} total={finished}>
+        <ul className="m-0 flex list-none flex-col gap-3 p-0">
+          {RESULTS.map((row) => (
+            <StatusRow key={row.key} row={row} value={count([row])} total={finished} share />
+          ))}
+        </ul>
+      </StatusCard>
+    </div>
+  );
+}
+
+function StatusCard({
+  title,
+  hint,
+  total,
+  children,
+}: {
+  title: string;
+  hint: string;
+  total: number;
+  children: React.ReactNode;
+}) {
+  const titleId = useId();
+  return (
+    <Card aria-labelledby={titleId} className="gap-5">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex flex-col gap-1">
+          <CardTitle id={titleId} className="m-0">
+            {title}
+          </CardTitle>
+          <p className="m-0 text-sm text-ink-muted">{hint}</p>
+        </div>
+        <span className="font-display text-3xl font-semibold tabular">{total}</span>
       </div>
-      {NOW_GROUPS.map((group) => (
-        <section
-          key={group.key}
-          aria-label={T.nowGroups[group.key]}
-          className="flex flex-col gap-2"
-        >
-          <h3 className="m-0 flex justify-between gap-3 text-sm font-semibold">
-            {T.nowGroups[group.key]}
-            <span className="tabular">{count(group.rows.flatMap((row) => row.statuses))}</span>
-          </h3>
-          <ul className="m-0 flex list-none flex-col gap-2 p-0">
-            {group.rows.map((row) => {
-              const value = count(row.statuses);
-              return (
-                <li
-                  key={row.key}
-                  data-row={row.key}
-                  className="grid grid-cols-[minmax(0,260px)_1fr_96px] items-center gap-3"
-                >
-                  <span className="text-sm">{T.nowRows[row.key]}</span>
-                  <span className="h-3 rounded-full bg-sunken" aria-hidden="true">
-                    <span
-                      className={cn(
-                        "block h-3 rounded-full",
-                        BAR[STATUS[row.statuses[0] as Status].group],
-                      )}
-                      style={{ width: `${percent(value)}%` }}
-                    />
-                  </span>
-                  <span className="text-right text-sm tabular">
-                    {T.nowValue(value, percent(value))}
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-      ))}
+      {children}
     </Card>
+  );
+}
+
+/** The label and the number side by side, a thin bar below; a zero row is muted. */
+function StatusRow({
+  row,
+  value,
+  total,
+  share = false,
+}: {
+  row: Row;
+  value: number;
+  total: number;
+  share?: boolean;
+}) {
+  const percent = total ? Math.round((value / total) * 100) : 0;
+  return (
+    <li data-row={row.key} className={cn("flex flex-col gap-1.5", value === 0 && "text-ink-muted")}>
+      <span className="flex items-baseline justify-between gap-3 text-sm">
+        <span>{T.rows[row.key]}</span>
+        <span className="flex items-baseline gap-3 tabular">
+          <span className="font-semibold">{value}</span>
+          {share ? (
+            <span className="w-24 text-right text-ink-muted">{T.share(value, percent)}</span>
+          ) : null}
+        </span>
+      </span>
+      <span className="h-1.5 rounded-full bg-sunken" aria-hidden="true">
+        <span
+          className={cn("block h-1.5 rounded-full", BAR[STATUS[row.statuses[0] as Status].group])}
+          style={{ width: `${percent}%` }}
+        />
+      </span>
+    </li>
   );
 }
 

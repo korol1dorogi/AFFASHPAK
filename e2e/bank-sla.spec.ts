@@ -20,12 +20,18 @@ test("the bank sees overdue applications marked in the queue and on the dashboar
   await bank.getByRole("link", { name: "Сводка" }).click();
   await expect(bank).toHaveURL(/\/bank\/dashboard$/);
   await expect(bank.getByRole("heading", { name: "Сводка", level: 1 })).toBeVisible();
-  // Each application of the period in one row: where it is now, not every stage it passed.
-  const now = bank.getByLabel("Где сейчас заявки");
-  for (const group of ["Ход за банком", "Ход за клиентом", "Выдача", "Завершены"]) {
-    await expect(now.getByRole("region", { name: group })).toBeVisible();
+  // The period's applications by their current status: in work (by who has to act) and results.
+  const work = bank.getByLabel("В работе сейчас");
+  for (const group of ["Ждут банк", "Ждут клиента", "Выдача денег"]) {
+    await expect(work.getByRole("region", { name: group })).toBeVisible();
   }
-  await expect(now.locator('li[data-row="manual_review"]')).toContainText(/\d+ · (\d+|меньше 1) %/);
+  await expect(work.locator('li[data-row="manual_review"]')).toContainText(
+    /Смотрит сотрудник банка\d+/,
+  );
+  const results = bank.getByLabel("Итоги за период");
+  await expect(results.locator('li[data-row="issued"]')).toContainText(
+    /Деньги выданы\d+(\d+|меньше 1) %/,
+  );
 
   const card = bank.getByLabel("Просрочено по нормативу");
   await expect(card).toContainText(/\d+ из \d+/);
