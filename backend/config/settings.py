@@ -218,12 +218,12 @@ LLM_PROVIDER = env("LLM_PROVIDER", "mock")
 LLM_BASE_URL = env("LLM_BASE_URL", "")
 LLM_API_KEY = env("LLM_API_KEY", "")
 LLM_MODEL = env("LLM_MODEL", "")
-# One model request; with LLM_TURN_BUDGET_SECONDS it must fit the web worker's 60 s
-# (gunicorn --timeout 60 in docker-compose.prod.yml): budget + one request < 60.
-LLM_TIMEOUT_SECONDS = env_int("LLM_TIMEOUT_SECONDS", 25)
+# One model request; with LLM_TURN_BUDGET_SECONDS it must fit the web worker's 120 s
+# (gunicorn --timeout 120 in docker-compose.prod.yml): budget + one request < 120.
+LLM_TIMEOUT_SECONDS = env_int("LLM_TIMEOUT_SECONDS", 30)
 # A whole answer: after this many seconds no new model request starts — the mock finishes the
 # turn from the results in hand, with the «упрощённый режим» note, instead of a killed request.
-LLM_TURN_BUDGET_SECONDS = env_int("LLM_TURN_BUDGET_SECONDS", 30)
+LLM_TURN_BUDGET_SECONDS = env_int("LLM_TURN_BUDGET_SECONDS", 60)
 # Model ↔ tools round trips per answer (AI2); each tool call of a model without parallel calls
 # is a step of its own, so 4 is enough for the bank summary (two tools) with room to spare.
 LLM_MAX_STEPS = env_int("LLM_MAX_STEPS", 4)

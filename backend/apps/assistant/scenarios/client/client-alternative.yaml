@@ -8,4 +8,4 @@ turns:
   expect_tools:
   - name: explain_decision
   must_include:
-  - продукт
+  - лизинг

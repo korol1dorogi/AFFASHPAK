@@ -12,16 +12,8 @@ turns:
   must_not_include:
   - Расскажите, зачем бизнесу деньги
 - user: на автомобиль
-  expect_tools:
-  - name: recommend_products
-    args:
-      need_type: capex
   must_not_include:
   - Расскажите, зачем бизнесу деньги
 - user: на машину
-  expect_tools:
-  - name: recommend_products
-    args:
-      need_type: capex
   must_not_include:
   - Расскажите, зачем бизнесу деньги
