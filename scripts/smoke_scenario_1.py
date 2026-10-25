@@ -7,6 +7,7 @@ Run by scripts/check-clean-clone.sh inside the backend container against the `we
 
 BASE_URL (default http://web) and HOST (default localhost, must be in DJANGO_ALLOWED_HOSTS)
 can be overridden by environment variables. Exit code 0 = the scenario passed.
+Against the stand: BASE_URL=https://<домен> HOST=<домен> python scripts/smoke_scenario_1.py
 """
 
 import http.cookiejar
@@ -30,6 +31,8 @@ def call(method: str, path: str, body: dict | None = None, headers: dict | None 
     data = None if body is None else json.dumps(body).encode()
     request = urllib.request.Request(BASE_URL + path, data=data, method=method)
     request.add_header("Host", HOST)
+    # Django checks the Referer on HTTPS (CSRF): needed when BASE_URL is the stand itself.
+    request.add_header("Referer", BASE_URL + "/")
     request.add_header("Accept", "application/json")
     if data is not None:
         request.add_header("Content-Type", "application/json")
