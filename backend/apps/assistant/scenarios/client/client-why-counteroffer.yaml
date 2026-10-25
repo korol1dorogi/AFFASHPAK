@@ -1,5 +1,5 @@
 id: client-why-counteroffer
-description: 'Сценарий 3: почему контрпредложение'
+description: 'Сценарий 3: почему контрпредложение — сумма по денежному потоку против запрошенной'
 profile: client
 persona: garden_store
 application: latest
@@ -8,5 +8,5 @@ turns:
   expect_tools:
   - name: explain_decision
   must_include:
-  - иных условиях
   - 2 009 314
+  - 5 300 000
