@@ -7,7 +7,14 @@ from django.core.management import call_command
 from rest_framework.test import APIClient
 
 from apps.accounts.demo import persona_catalog, seed
-from apps.accounts.demo_queue import QUEUE_MARK, seed_queue
+from apps.accounts.demo_queue import (
+    PLAN,
+    QUEUE_MARK,
+    plan_position,
+    queue_companies,
+    queue_size,
+    seed_queue,
+)
 from apps.applications.models import Application
 
 pytestmark = pytest.mark.django_db
@@ -108,3 +115,26 @@ def test_every_date_of_a_queue_application_is_aged_by_the_same_shift(media):
     assert timezone.now() - oldest > timedelta(days=1)
     issued = Application.objects.filter(purpose__endswith=QUEUE_MARK, status="issued")
     assert issued.exists()  # the disbursement is covered by the check above
+
+
+# ───────────────────────── UX6: a queue of 300 ─────────────────────────
+
+
+def test_the_queue_size_comes_from_the_settings(settings):
+    settings.DEMO_QUEUE_SIZE = 0
+    assert queue_size() == 30
+    settings.DEMO_QUEUE_SIZE = 300
+    assert queue_size() == 300
+
+
+def test_a_queue_larger_than_the_population_goes_round_again():
+    companies = queue_companies(300)
+    distinct = len({c["_key"] for c in companies})
+    assert len(companies) == 300
+    assert distinct == 240  # the generated population
+    # the same company's second application asks for another product
+    for index in range(300 - distinct):
+        first = PLAN[plan_position(index, distinct) % len(PLAN)][0]
+        second = PLAN[plan_position(index + distinct, distinct) % len(PLAN)][0]
+        assert companies[index]["_key"] == companies[index + distinct]["_key"]
+        assert first != second
