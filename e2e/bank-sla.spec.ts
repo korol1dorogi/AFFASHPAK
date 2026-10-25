@@ -25,7 +25,7 @@ test("the bank sees overdue applications marked in the queue and on the dashboar
   for (const group of ["Ход за банком", "Ход за клиентом", "Выдача", "Завершены"]) {
     await expect(now.getByRole("region", { name: group })).toBeVisible();
   }
-  await expect(now.locator('li[data-row="manual_review"]')).toContainText(/\d+ · \d+ %/);
+  await expect(now.locator('li[data-row="manual_review"]')).toContainText(/\d+ · (\d+|меньше 1) %/);
 
   const card = bank.getByLabel("Просрочено по нормативу");
   await expect(card).toContainText(/\d+ из \d+/);
