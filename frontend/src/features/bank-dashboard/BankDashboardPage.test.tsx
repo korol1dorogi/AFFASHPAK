@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { BankDashboardPage } from "@/features/bank-dashboard/BankDashboardPage";
 import { mockApi, renderRoutes } from "@/test/utils";
+import { BANK_DASHBOARD } from "@/texts";
 
 const DASHBOARD = "GET /api/bank/dashboard";
 
@@ -10,6 +11,18 @@ function dashboard(extra: Record<string, unknown> = {}) {
   return {
     period_days: 30,
     total_applications: 12,
+    by_status: [
+      { status: "submitted", count: 0 },
+      { status: "processing", count: 1 },
+      { status: "manual_review", count: 3 },
+      { status: "info_requested", count: 1 },
+      { status: "offer", count: 2 },
+      { status: "signing", count: 0 },
+      { status: "signed", count: 0 },
+      { status: "issued", count: 3 },
+      { status: "declined", count: 2 },
+      { status: "cancelled", count: 0 },
+    ],
     funnel: [{ stage: "submitted", count: 12 }],
     avg_hours_in_status: { manual_review: "18.50" },
     auto_decision_share: "0.7500",
@@ -30,6 +43,38 @@ function render() {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+});
+
+describe("BankDashboardPage — where the applications are now", () => {
+  it("puts each application in one row: the groups add up to the period total", async () => {
+    mockApi({ [DASHBOARD]: dashboard() });
+    render();
+
+    expect(await screen.findByRole("heading", { name: "Сводка", level: 1 })).toBeInTheDocument();
+    const card = screen.getByLabelText("Где сейчас заявки");
+    const group = (name: string) => within(card).getByRole("region", { name });
+    const row = (key: string) => card.querySelector(`li[data-row="${key}"]`) as HTMLElement;
+
+    expect(within(group("Ход за банком")).getByRole("heading")).toHaveTextContent("4");
+    expect(within(group("Ход за клиентом")).getByRole("heading")).toHaveTextContent("3");
+    expect(within(group("Выдача")).getByRole("heading")).toHaveTextContent("0");
+    expect(within(group("Завершены")).getByRole("heading")).toHaveTextContent("5");
+    // submitted and processing are one row: the system is checking them
+    expect(row("checking")).toHaveTextContent("Проверяет система1 · 8 %");
+    expect(row("manual_review")).toHaveTextContent("У сотрудника банка3 · 25 %");
+    expect(row("offer")).toHaveTextContent("Ждём решения по предложению2 · 17 %");
+    expect(row("cancelled")).toHaveTextContent("Клиент отозвал заявку0 · 0 %");
+    expect(BANK_DASHBOARD.nowValue(1, 0)).toBe("1 · меньше 1 %");
+    expect(screen.queryByText(/Воронка/)).not.toBeInTheDocument();
+  });
+
+  it("takes «Деньги выданы» from where the applications are now", async () => {
+    mockApi({ [DASHBOARD]: dashboard() });
+    render();
+
+    const card = (await screen.findByText("Деньги выданы", { selector: "p" })).parentElement;
+    expect(card).toHaveTextContent("Деньги выданы3");
+  });
 });
 
 describe("BankDashboardPage, SLA (XP4)", () => {

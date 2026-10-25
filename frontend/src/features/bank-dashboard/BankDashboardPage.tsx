@@ -11,11 +11,11 @@ import { NativeSelect } from "@/components/ui/input";
 import { unwrap } from "@/lib/errors";
 import { formatDecimal } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { EMPTY, STATUS, BANK_DASHBOARD as T } from "@/texts";
+import { EMPTY, STATUS, type StatusGroup, BANK_DASHBOARD as T } from "@/texts";
 
 const PERIODS = [7, 30, 90] as const;
 
-/** B6: pipeline funnel, average hours in each status, share of automatic decisions; XP4: SLA. */
+/** B6: where the applications are now, average hours in each status, auto decisions; XP4: SLA. */
 export function BankDashboardPage() {
   const [params, setParams] = useSearchParams();
   const periodId = useId();
@@ -85,7 +85,6 @@ export function BankDashboardPage() {
       </div>
     );
   }
-  const top = Math.max(1, ...data.funnel.map((row) => row.count));
   const share = data.auto_decision_share;
   const hours = Object.entries(data.avg_hours_in_status).sort(
     (a, b) => Number(b[1]) - Number(a[1]),
@@ -112,28 +111,12 @@ export function BankDashboardPage() {
         <Card>
           <p className="m-0 text-sm text-ink-muted">{T.issued}</p>
           <p className="m-0 font-display text-3xl font-semibold tabular">
-            {data.funnel.find((row) => row.stage === "issued")?.count ?? 0}
+            {data.by_status.find((row) => row.status === "issued")?.count ?? 0}
           </p>
         </Card>
         <OverdueCard data={data} />
       </div>
-      <Card>
-        <CardTitle className="m-0">{T.funnel}</CardTitle>
-        <ul aria-label={T.funnel} className="m-0 flex list-none flex-col gap-2 p-0">
-          {data.funnel.map((row) => (
-            <li key={row.stage} className="grid grid-cols-[200px_1fr_56px] items-center gap-3">
-              <span className="text-sm">{STATUS[row.stage].label}</span>
-              <span className="h-3 rounded-full bg-sunken" aria-hidden="true">
-                <span
-                  className="block h-3 rounded-full bg-primary"
-                  style={{ width: `${(row.count / top) * 100}%` }}
-                />
-              </span>
-              <span className="text-right font-semibold tabular">{row.count}</span>
-            </li>
-          ))}
-        </ul>
-      </Card>
+      <NowCard data={data} />
       <Card>
         <CardTitle className="m-0">{T.hours}</CardTitle>
         {hours.length === 0 ? (
@@ -156,6 +139,107 @@ export function BankDashboardPage() {
 }
 
 type Dashboard = Schemas["BankDashboard"];
+type Status = Schemas["ApplicationStatus"];
+
+/*
+ * Where the period's applications are now. Each is counted once, in its current status, so the
+ * rows add up to the total — unlike the funnel, which counts an application at every stage it passed.
+ */
+const NOW_GROUPS: {
+  key: keyof typeof T.nowGroups;
+  rows: { key: keyof typeof T.nowRows; statuses: Status[] }[];
+}[] = [
+  {
+    key: "bank",
+    rows: [
+      { key: "checking", statuses: ["submitted", "processing"] },
+      { key: "manual_review", statuses: ["manual_review"] },
+    ],
+  },
+  {
+    key: "client",
+    rows: [
+      { key: "info_requested", statuses: ["info_requested"] },
+      { key: "offer", statuses: ["offer"] },
+      { key: "signing", statuses: ["signing"] },
+    ],
+  },
+  { key: "payout", rows: [{ key: "signed", statuses: ["signed"] }] },
+  {
+    key: "done",
+    rows: [
+      { key: "issued", statuses: ["issued"] },
+      { key: "declined", statuses: ["declined"] },
+      { key: "cancelled", statuses: ["cancelled"] },
+    ],
+  },
+];
+
+// The same colours as the status badges in the queue.
+const BAR: Record<StatusGroup, string> = {
+  action: "bg-status-action",
+  progress: "bg-status-progress",
+  success: "bg-status-success",
+  danger: "bg-status-danger",
+  neutral: "bg-status-neutral",
+};
+
+function NowCard({ data }: { data: Dashboard }) {
+  const titleId = useId();
+  const now = new Map(data.by_status.map((row) => [row.status, row.count]));
+  const total = data.total_applications;
+  const count = (statuses: Status[]) =>
+    statuses.reduce((sum, status) => sum + (now.get(status) ?? 0), 0);
+  const percent = (value: number) => (total ? Math.round((value / total) * 100) : 0);
+  return (
+    <Card aria-labelledby={titleId}>
+      <div className="flex flex-col gap-1">
+        <CardTitle id={titleId} className="m-0">
+          {T.now}
+        </CardTitle>
+        <p className="m-0 text-sm text-ink-muted">{T.nowHint}</p>
+      </div>
+      {NOW_GROUPS.map((group) => (
+        <section
+          key={group.key}
+          aria-label={T.nowGroups[group.key]}
+          className="flex flex-col gap-2"
+        >
+          <h3 className="m-0 flex justify-between gap-3 text-sm font-semibold">
+            {T.nowGroups[group.key]}
+            <span className="tabular">{count(group.rows.flatMap((row) => row.statuses))}</span>
+          </h3>
+          <ul className="m-0 flex list-none flex-col gap-2 p-0">
+            {group.rows.map((row) => {
+              const value = count(row.statuses);
+              return (
+                <li
+                  key={row.key}
+                  data-row={row.key}
+                  className="grid grid-cols-[minmax(0,260px)_1fr_96px] items-center gap-3"
+                >
+                  <span className="text-sm">{T.nowRows[row.key]}</span>
+                  <span className="h-3 rounded-full bg-sunken" aria-hidden="true">
+                    <span
+                      className={cn(
+                        "block h-3 rounded-full",
+                        BAR[STATUS[row.statuses[0] as Status].group],
+                      )}
+                      style={{ width: `${percent(value)}%` }}
+                    />
+                  </span>
+                  <span className="text-right text-sm tabular">
+                    {T.nowValue(value, percent(value))}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ))}
+    </Card>
+  );
+}
 
 /** XP4: how many applications waiting for the bank are past their status norm, and the norms. */
 function OverdueCard({ data }: { data: Dashboard }) {

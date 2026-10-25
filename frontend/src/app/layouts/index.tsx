@@ -189,7 +189,7 @@ export function BankLayout() {
           <NavItem to={routes.bank} end>
             Очередь
           </NavItem>
-          <NavItem to={routes.bankDashboard}>Дашборд</NavItem>
+          <NavItem to={routes.bankDashboard}>Сводка</NavItem>
           <NavItem to={routes.bankPolicy}>Кредитная политика</NavItem>
           {demo.isSuccess ? <NavItem to={routes.bankDemo}>Демо-панель</NavItem> : null}
         </>
