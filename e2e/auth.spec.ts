@@ -9,6 +9,9 @@ test("a new client registers and is sent to connect the company", async ({ page 
   await page.getByLabel("Повторите пароль").fill("Kofe-2026-demo");
   await page.getByRole("button", { name: "Создать учётную запись" }).click();
   await expect(page).toHaveURL(/\/app\/company\/new$/);
+  // Until the company is connected the cabinet has no sections to open.
+  await expect(page.getByLabel("ИНН компании или ИП")).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Разделы" })).toHaveCount(0);
 });
 
 test("a wrong password shows a plain error", async ({ page }) => {
