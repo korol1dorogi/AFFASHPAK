@@ -2,6 +2,7 @@ import { Check, Minus, X } from "lucide-react";
 
 import type { Schemas } from "@/api/client";
 import { metricSource, SourceTag } from "@/components/AmountSource";
+import { Hint } from "@/components/Term";
 import { formatDecimal, formatMoney, formatRate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { METRIC, type MetricText, metricTitle } from "@/texts";
@@ -85,7 +86,9 @@ export function ReasonList({
               <Icon className="size-4" role="img" aria-label={markLabel} />
             </span>
             <div className="min-w-0">
-              <p className="m-0 font-semibold">{title}</p>
+              <p className="m-0 font-semibold">
+                {text ? <Hint text={text.hint}>{title}</Hint> : title}
+              </p>
               {variant === "bank" ? (
                 <p className="m-0 font-mono text-xs text-ink-muted">{reason.metric}</p>
               ) : null}

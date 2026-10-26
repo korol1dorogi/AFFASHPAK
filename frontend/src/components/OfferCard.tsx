@@ -2,6 +2,7 @@ import type { Schemas } from "@/api/client";
 import { type AmountSource, SourceTag } from "@/components/AmountSource";
 import { MoneyText, RateText } from "@/components/Money";
 import { ReasonList } from "@/components/ReasonList";
+import { Term } from "@/components/Term";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatDate, formatMoney } from "@/lib/format";
@@ -40,7 +41,7 @@ export function OfferCard({
       <div className="flex flex-col gap-1 bg-brass-soft p-6">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-xs font-medium tracking-[0.02em] text-ink-muted">
-            {PRODUCT_KIND[offer.product.kind].toUpperCase()}
+            <Term id={offer.product.kind}>{PRODUCT_KIND[offer.product.kind].toUpperCase()}</Term>
           </span>
           {offer.is_counteroffer ? <Badge variant="action">Другие условия</Badge> : null}
           {offer.product_changed ? <Badge variant="action">Другой продукт</Badge> : null}
@@ -52,14 +53,16 @@ export function OfferCard({
         </p>
         {offer.is_counteroffer ? (
           <span className="text-sm text-ink-muted">
-            Вы просили {formatMoney(offer.requested_amount)}
+            Запрошено: {formatMoney(offer.requested_amount)}
             <SourceTag source="you" />
           </span>
         ) : null}
       </div>
       <dl className="m-0 grid grid-cols-[repeat(auto-fit,minmax(140px,1fr))] gap-4 border-b border-line p-6">
         <div>
-          <dt className="text-xs text-ink-muted">Ставка</dt>
+          <dt className="text-xs text-ink-muted">
+            <Term id="rate">Ставка</Term>
+          </dt>
           <dd className="m-0">
             <RateText value={offer.rate} size="md" />
           </dd>
@@ -71,10 +74,12 @@ export function OfferCard({
           </dd>
         </div>
         <div>
-          <dt className="text-xs text-ink-muted">Платёж в месяц</dt>
+          <dt className="text-xs text-ink-muted">
+            <Term id="annuity">Ежемесячный платёж</Term>
+          </dt>
           <dd className="m-0">
             {offer.monthly_payment === null ? (
-              <span className="text-sm">Зависит от того, сколько возьмёте</span>
+              <span className="text-sm">Зависит от использования лимита</span>
             ) : (
               <>
                 <MoneyText value={offer.monthly_payment} size="md" />
@@ -87,9 +92,11 @@ export function OfferCard({
       {why ? (
         <div className="flex flex-col gap-3 border-b border-line p-6">
           <p className="m-0 font-semibold">
-            {offer.product_changed ? "Почему другой продукт" : "Почему меньше, чем вы просили"}
+            {offer.product_changed
+              ? "Почему предложен другой продукт"
+              : "Почему сумма меньше запрошенной"}
           </p>
-          <ReasonList reasons={offer.reasons} label="Почему такие условия" />
+          <ReasonList reasons={offer.reasons} label="Обоснование условий" />
         </div>
       ) : null}
       {canAccept || canDecline ? (

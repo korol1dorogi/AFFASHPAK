@@ -43,7 +43,9 @@ describe("ProductsPage (UX2)", () => {
     mockApi({ "GET /api/products": [] });
     render();
     expect(await screen.findByText("Каталог продуктов пуст")).toBeInTheDocument();
-    expect(screen.getAllByRole("link", { name: "Подобрать по задаче" }).length).toBeGreaterThan(1);
+    expect(
+      screen.getAllByRole("link", { name: "Подобрать по цели финансирования" }).length,
+    ).toBeGreaterThan(1);
   });
 
   it("the calculator says what is wrong under the field instead of a grey button", async () => {

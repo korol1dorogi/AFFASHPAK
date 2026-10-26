@@ -1,4 +1,4 @@
-import { cloneElement, type ReactElement, useId } from "react";
+import { cloneElement, type ReactElement, type ReactNode, useId } from "react";
 
 import { cn } from "@/lib/utils";
 
@@ -13,8 +13,8 @@ export function Field({
   children,
   className,
 }: {
-  label: string;
-  hint?: string;
+  label: ReactNode;
+  hint?: ReactNode;
   error?: string;
   children: ReactElement<Record<string, unknown>>;
   className?: string;

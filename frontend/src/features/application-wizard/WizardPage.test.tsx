@@ -89,8 +89,10 @@ describe("WizardPage — the preparer hands the draft to the director (XP5)", ()
     expect(screen.queryByRole("button", { name: "Отправить в банк" })).not.toBeInTheDocument();
     // The members list arrives after the draft: the name appears a moment later.
     expect(
-      await screen.findByText(/Отправить заявку может подписант: Пётр Демо/),
-    ).toHaveTextContent("передайте его подписанту: он получит уведомление в кабинете");
+      await screen.findByText(/Отправить заявку может только подписант: Пётр Демо/),
+    ).toHaveTextContent(
+      "Подготовленный черновик передайте подписанту — он получит уведомление в кабинете",
+    );
     expect(button).toBeEnabled();
   });
 
@@ -122,8 +124,8 @@ describe("WizardPage — the preparer hands the draft to the director (XP5)", ()
 
   it("without hand_off in available_actions there is no button", async () => {
     open({ ...DRAFT, available_actions: ["edit", "upload_document"] });
-    expect(await screen.findByText(/Отправить заявку может подписант/)).toHaveTextContent(
-      "подписант увидит его в своём кабинете",
+    expect(await screen.findByText(/Отправить заявку может только подписант/)).toHaveTextContent(
+      "Черновик сохранён и доступен подписанту в его кабинете",
     );
     expect(screen.queryByRole("button", { name: "Передать директору" })).not.toBeInTheDocument();
   });

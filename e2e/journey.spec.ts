@@ -33,8 +33,8 @@ test.describe("scenario 1: coffee shop — overdraft, auto offer, signing, disbu
     await signInAs(page, "кофейня «Зерно и пар»");
     await expect(page).toHaveURL(/\/app$/);
     await page.goto("/app/match");
-    await page.getByText("Не хватает денег до поступлений").click();
-    await page.getByRole("button", { name: "Показать варианты" }).click();
+    await page.getByText("Покрытие кассового разрыва").click();
+    await page.getByRole("button", { name: "Подобрать продукт" }).click();
     const first = page.locator("article").first();
     await expect(first).toContainText("Овердрафт");
     await expect(first).toContainText(rub("900 000"));
@@ -45,8 +45,8 @@ test.describe("scenario 1: coffee shop — overdraft, auto offer, signing, disbu
     await signInAs(page, "кофейня «Зерно и пар»");
     await expect(page).toHaveURL(/\/app$/);
     await page.goto("/app/match");
-    await page.getByText("Не хватает денег до поступлений").click();
-    await page.getByRole("button", { name: "Показать варианты" }).click();
+    await page.getByText("Покрытие кассового разрыва").click();
+    await page.getByRole("button", { name: "Подобрать продукт" }).click();
     await page.getByRole("button", { name: "Оформить заявку" }).first().click();
     await expect(page).toHaveURL(/\/edit\/business$/);
     // F12: the company comes from the registry, nothing is typed again
@@ -77,7 +77,7 @@ test.describe("scenario 1: coffee shop — overdraft, auto offer, signing, disbu
     await expect(statusBadge(page)).toHaveText("Есть предложение");
     const offer = page.getByRole("article", { name: "Предложение банка" });
     await expect(offer).toContainText(rub("900 000"));
-    await expect(offer).toContainText("Зависит от того, сколько возьмёте");
+    await expect(offer).toContainText("Зависит от использования лимита");
     await expect(page.getByText("Предварительная оценка").first()).toBeVisible();
     await acceptAndSign(page, id);
   });
@@ -133,11 +133,11 @@ test.describe("scenario 3: seasonal store — counteroffer by DSCR", () => {
     const offer = page.getByRole("article", { name: "Предложение банка" });
     await expect(offer).toContainText("Другие условия");
     await expect(offer).toContainText(rub("2 009 314"));
-    await expect(offer).toContainText(`Вы просили ${rub("5 300 000")}`);
+    await expect(offer).toContainText(`Запрошено: ${rub("5 300 000")}`);
     await expect(offer).toContainText(`24${NBSP}%`);
     await expect(offer).toContainText(`12${NBSP}мес`);
     await expect(offer).toContainText(rub("189 999,92"));
-    const why = offer.getByRole("list", { name: "Почему такие условия" });
+    const why = offer.getByRole("list", { name: "Обоснование условий" });
     await expect(why).toContainText("87 баллов из 100, это оценка B");
     await expect(why).toContainText("На 12 месяцев под 24% можно взять не больше 2 009 314 ₽");
     await expect(why).toContainText("свободных денег в 1,25 раза больше, чем уходит на все платежи");
@@ -201,7 +201,7 @@ test.describe("scenario 4: manufacturer — manual review and info request", () 
         ["bank_statement", "tax_return", "contract", "invoice"],
       );
       await accountant.goto(`/app/applications/${id}/edit/review`);
-      await expect(accountant.getByText("Отправить заявку может подписант")).toBeVisible();
+      await expect(accountant.getByText("Отправить заявку может только подписант")).toBeVisible();
       await expect(accountant.getByRole("button", { name: "Отправить в банк" })).toHaveCount(0);
       await accountant.getByRole("button", { name: "Передать директору" }).click();
       await expect(accountant.getByRole("status")).toContainText(
@@ -482,7 +482,7 @@ test.describe("scenario 8: equipment without collateral — alternative product"
     await expect(offer).toContainText("Другой продукт");
     await expect(offer).toContainText(rub("11 443 551"));
     await expect(offer).toContainText(rub("440 000"));
-    await expect(offer.getByText("Почему другой продукт")).toBeVisible();
+    await expect(offer.getByText("Почему предложен другой продукт")).toBeVisible();
     await expect(offer).toContainText(
       "Инвестиционный кредит выдают только под залог, зато подходит лизинг оборудования и транспорта",
     );

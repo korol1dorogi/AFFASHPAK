@@ -8,6 +8,7 @@ import { Field } from "@/components/Field";
 import { MoneyText, RateText } from "@/components/Money";
 import { MoneyInput } from "@/components/MoneyInput";
 import { EmptyState, ErrorState, PageHeader, PageSkeleton } from "@/components/States";
+import { Term } from "@/components/Term";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
@@ -80,12 +81,16 @@ function ProductCard({ product, onCalculate }: { product: Product; onCalculate: 
     <Card className="h-full">
       <div className="flex flex-wrap items-center gap-2">
         <CardTitle className="m-0">{product.name}</CardTitle>
-        <Badge variant="neutral">{PRODUCT_KIND[product.kind]}</Badge>
+        <Badge variant="neutral">
+          <Term id={product.kind}>{PRODUCT_KIND[product.kind]}</Term>
+        </Badge>
       </div>
       <p className="m-0 text-sm text-ink-muted">{product.description}</p>
       <dl className="m-0 grid grid-cols-3 gap-3 text-sm">
         <div>
-          <dt className="text-ink-muted">{T.rate}</dt>
+          <dt className="text-ink-muted">
+            <Term id="rate">{T.rate}</Term>
+          </dt>
           <dd className="m-0 font-semibold">
             <RateText value={product.rate_min} /> – <RateText value={product.rate_max} />
           </dd>
@@ -106,7 +111,11 @@ function ProductCard({ product, onCalculate }: { product: Product; onCalculate: 
       <p className="m-0 text-sm">
         {product.collateral_required ? T.collateralNeeded : T.noCollateral}
         {" · "}
-        {product.is_revolving ? T.revolving : T.annuity}
+        {product.is_revolving ? (
+          <Term id="revolving">{T.revolving}</Term>
+        ) : (
+          <Term id="annuity">{T.annuity}</Term>
+        )}
       </p>
       <p className="m-0 text-sm text-ink-muted">
         {T.documents}:{" "}
@@ -204,7 +213,9 @@ function Calculator({
         <div className="flex flex-col gap-4">
           <dl className="m-0 grid grid-cols-3 gap-3">
             <div>
-              <dt className="text-sm text-ink-muted">{T.payment}</dt>
+              <dt className="text-sm text-ink-muted">
+                <Term id="annuity">{T.payment}</Term>
+              </dt>
               <dd className="m-0">
                 <MoneyText value={result.payment} size="md" />
               </dd>
@@ -216,7 +227,9 @@ function Calculator({
               </dd>
             </div>
             <div>
-              <dt className="text-sm text-ink-muted">{T.overpayment}</dt>
+              <dt className="text-sm text-ink-muted">
+                <Term id="overpayment">{T.overpayment}</Term>
+              </dt>
               <dd className="m-0">
                 <MoneyText value={result.overpayment} size="md" />
               </dd>
