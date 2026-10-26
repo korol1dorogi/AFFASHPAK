@@ -2,7 +2,7 @@
 
 Кредитный кабинет для малого бизнеса и рабочее место кредитного специалиста над одной заявкой: от «зачем нужны деньги» до «деньги выданы». Сумма — с причинами в цифрах, отказ — с планом «как получить одобрение», сбой источника — к сотруднику, а не в отказ. ИИ-ассистент на модели с открытыми весами помогает обеим сторонам, но не решает за людей.
 
-**Запуск:** `cp .env.example .env && docker compose up -d --build --wait` → http://localhost:8080 (~2 мин, 4 ГБ, без GPU и ключей). **Проверка за 10 минут** — [ниже](#что-посмотреть-за-10-минут).
+**Запуск:** `cp .env.example .env && docker compose up -d --build --wait` → http://localhost:8080 (~2 мин, 4 ГБ, без GPU и ключей). **Проверка за 10 минут** — [ниже](#что-посмотреть-за-10-минут). **Онлайн-стенд** (дополнение к локальному запуску, ассистент на живой модели): https://194-67-92-122.sslip.io
 
 Хакатон «Альфа-Будущее» (Альфа-Банк × Changellenge), трек «Умный кредитный кабинет предпринимателя». Репозиторий приватный, решение не публикуем.
 
@@ -85,7 +85,7 @@
 
 ### Запуск
 ```sh
-git clone <адрес репозитория> oborot && cd oborot
+git clone https://github.com/korol1dorogi/AFFASHPAK.git oborot && cd oborot
 cp .env.example .env
 docker compose up -d --build --wait
 ```
@@ -258,7 +258,7 @@ LLM_MODEL=Qwen/Qwen3.6-35B-A3B
 | Чистый клон + сценарий 1 | `scripts/check-clean-clone.sh` | Git, bash, Docker |
 | Качество ассистента: 63 сценария и атаки | `docker compose exec backend python manage.py assistant_eval` (`--provider openai` — на модели из `.env`) | стек поднят |
 
-CI ([.github/workflows/ci.yml](.github/workflows/ci.yml)) на каждый PR и push в main:
+CI ([.github/workflows/ci.yml](.github/workflows/ci.yml)) на каждый PR и push в main. С 23.10 GitHub не запускает задачи из-за лимита Actions аккаунта, поэтому последние коммиты в истории отмечены красным; те же проверки на финальном коммите прогнаны вручную — протокол в [docs/release-checks.md](docs/release-checks.md).
 
 | Задача | Что проверяет |
 |---|---|
