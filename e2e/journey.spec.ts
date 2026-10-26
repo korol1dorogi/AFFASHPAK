@@ -176,6 +176,8 @@ test.describe("scenario 4: manufacturer — manual review and info request", () 
   test("accountant hands off → director notified → grade C → manual review → bank requests a document → client uploads and responds → bank approves → issued (B4, B5, C6, C7, XP5)", async ({
     browser,
   }) => {
+    // Three people and about ten steps: 22–25 s alone, past the default 30 s in a full run.
+    test.slow();
     const accountant = await personaPage(
       browser,
       "Главный бухгалтер: ООО «Дубрава Мебель»",
@@ -472,8 +474,10 @@ test.describe("scenario 8: equipment without collateral — alternative product"
       ["bank_statement", "tax_return", "contract", "invoice"],
     );
     await submitFromWizard(page, id);
-    // P6: the loan needs collateral → leasing; P7: the amount by DSCR
-    await expect(page.getByText("Банк предлагает другой продукт")).toBeVisible();
+    // P6: the loan needs collateral → leasing; P7: the amount by DSCR.
+    // The pipeline runs in the worker and the page polls every 3 s: 5 s is one poll, too tight
+    // under a full run.
+    await expect(page.getByText("Банк предлагает другой продукт")).toBeVisible({ timeout: 15_000 });
     const offer = page.getByRole("article", { name: "Предложение банка" });
     await expect(offer).toContainText("Другой продукт");
     await expect(offer).toContainText(rub("11 443 551"));

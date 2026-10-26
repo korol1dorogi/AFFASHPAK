@@ -584,16 +584,27 @@
           "script": {
             "type": "text/javascript",
             "exec": [
-              "pm.test('offer after the pipeline', function () {",
-              "    pm.response.to.have.status(200);",
-              "    const application = pm.response.json();",
-              "    pm.expect(application.status).to.eql('offer');",
-              "    pm.expect(application.decision.outcome).to.eql('offer');",
-              "    pm.expect(application.decision.is_preliminary).to.eql(true);",
-              "    pm.expect(application.decision.grade).to.eql('A');",
-              "    pm.expect(application.offer.amount).to.eql('900000.00');",
-              "    pm.expect(application.offer.monthly_payment).to.eql(null);",
-              "});"
+              "// The pipeline runs in the worker (OPS4): while the application is still being checked,",
+              "// ask again in 0.5 s, up to 20 times, then assert as before.",
+              "const pipelineBusy = ['submitted', 'processing'].includes(pm.response.json().status);",
+              "const pipelineTries = Number(pm.environment.get('pipeline_tries') || 0);",
+              "if (pipelineBusy && pipelineTries < 20) {",
+              "    pm.environment.set('pipeline_tries', String(pipelineTries + 1));",
+              "    postman.setNextRequest(pm.info.requestName);",
+              "    setTimeout(() => {}, 500);",
+              "} else {",
+              "    pm.environment.unset('pipeline_tries');",
+              "    pm.test('offer after the pipeline', function () {",
+              "        pm.response.to.have.status(200);",
+              "        const application = pm.response.json();",
+              "        pm.expect(application.status).to.eql('offer');",
+              "        pm.expect(application.decision.outcome).to.eql('offer');",
+              "        pm.expect(application.decision.is_preliminary).to.eql(true);",
+              "        pm.expect(application.decision.grade).to.eql('A');",
+              "        pm.expect(application.offer.amount).to.eql('900000.00');",
+              "        pm.expect(application.offer.monthly_payment).to.eql(null);",
+              "    });",
+              "}"
             ]
           }
         }
@@ -1511,12 +1522,23 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('grade C waits for an officer', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "    const application = pm.response.json();",
-                  "    pm.expect(application.status).to.eql('manual_review');",
-                  "    pm.expect(application.decision.grade).to.eql('C');",
-                  "});"
+                  "// The pipeline runs in the worker (OPS4): while the application is still being checked,",
+                  "// ask again in 0.5 s, up to 20 times, then assert as before.",
+                  "const pipelineBusy = ['submitted', 'processing'].includes(pm.response.json().status);",
+                  "const pipelineTries = Number(pm.environment.get('pipeline_tries') || 0);",
+                  "if (pipelineBusy && pipelineTries < 20) {",
+                  "    pm.environment.set('pipeline_tries', String(pipelineTries + 1));",
+                  "    postman.setNextRequest(pm.info.requestName);",
+                  "    setTimeout(() => {}, 500);",
+                  "} else {",
+                  "    pm.environment.unset('pipeline_tries');",
+                  "    pm.test('grade C waits for an officer', function () {",
+                  "        pm.response.to.have.status(200);",
+                  "        const application = pm.response.json();",
+                  "        pm.expect(application.status).to.eql('manual_review');",
+                  "        pm.expect(application.decision.grade).to.eql('C');",
+                  "    });",
+                  "}"
                 ]
               }
             }
