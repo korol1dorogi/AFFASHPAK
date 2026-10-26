@@ -40,7 +40,7 @@ function NavItem({ to, end, children }: { to: string; end?: boolean; children: R
       end={end}
       className={({ isActive }) =>
         cn(
-          "flex h-10 items-center rounded-md px-3 font-medium no-underline",
+          "flex min-h-10 items-center rounded-md px-3 py-2 leading-5 font-medium no-underline",
           isActive
             ? "bg-primary-soft font-semibold text-primary-ink"
             : "text-ink-muted hover:bg-sunken hover:text-ink",
