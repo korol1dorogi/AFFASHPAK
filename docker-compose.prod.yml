@@ -78,11 +78,13 @@ services:
     <<: *app
     environment: *app-env
     # The seed runs its pipeline in-process (empty broker): the worker starts after the backend.
+    # gthread: an assistant turn waits for the model up to a minute; with sync workers three such
+    # turns at once held every worker and the whole site hung. 3 × 8 threads, ≤ 24 DB connections.
     command: >
       sh -c "python manage.py migrate --noinput
       && CELERY_BROKER_URL= python manage.py seed_demo
       && python manage.py collectstatic --noinput
-      && gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 3 --timeout 120 --no-control-socket --access-logfile -"
+      && gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 3 --worker-class gthread --threads 8 --timeout 120 --no-control-socket --access-logfile -"
     volumes:
       - static:/app/staticfiles
       - media:/app/media

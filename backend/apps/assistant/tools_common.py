@@ -6,8 +6,9 @@ error. `run_registry` never raises on a bad call — the model gets `{"error": {
 and can say what went wrong; the result goes as is into the journal (AssistantMessage.tool_calls).
 
 Strings a person typed into the application (purpose, collateral, company name, answers) travel
-in a separate `client_text` object: they are data, not instructions, and the guard layer (AI22)
-wraps them as untrusted before the model sees them (docs/redteam.md, attack 6).
+in a separate `client_text` object: they are data, not instructions, and the guard layer
+(`guards.for_model`, called by the engine for every tool result) wraps them as untrusted before
+the model sees them (docs/redteam.md, attack 6 and attack-bank-indirect).
 """
 
 from collections.abc import Callable

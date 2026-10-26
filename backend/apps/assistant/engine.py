@@ -115,7 +115,8 @@ class Turn:
                 if isinstance(result.get("pending_action"), dict):
                     self.pending_action = result["pending_action"]
                 self.messages.append(
-                    Message(role="tool", content=json.dumps(result, ensure_ascii=False),
+                    Message(role="tool",
+                            content=json.dumps(guards.for_model(result), ensure_ascii=False),
                             tool_call_id=call.id)
                 )  # fmt: skip
         # The steps ran out with results in hand: one more request without tools makes the
@@ -356,7 +357,8 @@ def summary(user: AbstractBaseUser, application_id: int) -> dict:
             Message(role="user", content=SUMMARY_REQUEST),
             Message(role="assistant", content="", tool_calls=tuple(calls)),
             *(
-                Message(role="tool", content=json.dumps(entry["result"], ensure_ascii=False),
+                Message(role="tool",
+                        content=json.dumps(guards.for_model(entry["result"]), ensure_ascii=False),
                         tool_call_id=call.id)
                 for call, entry in zip(calls, turn.journal, strict=True)
             ),

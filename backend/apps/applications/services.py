@@ -221,6 +221,9 @@ def start_signature(application: Application, actor: Actor) -> tuple[Signature, 
     with transaction.atomic():
         app = lock_application(application.pk)
         check_action(app, "sign", actor)
+        offer = app.offers.filter(status=OfferStatus.ACCEPTED).first()
+        if offer is not None and offer.expires_at <= timezone.now():
+            raise InvalidTransition("Предложение истекло. Обратитесь в банк.")
         code = f"{secrets.randbelow(10**6):06d}"
         signature, _ = Signature.objects.update_or_create(
             application=app,

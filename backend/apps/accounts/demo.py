@@ -221,10 +221,12 @@ def _delete_files(storage, names: list[str]) -> None:
 
 def reset_demo() -> dict[str, int]:
     """Seeded companies back to their starting state: their applications (with notifications and
-    files) go, outages are off and the demo queue is seeded again. Applications of companies
+    files) and the personas' assistant history go, outages are off and the demo queue is seeded
+    again. Applications of companies
     people connected themselves stay. Returns what was deleted."""
     from apps.accounts.demo_queue import seed_queue
     from apps.applications.models import Application
+    from apps.assistant.models import AssistantMessage, PendingAction
     from apps.documents.models import Document
     from apps.integrations import flags
     from apps.integrations.breaker import breaker
@@ -243,6 +245,12 @@ def reset_demo() -> dict[str, int]:
             "notifications": Notification.objects.filter(application__in=applications).count(),
         }
         applications.delete()  # notifications and documents go with them (CASCADE)
+        # The personas are shared by every visitor: their assistant history goes too, or the
+        # chats about deleted applications (application → NULL) surface in the next person's
+        # general chat. People who registered themselves keep theirs.
+        personas = {record["username"] for record in persona_dataset()["users"]}
+        AssistantMessage.objects.filter(user__username__in=personas).delete()
+        PendingAction.objects.filter(user__username__in=personas).delete()
         flags.reset()
         # Files only once the rows are gone for good: a rollback must not leave rows without files.
         transaction.on_commit(lambda: _delete_files(storage, files))
