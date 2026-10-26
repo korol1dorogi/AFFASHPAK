@@ -114,10 +114,18 @@ function Shell({
     <div className="min-h-screen bg-paper">
       <Header>{header}</Header>
       <div className="flex flex-wrap gap-8 p-6">
-        <nav aria-label="Разделы" className="flex max-w-60 flex-[1_1_200px] flex-col gap-1">
-          {nav}
-        </nav>
-        <main className="flex min-w-0 max-w-[1120px] flex-[999_1_560px] flex-col gap-6">
+        {nav ? (
+          <nav aria-label="Разделы" className="flex max-w-60 flex-[1_1_200px] flex-col gap-1">
+            {nav}
+          </nav>
+        ) : null}
+        {/* No sections → the page stands in the middle, as on the public pages. */}
+        <main
+          className={cn(
+            "flex min-w-0 max-w-[1120px] flex-[999_1_560px] flex-col gap-6",
+            !nav && "mx-auto",
+          )}
+        >
           {children}
         </main>
       </div>
@@ -148,15 +156,18 @@ export function ClientLayout() {
           </>
         }
         nav={
-          <>
-            <NavItem to={routes.home} end>
-              Главная
-            </NavItem>
-            <NavItem to={routes.match}>Подобрать финансирование</NavItem>
-            <NavItem to={routes.applications}>Заявки</NavItem>
-            <NavItem to={routes.products}>Продукты</NavItem>
-            <NavItem to={routes.company}>Компания</NavItem>
-          </>
+          // Without a company every section sends back to connecting one (RequireCompany).
+          me.data?.company_id ? (
+            <>
+              <NavItem to={routes.home} end>
+                Главная
+              </NavItem>
+              <NavItem to={routes.match}>Подобрать финансирование</NavItem>
+              <NavItem to={routes.applications}>Заявки</NavItem>
+              <NavItem to={routes.products}>Продукты</NavItem>
+              <NavItem to={routes.company}>Компания</NavItem>
+            </>
+          ) : null
         }
       >
         <Outlet />
