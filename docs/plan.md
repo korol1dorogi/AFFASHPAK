@@ -87,7 +87,7 @@
 - Пустые, загрузочные и ошибочные состояния; базовая доступность (контраст, клавиатура). Desktop first.
 
 ### Инфраструктура
-- Compose по умолчанию: db, redis, backend, worker, frontend за Caddy, simulators, swagger-ui, init-контейнер (миграции + seed). Плюс профиль llm (Ollama) и dev-режим.
+- Compose по умолчанию: db, redis, backend, worker, frontend за Caddy, simulators, swagger-ui, init-контейнер (миграции + seed) и dev-режим. Профиль llm (Ollama) отменён 24.10 (AI4): модель — через внешнего провайдера.
 - Стенд: VPS 3 ядра / 3 ГБ, Ubuntu 26.04, Caddy с HTTPS, домен или бесплатный DuckDNS; swap, ротация логов, внешний пинг (UptimeRobot). Деплой — [deploy.md](deploy.md).
 - LLM на стенде: API провайдера с open-weight моделью, лимит бюджета и троттлинг. В репозитории по умолчанию mock.
 - CI: lint, тесты, валидация контракта, e2e, коллекция через newman, gitleaks, check --deploy.

@@ -1,19 +1,17 @@
+"""REL2: an empty `NAME=` in .env means «not set» — the stack must start (clean clone, 26.10)."""
+
 from config.settings import env_int
 
 
-def test_empty_int_variable_takes_the_default(monkeypatch):
-    """REL1: .env.example ships DEMO_QUEUE_SIZE= («empty — 30»); after `cp .env.example .env`
-    the empty value crashed the settings import and `docker compose up` never started."""
-    monkeypatch.setenv("DEMO_QUEUE_SIZE", "")
-    assert env_int("DEMO_QUEUE_SIZE", 0) == 0
-
-    monkeypatch.setenv("DEMO_QUEUE_SIZE", "  ")
-    assert env_int("DEMO_QUEUE_SIZE", 7) == 7
+def test_an_empty_integer_falls_back_to_the_default(monkeypatch):
+    monkeypatch.setenv("REL2_SIZE", "")
+    assert env_int("REL2_SIZE", 30) == 30
+    monkeypatch.setenv("REL2_SIZE", "  ")
+    assert env_int("REL2_SIZE", 30) == 30
 
 
-def test_int_variable_is_read_when_set(monkeypatch):
-    monkeypatch.setenv("DEMO_QUEUE_SIZE", "300")
-    assert env_int("DEMO_QUEUE_SIZE", 0) == 300
-
-    monkeypatch.delenv("DEMO_QUEUE_SIZE")
-    assert env_int("DEMO_QUEUE_SIZE", 30) == 30
+def test_a_set_integer_is_read(monkeypatch):
+    monkeypatch.setenv("REL2_SIZE", "300")
+    assert env_int("REL2_SIZE", 30) == 300
+    monkeypatch.delenv("REL2_SIZE")
+    assert env_int("REL2_SIZE", 30) == 30

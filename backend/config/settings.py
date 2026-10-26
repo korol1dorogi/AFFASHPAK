@@ -25,8 +25,8 @@ def env_bool(name: str, default: bool) -> bool:
 
 
 def env_int(name: str, default: int) -> int:
-    """An empty value means the default, as .env.example documents (`DEMO_QUEUE_SIZE=`)."""
-    value = env(name, "").strip()
+    # `NAME=` with nothing after it means «not set»: the default, not a crash at startup.
+    value = env(name, str(default)).strip()
     return int(value) if value else default
 
 
