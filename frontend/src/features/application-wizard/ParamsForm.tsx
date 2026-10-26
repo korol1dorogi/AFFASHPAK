@@ -6,6 +6,7 @@ import { z } from "zod";
 import type { Schemas } from "@/api/client";
 import { Field } from "@/components/Field";
 import { MoneyInput } from "@/components/MoneyInput";
+import { Term } from "@/components/Term";
 import { Input, NativeSelect, Textarea } from "@/components/ui/input";
 import { useProducts } from "@/features/applications/api";
 import { NEED } from "@/texts";
@@ -25,7 +26,7 @@ export const KINDS_FOR_NEED: Record<Schemas["NeedType"], Schemas["ProductKind"][
 export const paramsSchema = z
   .object({
     need_type: z.enum(NEED_TYPES),
-    purpose: z.string().trim().min(1, "Напишите, на что нужны деньги").max(1000),
+    purpose: z.string().trim().min(1, "Укажите назначение средств").max(1000),
     requested_amount: z.string().regex(MONEY, "Укажите сумму"),
     term_months: z.coerce
       .number<string | number>()
@@ -41,7 +42,7 @@ export const paramsSchema = z
       ctx.addIssue({
         code: "custom",
         path: ["invoice_amount"],
-        message: "Укажите сумму из документа отгрузки",
+        message: "Укажите сумму поставки по УПД",
       });
     }
   });
@@ -125,7 +126,7 @@ export function ParamsFields({
 
   return (
     <div className="grid grid-cols-[repeat(auto-fit,minmax(260px,1fr))] gap-4">
-      <Field label="Что случилось" error={errors.need_type?.message}>
+      <Field label="Цель финансирования" error={errors.need_type?.message}>
         <NativeSelect {...form.register("need_type")}>
           {NEED_TYPES.map((value) => (
             <option key={value} value={value}>
@@ -142,7 +143,7 @@ export function ParamsFields({
         render={({ field }) => (
           <Field
             label="Продукт"
-            hint="Без него заявку не отправить. Если не знаете, какой выбрать, откройте подбор"
+            hint="Обязателен для отправки заявки. Подобрать продукт можно в разделе «Подобрать финансирование»"
             error={errors.product_code?.message}
           >
             <NativeSelect
@@ -168,7 +169,7 @@ export function ParamsFields({
         control={form.control}
         name="requested_amount"
         render={({ field }) => (
-          <Field label="Сумма" error={errors.requested_amount?.message}>
+          <Field label="Сумма, ₽" error={errors.requested_amount?.message}>
             <MoneyInput
               name={field.name}
               value={field.value}
@@ -178,7 +179,7 @@ export function ParamsFields({
           </Field>
         )}
       />
-      <Field label="Срок, месяцев" error={errors.term_months?.message}>
+      <Field label="Срок, мес." error={errors.term_months?.message}>
         <Input
           type="number"
           inputMode="numeric"
@@ -192,7 +193,14 @@ export function ParamsFields({
           control={form.control}
           name="invoice_amount"
           render={({ field }) => (
-            <Field label="Сумма отгрузки по УПД" error={errors.invoice_amount?.message}>
+            <Field
+              label={
+                <>
+                  Сумма поставки по <Term id="upd">УПД</Term>, ₽
+                </>
+              }
+              error={errors.invoice_amount?.message}
+            >
               <MoneyInput
                 name={field.name}
                 value={field.value}
@@ -203,13 +211,17 @@ export function ParamsFields({
           )}
         />
       ) : null}
-      <Field label="На что нужны деньги" error={errors.purpose?.message} className="col-span-full">
+      <Field label="Назначение средств" error={errors.purpose?.message} className="col-span-full">
         <Textarea maxLength={1000} {...form.register("purpose")} />
       </Field>
       {need === "capex" ? (
         <Field
-          label="Что можете предложить в залог"
-          hint="Можно оставить пустым, банк подскажет"
+          label={
+            <>
+              Предлагаемое <Term id="collateral">обеспечение</Term>
+            </>
+          }
+          hint="Необязательно: банк предложит варианты обеспечения"
           error={errors.collateral_description?.message}
           className="col-span-full"
         >

@@ -145,6 +145,15 @@
   .link-action {
     text-decoration-style: dashed;
   }
+  /* A term with its definition on hover (components/Term.tsx): dotted, unlike the links. */
+  .term {
+    text-decoration-line: underline;
+    text-decoration-style: dotted;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
+    text-decoration-color: color-mix(in srgb, currentColor 60%, transparent);
+    cursor: help;
+  }
   .link:hover,
   .link-action:hover {
     color: var(--link-hover);

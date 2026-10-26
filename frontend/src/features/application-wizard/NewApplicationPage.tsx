@@ -33,7 +33,10 @@ export function NewApplicationPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader title="Новая заявка" subtitle="Черновик сохраняется сам после первого шага." />
+      <PageHeader
+        title="Новая заявка"
+        subtitle="Черновик сохраняется автоматически после первого шага."
+      />
       <Stepper
         steps={WIZARD_STEPS.map((key) => ({ key, label: STEP_LABEL[key] }))}
         current="params"

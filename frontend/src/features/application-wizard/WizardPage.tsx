@@ -109,7 +109,7 @@ function ParamsStep({ application }: { application: ApplicationDetail }) {
             ? "Сохраняем…"
             : savedAt
               ? `Сохранено · ${formatDateTime(savedAt).split(", ")[1]}`
-              : "Черновик сохраняется сам"}
+              : "Черновик сохраняется автоматически"}
         </span>
       </div>
       {conflict ? (
@@ -153,12 +153,12 @@ function BusinessStep() {
   return (
     <Card>
       <div className="flex flex-wrap items-center gap-2">
-        <CardTitle>О бизнесе</CardTitle>
+        <CardTitle>Сведения о компании</CardTitle>
         {company.data?.is_demo ? <DemoBadge /> : null}
       </div>
       <CardDescription>
-        Эти данные уже есть в профиле компании, вводить их заново не нужно. Нашли ошибку в
-        реквизитах?{" "}
+        Сведения получены из профиля компании и ЕГРЮЛ, повторно вводить их не требуется. Обнаружили
+        ошибку в реквизитах?{" "}
         <Link to={routes.company} className="link">
           Исправить в профиле
         </Link>
@@ -188,7 +188,7 @@ function BusinessStep() {
           ))}
         </dl>
       ) : (
-        <p className="m-0 text-ink-muted">Профиль компании ещё не заполнен.</p>
+        <p className="m-0 text-ink-muted">Профиль компании не заполнен.</p>
       )}
       {metrics.isPending ? (
         <BlockSkeleton label={BLOCK_STATE.metricsLoading} />
@@ -200,7 +200,7 @@ function BusinessStep() {
         />
       ) : metrics.data?.metrics.length ? (
         <>
-          <p className="m-0 font-semibold">По данным счёта</p>
+          <p className="m-0 font-semibold">Показатели по расчётному счёту</p>
           <ReasonList reasons={metrics.data.metrics} label="Показатели бизнеса" />
         </>
       ) : null}
@@ -216,8 +216,8 @@ function DocumentsStep({ application }: { application: ApplicationDetail }) {
       <CardTitle>Документы</CardTitle>
       <CardDescription>
         {product
-          ? `Для продукта «${product.name}» банку нужны:`
-          : "Продукт подберёт банк. Если есть выписка, загрузите её."}
+          ? `Для продукта «${product.name}» требуются документы:`
+          : "Продукт определит банк. При наличии приложите выписку по расчётному счёту."}
       </CardDescription>
       <RequiredDocuments applicationId={application.id} required={required} />
       <DocumentUpload
@@ -271,7 +271,7 @@ function ReviewStep({ application }: { application: ApplicationDetail }) {
       <CardTitle>Проверка и отправка</CardTitle>
       <dl className="m-0 grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-4">
         <div>
-          <dt className="text-xs text-ink-muted">Задача</dt>
+          <dt className="text-xs text-ink-muted">Цель финансирования</dt>
           <dd className="m-0">{NEED[application.need_type].title}</dd>
         </div>
         <div>
@@ -286,14 +286,14 @@ function ReviewStep({ application }: { application: ApplicationDetail }) {
           </dd>
         </div>
         <div className="col-span-full">
-          <dt className="text-xs text-ink-muted">На что нужны деньги</dt>
+          <dt className="text-xs text-ink-muted">Назначение средств</dt>
           <dd className="m-0">{application.purpose}</dd>
         </div>
       </dl>
       {missing.length ? (
         <p className="m-0 rounded-md bg-status-action-soft p-3 text-sm">
-          Не хватает: {missing.map((kind) => DOCUMENT_KIND[kind]).join(", ")}. Можно отправить и
-          так: банк запросит документы позже, но проверка займёт больше времени.
+          Не приложены: {missing.map((kind) => DOCUMENT_KIND[kind]).join(", ")}. Заявку можно
+          отправить без них: банк запросит документы дополнительно, срок рассмотрения увеличится.
         </p>
       ) : null}
       <MutationError error={submit.error} />
@@ -351,10 +351,11 @@ function ReviewStep({ application }: { application: ApplicationDetail }) {
       ) : (
         <div className="flex flex-col gap-3 rounded-md bg-sunken p-3">
           <p className="m-0">
-            Отправить заявку может подписант{signatory ? `: ${signatory.user.full_name}` : ""}.
+            Отправить заявку может только подписант
+            {signatory ? `: ${signatory.user.full_name}` : ""}.
             {canHandOff
-              ? " Когда черновик будет готов, передайте его подписанту: он получит уведомление в кабинете."
-              : " Черновик сохранён, подписант увидит его в своём кабинете."}
+              ? " Подготовленный черновик передайте подписанту — он получит уведомление в кабинете."
+              : " Черновик сохранён и доступен подписанту в его кабинете."}
           </p>
           {handOff.isSuccess ? (
             <p role="status" className="m-0 font-medium text-status-success">
@@ -403,7 +404,10 @@ export function WizardPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader title={`Заявка № ${data.id}`} subtitle="Это черновик, банк его ещё не видит." />
+      <PageHeader
+        title={`Заявка № ${data.id}`}
+        subtitle="Черновик: до отправки банк его не видит."
+      />
       <Stepper
         label="Шаги заявки"
         current={step}

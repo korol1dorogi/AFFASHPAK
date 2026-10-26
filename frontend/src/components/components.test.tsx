@@ -159,11 +159,11 @@ describe("ReasonList", () => {
   it("uses plain titles for everyone and adds metric codes for the bank", () => {
     const { rerender } = render(<ReasonList reasons={reasons.slice(0, 1)} />);
     expect(
-      screen.getByText("Лимит по оборотам", { selector: "p.font-semibold" }),
+      screen.getByText("Лимит по оборотам", { selector: "p.font-semibold .term" }),
     ).toBeInTheDocument();
     rerender(<ReasonList reasons={reasons.slice(0, 1)} variant="bank" />);
     expect(
-      screen.getByText("Лимит по оборотам", { selector: "p.font-semibold" }),
+      screen.getByText("Лимит по оборотам", { selector: "p.font-semibold .term" }),
     ).toBeInTheDocument();
     expect(screen.getByText("overdraft_limit")).toBeInTheDocument();
   });
@@ -244,8 +244,8 @@ describe("OfferCard", () => {
         onAccept={onAccept}
       />,
     );
-    expect(screen.getByText("Вы просили 5 300 000 ₽")).toBeInTheDocument();
-    expect(screen.getByText("Почему меньше, чем вы просили")).toBeInTheDocument();
+    expect(screen.getByText("Запрошено: 5 300 000 ₽")).toBeInTheDocument();
+    expect(screen.getByText("Почему сумма меньше запрошенной")).toBeInTheDocument();
     expect(screen.getByText("24 %")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Принять и подписать" }));
     expect(onAccept).toHaveBeenCalledOnce();
@@ -258,8 +258,8 @@ describe("OfferCard", () => {
     expect(screen.getAllByText("2 009 314 ₽")[0]?.parentElement).toHaveTextContent(
       "2 009 314 ₽расчёт",
     );
-    expect(screen.getByText("Вы просили 5 300 000 ₽")).toHaveTextContent(
-      "Вы просили 5 300 000 ₽вы указали",
+    expect(screen.getByText("Запрошено: 5 300 000 ₽")).toHaveTextContent(
+      "Запрошено: 5 300 000 ₽вы указали",
     );
     expect(screen.getByText("189 999,92 ₽").parentElement).toHaveTextContent("расчёт");
     // amount, asked, payment and the reason's value
@@ -290,7 +290,7 @@ describe("OfferCard", () => {
         actions={[]}
       />,
     );
-    expect(screen.getByText("Зависит от того, сколько возьмёте")).toBeInTheDocument();
+    expect(screen.getByText("Зависит от использования лимита")).toBeInTheDocument();
   });
 });
 

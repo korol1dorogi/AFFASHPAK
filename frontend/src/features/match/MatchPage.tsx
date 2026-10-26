@@ -11,6 +11,7 @@ import { MoneyText, RateText } from "@/components/Money";
 import { MoneyInput } from "@/components/MoneyInput";
 import { ReasonList } from "@/components/ReasonList";
 import { ErrorState, PageHeader } from "@/components/States";
+import { Term, WithTerms } from "@/components/Term";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -18,7 +19,7 @@ import { Input } from "@/components/ui/input";
 import { useCreateApplication } from "@/features/applications/api";
 import { errorMessage, unwrap } from "@/lib/errors";
 import { cn } from "@/lib/utils";
-import { LIVE, NEED, variantsWord } from "@/texts";
+import { LIVE, NEED } from "@/texts";
 
 type Need = Schemas["NeedType"];
 type Offer = Schemas["RecommendedOffer"];
@@ -34,7 +35,7 @@ function NeedPicker({ value, onChange }: { value: Need | null; onChange: (need: 
   return (
     <fieldset className="m-0 flex flex-col gap-4 border-0 p-0">
       <legend className="mb-4 p-0 font-display text-[22px] leading-7 font-bold">
-        Что случилось?
+        Цель финансирования
       </legend>
       <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-4">
         {NEED_ORDER.map(({ need, Icon }) => {
@@ -68,7 +69,7 @@ function NeedPicker({ value, onChange }: { value: Need | null; onChange: (need: 
               </span>
               <span className="font-semibold">{NEED[need].title}</span>
               <span className={cn("text-sm", selected ? "text-ink" : "text-ink-muted")}>
-                {NEED[need].hint}
+                <WithTerms text={NEED[need].hint} />
               </span>
             </label>
           );
@@ -110,7 +111,9 @@ function OfferResult({
               <Badge variant="action">Есть ограничения</Badge>
             )}
           </div>
-          <h3 className="m-0 text-xl leading-[26px] font-semibold">{offer.product.name}</h3>
+          <h3 className="m-0 text-xl leading-[26px] font-semibold">
+            <Term id={offer.product.kind}>{offer.product.name}</Term>
+          </h3>
           {offer.product.description ? (
             <p className="m-0 max-w-[56ch]">{offer.product.description}</p>
           ) : null}
@@ -135,7 +138,7 @@ function OfferResult({
           <span className="text-sm text-ink-muted">
             <RateText value={offer.rate} /> · {offer.term_months} мес ·{" "}
             {offer.monthly_payment === null ? (
-              "платёж зависит от того, сколько возьмёте"
+              "платёж зависит от использования лимита"
             ) : (
               <>
                 платёж <MoneyText value={offer.monthly_payment} />
@@ -146,7 +149,7 @@ function OfferResult({
         </div>
       </div>
       <div className="px-6 pb-6">
-        <ReasonList reasons={offer.reasons} label="Почему этот вариант" />
+        <ReasonList reasons={offer.reasons} label="Обоснование" />
       </div>
       <div className="flex flex-wrap items-center gap-3 border-t border-line px-6 py-4">
         <Button
@@ -158,7 +161,7 @@ function OfferResult({
           Оформить заявку
         </Button>
         <span className="text-sm text-ink-muted">
-          Заявка заполнится сама, останется проверить и отправить
+          Заявка будет заполнена автоматически: останется проверить данные и отправить её
         </span>
       </div>
     </article>
@@ -227,16 +230,23 @@ export function MatchPage() {
   return (
     <div className="flex flex-col gap-8">
       <PageHeader
-        title="Что вам нужно?"
-        subtitle="Подберём подходящий вариант и сумму по данным вашего счёта. Это предварительная оценка, а не решение банка: окончательные условия банк назовёт после проверки заявки."
+        title="Подбор финансирования"
+        subtitle={
+          <>
+            Выберите цель финансирования — мы подберём продукт и рассчитаем доступную сумму по{" "}
+            <Term id="turnover">оборотам на расчётном счёте</Term>. Это{" "}
+            <Term id="preliminary">предварительная оценка</Term>, а не решение банка: окончательные
+            условия банк определит после рассмотрения заявки.
+          </>
+        }
       />
       <NeedPicker value={need} onChange={pick} />
 
       {need ? (
         <section aria-labelledby="params-title" className="flex flex-col gap-4">
           <h2 id="params-title" className="m-0 font-display text-[22px] leading-7 font-bold">
-            Параметры{" "}
-            <span className="font-sans text-sm font-normal text-ink-muted">— необязательно</span>
+            Параметры финансирования{" "}
+            <span className="font-sans text-sm font-normal text-ink-muted">(необязательно)</span>
           </h2>
           <form
             className="flex flex-wrap items-end gap-4"
@@ -245,11 +255,11 @@ export function MatchPage() {
               run();
             }}
           >
-            <Field label="Сколько нужно" className="w-56">
+            <Field label="Сумма, ₽" className="w-56">
               <MoneyInput value={amount} onValueChange={(value) => setAmount(value ?? "")} />
             </Field>
             <Field
-              label="На сколько месяцев"
+              label="Срок, мес."
               error={termValid ? undefined : "От 1 до 360 месяцев"}
               className="w-48"
             >
@@ -260,19 +270,26 @@ export function MatchPage() {
               />
             </Field>
             {need === "receivable_delay" ? (
-              <Field label="Сумма отгрузки по УПД" className="w-56">
+              <Field
+                label={
+                  <>
+                    Сумма поставки по <Term id="upd">УПД</Term>, ₽
+                  </>
+                }
+                className="w-56"
+              >
                 <MoneyInput value={invoice} onValueChange={(value) => setInvoice(value ?? "")} />
               </Field>
             ) : null}
             <Button type="submit" size="lg" disabled={!termValid} loading={recommend.isPending}>
-              {result ? "Пересчитать" : "Показать варианты"}
+              {result ? "Пересчитать" : "Подобрать продукт"}
             </Button>
           </form>
         </section>
       ) : null}
 
       {recommend.isError ? (
-        <ErrorState title="Не получилось подобрать" error={recommend.error} onRetry={run} />
+        <ErrorState title="Не удалось подобрать продукт" error={recommend.error} onRetry={run} />
       ) : null}
       {create.isError ? (
         <p role="alert" className="m-0 text-status-danger">
@@ -290,13 +307,11 @@ export function MatchPage() {
       {result ? (
         <section aria-labelledby="results-title" className="flex flex-col gap-4">
           <h2 id="results-title" className="m-0 font-display text-[22px] leading-7 font-bold">
-            {result.offers.length
-              ? `Нашли ${result.offers.length} ${variantsWord(result.offers.length)} по данным вашего счёта`
-              : "Подходящих вариантов нет"}
+            {result.offers.length ? LIVE.matchFound(result.offers.length) : LIVE.matchNone}
           </h2>
           {result.stop_factors.length ? (
             <Card className="border-status-danger">
-              <p className="m-0 font-semibold">Почему сейчас не получится</p>
+              <p className="m-0 font-semibold">Причины, по которым финансирование недоступно</p>
               <ReasonList reasons={result.stop_factors} label="Что мешает" />
             </Card>
           ) : null}
