@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 
 import type { Schemas } from "@/api/client";
 import { ROLE_LABEL } from "@/app/session";
+import { FACTOR_MAX_POINTS, factorValue } from "@/components/ScoreBreakdown";
 import { DemoBadge } from "@/components/States";
 import type { BankApplicationDetail } from "@/features/bank-application/api";
 import {
@@ -10,7 +11,6 @@ import {
   type OfficerVerdict,
   officerName,
 } from "@/features/bank-application/conclusion";
-import { FACTOR_MAX_POINTS, factorValue } from "@/components/ScoreBreakdown";
 import { formatDate, formatDateTime, formatDecimal, formatMoney, formatRate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import {

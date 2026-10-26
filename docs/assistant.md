@@ -64,7 +64,8 @@ LLM_PROVIDER=openai
 LLM_BASE_URL=https://foundation-models.api.cloud.ru/v1
 LLM_API_KEY=<ключ>
 LLM_MODEL=Qwen/Qwen3.6-35B-A3B
-LLM_TIMEOUT_SECONDS=90
+LLM_TIMEOUT_SECONDS=45
+LLM_TURN_BUDGET_SECONDS=60
 ```
 
 ```env
