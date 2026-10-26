@@ -15,9 +15,9 @@ test("the draft survives a page reload and a trip through the steps (C5)", async
   });
 
   await page.goto(`/app/applications/${id}/edit/params`);
-  const amount = page.getByLabel("Сумма", { exact: true });
-  const term = page.getByLabel("Срок, месяцев");
-  const purpose = page.getByLabel("На что нужны деньги");
+  const amount = page.getByLabel("Сумма, ₽", { exact: true });
+  const term = page.getByLabel("Срок, мес.");
+  const purpose = page.getByLabel("Назначение средств");
   const product = page.getByLabel("Продукт");
   await expect(amount).toHaveValue(`500${NBSP}000`);
   // the catalog loads after the draft: the select must still show the draft's product
