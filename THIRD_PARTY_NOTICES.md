@@ -25,6 +25,7 @@
 | psycopg (binary) | 3.3.6 | LGPL-3.0-only — используется как библиотека без изменений, динамически |
 | gunicorn | 26.2.0 | MIT |
 | celery | 5.5.3 | BSD-3-Clause |
+| redis (redis-py, клиент брокера Celery) | 5.2.1 | MIT |
 | openai | 3.35.1 | Apache-2.0 |
 | PyYAML | 6.0.3 | MIT — сценарии ассистента (AI14–AI16) |
 
@@ -78,6 +79,8 @@
 | postgres | 18.6 | PostgreSQL License |
 | node (slim, только сборка фронта) | 24.22.0 | MIT (Node.js) |
 | caddy (alpine) | 2.11.7 | Apache-2.0 |
+| redis (alpine, брокер очереди конвейера) | 7.4.2 | RSALv2 или SSPLv1 — с версии 7.4 Redis распространяется под source-available лицензиями, не OSI |
+| swaggerapi/swagger-ui (`/api/docs`) | v5.17.14 | Apache-2.0 |
 | stoplight/prism (мок контракта, профиль `mock`) | 5.15.10 | Apache-2.0 |
 
 ## Данные
