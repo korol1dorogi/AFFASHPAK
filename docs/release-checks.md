@@ -94,3 +94,22 @@ CI на GitHub не запускается (лимит Actions), поэтому 
 ## Смоук на стенде после деплоя rc2
 
 Заполняется после тега `v1.0.0-rc2` и деплоя.
+
+## Финальный прогон на `a05b367` (после PR #110–#116), 26.10
+
+После REL2 в `main` слиты #113–#116 (код: gunicorn `gthread`, прогрев кэшей в `wsgi.py`, guards, тексты, фронт). Прогон — на свежем `main`, чистая база PostgreSQL 16, Python 3.12, Node 22 (`--engine-strict=false`), бэкенд — тем же gunicorn, что в `Dockerfile` (3 воркера, `gthread`, 8 потоков). Docker в этом окружении недоступен: подъём через compose и `check-clean-clone.sh` на этом коммите не повторялись (последний — REL2, `465b895`).
+
+| Проверка | Результат |
+|---|---|
+| `pytest` | 2321 passed (+2 slow в отдельном шаге REL2) |
+| `ruff check`, `ruff format --check` | чисто, 278 файлов |
+| `makemigrations --check --dry-run` | No changes detected |
+| `check --deploy`, боевые настройки | no issues (1 silenced) |
+| `seed_demo --force` + `assistant_eval` на mock | 63 из 63 сценариев, 66 из 66 ходов, цифры из инструментов 100 % |
+| Фронт: `npm ci`, lint, typecheck, test, build | всё зелёное; Vitest 387 passed |
+| Клиент API = контракт | без расхождений |
+| e2e (`npx playwright test`) против gunicorn | 26 passed |
+| newman | 61 запрос, 61 проверка, 0 ошибок |
+| gitleaks 8.30.1 по всей истории | 393 коммита, no leaks found |
+| pip-audit, npm audit (frontend, e2e) | 0 уязвимостей |
+| Ссылки и якоря в README и docs/ | 0 битых |
