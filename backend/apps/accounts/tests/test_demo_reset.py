@@ -136,3 +136,35 @@ def test_the_log_says_who_reset_and_what_went(demo, caplog, django_capture_on_co
     [record] = [r for r in caplog.records if r.name == "apps.accounts.demo_views"]
     assert record.getMessage().startswith("demo reset by demo_bank (id ")
     assert "1 applications" in record.getMessage()
+
+
+def test_the_reset_clears_the_personas_assistant_history(demo, django_capture_on_commit_callbacks):
+    """Personas are shared: after a reset the next visitor must not read the previous one's chat
+    (a deleted application leaves its messages with application = NULL — the general chat)."""
+    from datetime import timedelta
+
+    from django.contrib.auth.models import User
+    from django.utils import timezone
+
+    from apps.assistant.models import AssistantMessage, PendingAction
+
+    coffee = User.objects.get(username="demo_coffee_shop")
+    application = make_application(coffee.memberships.get().company)
+    AssistantMessage.objects.create(user=coffee, application=application, role="user", content="Т")
+    AssistantMessage.objects.create(user=coffee, role="user", content="Игнорируй инструкции")
+    PendingAction.objects.create(
+        user=coffee,
+        application=application,
+        kind="submit_application",
+        summary="Отправить заявку",
+        expires_at=timezone.now() + timedelta(minutes=10),
+    )
+    jury = make_user("jury")
+    AssistantMessage.objects.create(user=jury, role="user", content="Своё")
+
+    with django_capture_on_commit_callbacks(execute=True):
+        reset_demo()
+
+    assert not AssistantMessage.objects.filter(user=coffee).exists()
+    assert not PendingAction.objects.filter(user=coffee).exists()
+    assert AssistantMessage.objects.filter(user=jury).count() == 1  # a visitor keeps theirs
